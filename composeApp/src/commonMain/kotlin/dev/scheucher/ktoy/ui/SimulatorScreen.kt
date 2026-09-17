@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.weight
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -47,7 +46,10 @@ fun SimulatorScreen(vm: SimViewModel, onBack: () -> Unit) {
         add(m.pc)
         if (dec.argAddr != null) add((m.pc + 1) % 256)
     }
-    val symOf: (Int) -> String = { a -> vm.syms.entries.firstOrNull { it.value == a }?.key ?: a.toString() }
+    // reverse symbol map (addr -> label), built once instead of a linear scan
+    // per describe() call
+    val rsym = remember(vm.syms) { vm.syms.entries.associate { (k, v) -> v to k } }
+    val symOf: (Int) -> String = { a -> rsym[a] ?: a.toString() }
 
     Column(Modifier.fillMaxSize().padding(8.dp)) {
         // top bar: back + title
@@ -163,8 +165,11 @@ private fun MemoryPanel(
 ) {
     val m = vm.machine ?: return
     val visible = remember(vm.tick) { m.touched.toSortedSet().toList() }
+    // header aligned to the same columns as the rows: 5-char lead ("  >> "),
+    // then each label right-justified to width 19, matching the addr/val cells.
+    val header = "     " + "address (binary)".padStart(19) + "  ->  " + "value (binary)".padStart(19)
     Column(modifier.fillMaxSize().padding(4.dp).verticalScroll(rememberScrollState())) {
-        Text("      address (binary)  ->  value (binary)", style = MonoStyle)
+        Text(header, style = MonoStyle)
         visible.forEach { a ->
             val v = m.mem[a]
             val marker = if (a == m.pc) ">>" else "  "

@@ -59,12 +59,16 @@ fun EditValueDialog(
                     return@TextButton
                 }
                 val value = raw and 0xFF
-                if (raw != value) {
-                    // make the 8-bit wraparound explicit, then confirm
-                    note = "$raw wraps to $value (mod 256)."
+                // If the value wraps to 8 bits, show that explicitly first (the
+                // teaching point) and require a second tap to confirm — otherwise
+                // the note would be dismissed in the same frame it appears.
+                if (raw != value && note == null) {
+                    note = "$raw doesn't fit in 8 bits — will be stored as " +
+                        "$value ($raw mod 256). Tap again to confirm."
+                    return@TextButton
                 }
                 onConfirm(value)
-            }) { Text("Set") }
+            }) { Text(if (note != null) "Set anyway" else "Set") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

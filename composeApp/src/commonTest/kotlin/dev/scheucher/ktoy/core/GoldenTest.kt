@@ -57,8 +57,7 @@ class GoldenTest {
                 "assembling '$name' produced errors: ${result.errors.joinToString("\n")}",
             )
 
-            // codeGuard = null so STORE-into-code never blocks; run to completion.
-            val machine = Machine(result.mem, result.dataAddrs, codeGuard = null)
+            val machine = Machine(result.mem, result.dataAddrs)
             runToStop(machine)
 
             assertEquals(expected.acc, machine.acc, "'$name' final ACC mismatch")
@@ -83,7 +82,7 @@ class GoldenTest {
 
             val mem = parseToyo(example.source)
             // dataAddrs only seed the 'touched' set; they don't affect execution.
-            val machine = Machine(mem, emptySet(), codeGuard = null)
+            val machine = Machine(mem, emptySet())
             runToStop(machine)
 
             assertEquals(acc, machine.acc, "'$name' final ACC mismatch")

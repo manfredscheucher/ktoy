@@ -15,9 +15,7 @@ data class MachineState(
     val accWritten: Boolean,
     val selectedAddr: Int?,
     val hasLiveEdits: Boolean,
-) {
-    fun copyDeep(): MachineState = copy(mem = mem.copyOf(), touched = touched.toSet())
-}
+)
 
 /**
  * The runnable Toy CPU: pure logic, no UI. Holds the current state and the undo
@@ -26,13 +24,13 @@ data class MachineState(
  * with the same undo semantics.
  *
  * [memOriginal] is the freshly-assembled/loaded image; reset() restores it.
- * [dataAddrs] seed the "touched" (visible-as-data) set. [codeGuard] (the data
- * start) enables the code-overwrite flag; null disables it.
+ * [dataAddrs] seed the "touched" (visible-as-data) set. A store into the code
+ * region is surfaced visually by the source panel (it compares live memory to
+ * the original), so no separate code-overwrite guard is needed here.
  */
 class Machine(
     private val memOriginal: IntArray,
     private val dataAddrs: Set<Int>,
-    val codeGuard: Int? = null,
 ) {
     var mem: IntArray = memOriginal.copyOf(); private set
     var acc: Int = 0; private set
@@ -46,9 +44,6 @@ class Machine(
     var hasLiveEdits: Boolean = false; private set
 
     private val history = ArrayDeque<MachineState>()
-
-    /** True if the last STORE wrote into the code region (below codeGuard). */
-    var overwroteCode: Boolean = false; private set
 
     val canUndo: Boolean get() = history.isNotEmpty()
 
@@ -65,7 +60,6 @@ class Machine(
         accWritten = false
         selectedAddr = null
         hasLiveEdits = false
-        overwroteCode = false
         history.clear()
     }
 
@@ -102,9 +96,6 @@ class Machine(
         }
         // snapshot before executing so this step can be fully undone
         history.addLast(snapshot())
-
-        // flag (but do not block) a store into the code region
-        if (isCodeStore(mem, pc, codeGuard)) overwroteCode = true
 
         val res = executeOne(mem, pc, acc)
         pc = res.nextPc

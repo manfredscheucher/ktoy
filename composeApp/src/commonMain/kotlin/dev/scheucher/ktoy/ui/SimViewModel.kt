@@ -13,6 +13,7 @@ import dev.scheucher.ktoy.core.ListingLine
 import dev.scheucher.ktoy.core.Machine
 import dev.scheucher.ktoy.core.assemble
 import dev.scheucher.ktoy.core.parseToyo
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -40,42 +41,55 @@ class SimViewModel : ViewModel() {
     var running by mutableStateOf(false); private set
     var stepsPerSecond by mutableStateOf(2.0)
 
+    // the auto-run coroutine, kept so it can be cancelled the instant any other
+    // action touches the machine (load / reset / manual step / edit) — otherwise
+    // a loop sitting in delay() could wake and step a just-swapped machine.
+    private var runJob: Job? = null
+
     private fun bump() { tick += 1 }
+
+    /** Stop auto-run: cancel the loop and clear the flag. Safe to call anytime. */
+    private fun stopRun() {
+        runJob?.cancel()
+        runJob = null
+        running = false
+    }
 
     /** Load an example (ASM is assembled; TOYO is parsed as a byte image). */
     fun load(example: Example) {
+        stopRun()
         title = example.name
         if (example.kind == ExampleKind.TOYO) {
             val mem = parseToyo(example.source)
             listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
             syms = emptyMap()
             hasSource = false
-            machine = Machine(mem, (0..255).toSet(), codeGuard = null)
+            machine = Machine(mem, (0..255).toSet())
         } else {
             val res: AssemblyResult = assemble(example.source)
             listing = res.listing
             syms = res.syms
             hasSource = true
-            // arm the code-overwrite flag when the program marks its data start
-            machine = Machine(res.mem, res.dataAddrs, codeGuard = res.dataStart)
+            machine = Machine(res.mem, res.dataAddrs)
         }
-        running = false
         bump()
     }
 
     fun step() {
+        stopRun()
         machine?.step()
         bump()
     }
 
     fun stepBack() {
+        stopRun()
         machine?.stepBack()
         bump()
     }
 
     fun reset() {
+        stopRun()
         machine?.reset()
-        running = false
         bump()
     }
 
@@ -85,23 +99,24 @@ class SimViewModel : ViewModel() {
     }
 
     fun editCell(addr: Int, value: Int) {
+        stopRun()
         machine?.editCell(addr, value)
         bump()
     }
 
     fun toggleRun() {
         if (running) {
-            running = false
+            stopRun()
             return
         }
         val m = machine ?: return
         if (m.stopped) return
         running = true
-        viewModelScope.launch {
-            while (isActive && running) {
-                val advanced = machine?.step() ?: false
+        runJob = viewModelScope.launch {
+            while (isActive) {
+                val advanced = m.step()   // capture m: never step a swapped machine
                 bump()
-                if (!advanced) { running = false; break }
+                if (!advanced) { running = false; runJob = null; break }
                 val sps = stepsPerSecond.coerceIn(0.1, 1000.0)
                 delay((1000.0 / sps).toLong())
             }
