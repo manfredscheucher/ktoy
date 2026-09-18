@@ -97,7 +97,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             }
         }
 
-        Controls(vm)
+        Controls(vm, onEdit = { vm.memSelectedAddr?.let { editTarget = it } })
     }
 
     editTarget?.let { addr ->
@@ -266,7 +266,7 @@ private fun MemoryPanel(
             val colours = memoryCellColours(a, m.selectedAddr, pcBytes, argAddr, m.changedCell, m.stopped)
             Box(
                 Modifier.fillMaxWidth().combinedClickable(
-                    onClick = { vm.select(a) },
+                    onClick = { vm.select(a, fromMemory = true) },
                     onLongClick = { onEdit(a) },
                 )
             ) {
@@ -278,7 +278,7 @@ private fun MemoryPanel(
 }
 
 @Composable
-private fun Controls(vm: SimViewModel) {
+private fun Controls(vm: SimViewModel, onEdit: () -> Unit) {
     @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose when canUndo/stopped change
     val m = vm.machine
     Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
@@ -287,6 +287,9 @@ private fun Controls(vm: SimViewModel) {
             Button(onClick = { vm.toggleRun() }, enabled = m?.stopped == false) { Text(if (vm.running) "Stop" else "Run") }
             OutlinedButton(onClick = { vm.stepBack() }, enabled = m?.canUndo == true) { Text("Undo") }
             OutlinedButton(onClick = { vm.reset() }, enabled = m?.canUndo == true) { Text("Reset") }
+            // Edit the value at the address selected in the CPU & memory panel;
+            // enabled only when such a selection exists.
+            OutlinedButton(onClick = onEdit, enabled = vm.memSelectedAddr != null) { Text("Edit") }
         }
         // steps-per-second for Run (float, like pytoy's spinbox; range 0.1..1000)
         Row(

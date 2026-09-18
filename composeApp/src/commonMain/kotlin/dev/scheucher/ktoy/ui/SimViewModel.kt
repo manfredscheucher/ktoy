@@ -96,23 +96,34 @@ class SimViewModel : ViewModel() {
     fun step() {
         stopRun()
         machine?.step()
+        memSelectedAddr = null   // selection no longer current after a step
         bump()
     }
 
     fun stepBack() {
         stopRun()
         machine?.stepBack()
+        memSelectedAddr = null
         bump()
     }
 
     fun reset() {
         stopRun()
         machine?.reset()
+        memSelectedAddr = null
         bump()
     }
 
-    fun select(addr: Int?) {
+    // The address selected specifically in the memory (CPU & memory) panel, or
+    // null. Distinct from the machine's selectedAddr (which a source-line tap
+    // also sets) so the Edit button is enabled only for a memory selection.
+    var memSelectedAddr: Int? = null; private set
+
+    /** Select an address. [fromMemory] marks a tap in the memory panel, which
+     *  enables the Edit button; a source-line tap clears that. */
+    fun select(addr: Int?, fromMemory: Boolean = false) {
         machine?.select(addr)
+        memSelectedAddr = if (fromMemory) addr else null
         bump()
     }
 
