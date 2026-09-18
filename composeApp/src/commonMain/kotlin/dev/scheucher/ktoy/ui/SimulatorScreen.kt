@@ -68,18 +68,21 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             Text(vm.title, style = MonoStyle)
         }
 
-        // status line
-        StatusBlock(vm, symOf)
-
-        // panels: side by side when wide, stacked when narrow. Each sits in a
-        // labelled, bordered box so the ASM and byte views are clearly separate.
+        // Two panels, like pytoy: left = the assembly source, right = the CPU &
+        // memory (registers/status AND the memory listing). Side by side when
+        // wide, stacked when narrow; each in a labelled, bordered box.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             val wide = maxWidth > maxHeight
             val src: @Composable (Modifier) -> Unit = { mod ->
                 LabeledPanel("Assembly", mod) { SourcePanel(vm, pcBytes, dec.argAddr, Modifier.fillMaxSize()) }
             }
             val mem: @Composable (Modifier) -> Unit = { mod ->
-                LabeledPanel("Memory (bytes)", mod) { MemoryPanel(vm, pcBytes, dec.argAddr, { editTarget = it }, Modifier.fillMaxSize()) }
+                LabeledPanel("CPU & memory", mod) {
+                    Column(Modifier.fillMaxSize()) {
+                        StatusBlock(vm, symOf)
+                        MemoryPanel(vm, pcBytes, dec.argAddr, { editTarget = it }, Modifier.fillMaxSize())
+                    }
+                }
             }
             if (wide) {
                 Row(Modifier.fillMaxSize()) {
