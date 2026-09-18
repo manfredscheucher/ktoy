@@ -32,13 +32,15 @@ fun HighlightRow(
     text: String,
     colours: List<Color>,
     modifier: Modifier = Modifier,
+    textColor: Color = Color.Black,
 ) {
+    val style = MonoStyle.copy(color = textColor)
     val padded = if (text.length < ROW_WIDTH) text.padEnd(ROW_WIDTH) else text
     Row(modifier = modifier) {
         when {
-            colours.isEmpty() -> Text(padded, style = MonoStyle, softWrap = false, maxLines = 1)
+            colours.isEmpty() -> Text(padded, style = style, softWrap = false, maxLines = 1)
             colours.size == 1 ->
-                Text(padded, style = MonoStyle, softWrap = false, maxLines = 1,
+                Text(padded, style = style, softWrap = false, maxLines = 1,
                     modifier = Modifier.background(colours[0]))
             else -> {
                 // emit one Text per maximal run of the same colour (with >1
@@ -47,7 +49,7 @@ fun HighlightRow(
                 for (j in padded.indices) {
                     Text(
                         padded[j].toString(),
-                        style = MonoStyle,
+                        style = style,
                         softWrap = false,
                         maxLines = 1,
                         modifier = Modifier.background(colours[j % n]),

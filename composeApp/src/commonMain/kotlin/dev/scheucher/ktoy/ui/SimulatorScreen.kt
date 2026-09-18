@@ -234,11 +234,10 @@ private fun MemoryPanel(
     modifier: Modifier,
 ) {
     val m = vm.machine ?: return
-    // Show every byte the program occupies (each listing line's address, plus
-    // the operand byte of a two-byte instruction), together with any cell
-    // written at runtime — mirroring pytoy's memory panel. A .toyo listing
-    // already covers all 256 bytes, so those show in full too.
-    val visible = remember(vm.tick, vm.listing) {
+    // Show ALL 256 addresses. Addresses the program actually occupies (a listing
+    // line's byte(s)) or that were written at runtime are "used"; the rest are
+    // untouched zero bytes, shown greyed out rather than hidden.
+    val usedAddrs = remember(vm.tick, vm.listing) {
         val addrs = sortedSetOf<Int>()
         for (line in vm.listing) {
             val a = line.addr ?: continue
@@ -246,8 +245,9 @@ private fun MemoryPanel(
             if (line.bytes.size == 2) addrs.add((a + 1) % 256)
         }
         addrs.addAll(m.touched)
-        addrs.toList()
+        addrs
     }
+    val visible = (0..255).toList()
     // header aligned to the same columns as the rows: 5-char lead ("  >> "),
     // then each label right-justified to width 19, matching the addr/val cells.
     val header = "     " + "address (binary)".padStart(19) + "  ->  " + "value (binary)".padStart(19)
@@ -264,13 +264,15 @@ private fun MemoryPanel(
             val valCell = "${v.toString().padStart(3)} (${bin8(v)})"
             val text = "  $marker ${addrCell.padStart(19)}  ->  ${valCell.padStart(19)}"
             val colours = memoryCellColours(a, m.selectedAddr, pcBytes, argAddr, m.changedCell, m.stopped)
+            // untouched, non-program bytes are shown greyed out
+            val textColor = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)
             Box(
                 Modifier.fillMaxWidth().combinedClickable(
                     onClick = { vm.select(a, fromMemory = true) },
                     onLongClick = { onEdit(a) },
                 )
             ) {
-                HighlightRow(text, colours)
+                HighlightRow(text, colours, textColor = textColor)
             }
         }
       }
