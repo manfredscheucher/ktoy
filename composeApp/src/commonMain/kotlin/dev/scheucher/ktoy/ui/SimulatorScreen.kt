@@ -10,14 +10,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -61,18 +67,25 @@ fun SimulatorScreen(vm: SimViewModel, onBack: () -> Unit) {
         // status line
         StatusBlock(vm, symOf)
 
-        // panels: side by side when wide, stacked when narrow
+        // panels: side by side when wide, stacked when narrow. Each sits in a
+        // labelled, bordered box so the ASM and byte views are clearly separate.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             val wide = maxWidth > maxHeight
+            val src: @Composable (Modifier) -> Unit = { mod ->
+                LabeledPanel("Assembly", mod) { SourcePanel(vm, pcBytes, dec.argAddr, Modifier.fillMaxSize()) }
+            }
+            val mem: @Composable (Modifier) -> Unit = { mod ->
+                LabeledPanel("Memory (bytes)", mod) { MemoryPanel(vm, pcBytes, dec.argAddr, { editTarget = it }, Modifier.fillMaxSize()) }
+            }
             if (wide) {
                 Row(Modifier.fillMaxSize()) {
-                    if (vm.hasSource) SourcePanel(vm, pcBytes, dec.argAddr, Modifier.weight(1f))
-                    MemoryPanel(vm, pcBytes, dec.argAddr, { editTarget = it }, Modifier.weight(1f))
+                    if (vm.hasSource) src(Modifier.weight(1f).fillMaxSize())
+                    mem(Modifier.weight(1f).fillMaxSize())
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
-                    if (vm.hasSource) SourcePanel(vm, pcBytes, dec.argAddr, Modifier.weight(1f))
-                    MemoryPanel(vm, pcBytes, dec.argAddr, { editTarget = it }, Modifier.weight(1f))
+                    if (vm.hasSource) src(Modifier.weight(1f).fillMaxWidth())
+                    mem(Modifier.weight(1f).fillMaxWidth())
                 }
             }
         }
@@ -90,12 +103,38 @@ fun SimulatorScreen(vm: SimViewModel, onBack: () -> Unit) {
     }
 }
 
+/** A bordered box with a small title label, used to visually separate and name
+ *  the ASM and memory panels. */
+@Composable
+private fun LabeledPanel(title: String, modifier: Modifier, content: @Composable () -> Unit) {
+    Column(
+        modifier
+            .padding(3.dp)
+            .border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(6.dp))
+    ) {
+        Text(
+            title,
+            style = MonoStyle,
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFEEEEEE))
+                .padding(horizontal = 6.dp, vertical = 3.dp),
+        )
+        Box(Modifier.fillMaxSize()) { content() }
+    }
+}
+
 @Composable
 private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
     val m = vm.machine ?: return
     val dec = decode(m.mem, m.pc)
     val desc = describe(dec.instr, dec.argAddr, symOf, m.mem)
     val header = if (m.stopped) "Stopped after ${m.stepCount} steps." else "Step #${m.stepCount}:"
+    // the raw bytes of the current instruction: opcode, plus the operand byte
+    // for a two-byte instruction — like pytoy's "OP{n}=b.. b..".
+    val bytes = if (dec.argAddr != null) "b${bin8(dec.instr)} b${bin8(m.mem[(m.pc + 1) % 256])}"
+                else "b${bin8(dec.instr)}"
+    val opCount = bytes.split(" ").size
     // ACC: green when stopped (final result), blue when the last step wrote it
     val accColour: Color? = when {
         m.stopped && m.stepCount > 0 -> HL_ARG
@@ -106,6 +145,7 @@ private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
         Text(header, style = MonoStyle)
         HighlightRow("  ACC=${m.acc}=b${bin8(m.acc)}", if (accColour != null) listOf(accColour) else emptyList())
         Text("  PC=${m.pc}", style = MonoStyle)
+        Text("  OP$opCount=$bytes", style = MonoStyle)
         Text("  EXPLAIN: $desc", style = MonoStyle)
     }
 }
@@ -127,7 +167,21 @@ private fun SourcePanel(vm: SimViewModel, pcBytes: Set<Int>, argAddr: Int?, modi
     val pcLines = pcBytes.mapNotNull { lineForAddr[it] }.toSet()
     val argLine = argAddr?.let { lineForAddr[it] }
 
-    Column(modifier.fillMaxSize().padding(4.dp).verticalScroll(rememberScrollState())) {
+    val vScroll = rememberScrollState()
+    val hScroll = rememberScrollState()
+    // keep the current PC line in view while stepping / running (like pytoy's
+    // ensureCursorVisible). Approximate the line's y by index * a line height.
+    val firstPcLine = pcLines.minOrNull()
+    LaunchedEffect(firstPcLine, vm.tick) {
+        if (firstPcLine != null) {
+            val lineHeightPx = 34  // ~13sp mono line; good enough to keep it visible
+            vScroll.animateScrollTo((firstPcLine * lineHeightPx).coerceIn(0, vScroll.maxValue))
+        }
+    }
+    ScrollbarBox(vScroll, modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize().padding(4.dp)
+        .verticalScroll(vScroll)
+        .horizontalScroll(hScroll)) {
         vm.listing.forEachIndexed { i, line ->
             val marker = when {
                 i in pcLines -> ">>"
@@ -150,8 +204,14 @@ private fun SourcePanel(vm: SimViewModel, pcBytes: Set<Int>, argAddr: Int?, modi
                     colours.add(HL_CODE)
                 }
             }
-            HighlightRow(text, colours)
+            // tapping a source line selects its address (bidirectional with the
+            // memory panel), like pytoy's _source_clicked
+            val rowMod = if (line.addr != null)
+                Modifier.pointerInput(line.addr) { detectTapGestures(onTap = { vm.select(line.addr) }) }
+            else Modifier
+            HighlightRow(text, colours, rowMod)
         }
+      }
     }
 }
 
@@ -164,12 +224,29 @@ private fun MemoryPanel(
     modifier: Modifier,
 ) {
     val m = vm.machine ?: return
-    val visible = remember(vm.tick) { m.touched.toSortedSet().toList() }
+    // Show every byte the program occupies (each listing line's address, plus
+    // the operand byte of a two-byte instruction), together with any cell
+    // written at runtime — mirroring pytoy's memory panel. A .toyo listing
+    // already covers all 256 bytes, so those show in full too.
+    val visible = remember(vm.tick, vm.listing) {
+        val addrs = sortedSetOf<Int>()
+        for (line in vm.listing) {
+            val a = line.addr ?: continue
+            addrs.add(a)
+            if (line.bytes.size == 2) addrs.add((a + 1) % 256)
+        }
+        addrs.addAll(m.touched)
+        addrs.toList()
+    }
     // header aligned to the same columns as the rows: 5-char lead ("  >> "),
     // then each label right-justified to width 19, matching the addr/val cells.
     val header = "     " + "address (binary)".padStart(19) + "  ->  " + "value (binary)".padStart(19)
-    Column(modifier.fillMaxSize().padding(4.dp).verticalScroll(rememberScrollState())) {
-        Text(header, style = MonoStyle)
+    val vScroll = rememberScrollState()
+    ScrollbarBox(vScroll, modifier.fillMaxSize()) {
+      Column(Modifier.fillMaxSize().padding(4.dp)
+        .verticalScroll(vScroll)
+        .horizontalScroll(rememberScrollState())) {
+        Text(header, style = MonoStyle, softWrap = false, maxLines = 1)
         visible.forEach { a ->
             val v = m.mem[a]
             val marker = if (a == m.pc) ">>" else "  "
@@ -188,17 +265,38 @@ private fun MemoryPanel(
                 HighlightRow(text, colours)
             }
         }
+      }
     }
 }
 
 @Composable
 private fun Controls(vm: SimViewModel) {
     val m = vm.machine
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        Button(onClick = { vm.step() }, enabled = m?.stopped == false && !vm.running) { Text("Step") }
-        Button(onClick = { vm.toggleRun() }, enabled = m?.stopped == false) { Text(if (vm.running) "Stop" else "Run") }
-        OutlinedButton(onClick = { vm.stepBack() }, enabled = m?.canUndo == true) { Text("Undo") }
-        OutlinedButton(onClick = { vm.reset() }, enabled = m?.canUndo == true) { Text("Reset") }
+    Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Button(onClick = { vm.step() }, enabled = m?.stopped == false && !vm.running) { Text("Step") }
+            Button(onClick = { vm.toggleRun() }, enabled = m?.stopped == false) { Text(if (vm.running) "Stop" else "Run") }
+            OutlinedButton(onClick = { vm.stepBack() }, enabled = m?.canUndo == true) { Text("Undo") }
+            OutlinedButton(onClick = { vm.reset() }, enabled = m?.canUndo == true) { Text("Reset") }
+        }
+        // steps-per-second for Run (float, like pytoy's spinbox; range 0.1..1000)
+        Row(
+            Modifier.fillMaxWidth().padding(top = 6.dp),
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("steps/sec:", style = MonoStyle)
+            var spsText by remember { mutableStateOf(vm.stepsPerSecond.toString()) }
+            OutlinedTextField(
+                value = spsText,
+                onValueChange = {
+                    spsText = it
+                    it.toDoubleOrNull()?.let { v -> vm.stepsPerSecond = v.coerceIn(0.1, 1000.0) }
+                },
+                singleLine = true,
+                modifier = Modifier.width(110.dp),
+            )
+        }
     }
 }
 

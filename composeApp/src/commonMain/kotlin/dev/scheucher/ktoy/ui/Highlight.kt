@@ -28,10 +28,11 @@ fun memoryCellColours(
     changedCell: Int?,
     stopped: Boolean,
 ): List<Color> {
+    // order matches pytoy's stripe order: selected, PC, argument, change
     val colours = mutableListOf<Color>()
     if (addr == selectedAddr) colours.add(HL_SELECTED)
     if (addr in pcBytes) colours.add(HL_PC)
-    if (!stopped && addr == changedCell) colours.add(HL_CHANGE)
     if (addr == argAddr) colours.add(HL_ARG)
+    if (!stopped && addr == changedCell) colours.add(HL_CHANGE)
     return colours
 }
