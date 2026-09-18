@@ -1,5 +1,7 @@
 package dev.scheucher.ktoy.ui
 
+import androidx.compose.ui.backhandler.BackHandler
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,12 +29,17 @@ import dev.scheucher.ktoy.core.Example
  * simulator. A tiny nav flag keeps them separate; the simulator's state lives in
  * a ViewModel that survives rotation.
  */
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun App() {
     MaterialTheme {
         Surface(Modifier.fillMaxSize()) {
             val vm: SimViewModel = viewModel { SimViewModel() }
             var onSimulator by remember { mutableStateOf(false) }
+
+            // Android system-back on the simulator returns to the example list
+            // instead of exiting the app.
+            BackHandler(enabled = onSimulator) { onSimulator = false }
 
             if (onSimulator) {
                 SimulatorScreen(vm = vm, onBack = { onSimulator = false })
