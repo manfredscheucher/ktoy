@@ -5,6 +5,9 @@ build/
 local.properties
 *.hprof
 
+# Private, machine-local run scripts (device serials etc.) — not for the repo
+_private/
+
 # Kotlin / IntelliJ / Android Studio
 .idea/
 *.iml
