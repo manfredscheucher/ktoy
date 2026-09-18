@@ -55,6 +55,24 @@ class SimViewModel : ViewModel() {
         running = false
     }
 
+    /** True once any program (or the empty image) has been loaded. */
+    val hasProgram: Boolean get() = machine != null
+
+    /**
+     * Start with an empty, zeroed 256-byte memory and no source — like pytoy's
+     * empty_gui(). The user then loads an example via the Load button.
+     */
+    fun loadEmpty() {
+        stopRun()
+        title = "(empty)"
+        val mem = IntArray(256)
+        listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
+        syms = emptyMap()
+        hasSource = false
+        machine = Machine(mem, (0..255).toSet())
+        bump()
+    }
+
     /** Load an example (ASM is assembled; TOYO is parsed as a byte image). */
     fun load(example: Example) {
         stopRun()

@@ -1,7 +1,8 @@
 package dev.scheucher.ktoy.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -28,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import dev.scheucher.ktoy.core.decode
 import dev.scheucher.ktoy.core.describe
@@ -39,7 +39,7 @@ import dev.scheucher.ktoy.core.describe
  * them side by side. Highlighting mirrors pytoy.
  */
 @Composable
-fun SimulatorScreen(vm: SimViewModel, onBack: () -> Unit) {
+fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     // read tick so the whole screen recomposes on any machine change
     @Suppress("UNUSED_VARIABLE") val t = vm.tick
     val m = vm.machine ?: return
@@ -58,9 +58,13 @@ fun SimulatorScreen(vm: SimViewModel, onBack: () -> Unit) {
     val symOf: (Int) -> String = { a -> rsym[a] ?: a.toString() }
 
     Column(Modifier.fillMaxSize().padding(8.dp)) {
-        // top bar: back + title
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            OutlinedButton(onClick = onBack) { Text("‹ Examples") }
+        // top bar: Load button (opens the example list) + current program title
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Button(onClick = onLoad) { Text("Load…") }
             Text(vm.title, style = MonoStyle)
         }
 
@@ -126,6 +130,7 @@ private fun LabeledPanel(title: String, modifier: Modifier, content: @Composable
 
 @Composable
 private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
+    @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose on every machine change
     val m = vm.machine ?: return
     val dec = decode(m.mem, m.pc)
     val desc = describe(dec.instr, dec.argAddr, symOf, m.mem)
@@ -172,7 +177,9 @@ private fun SourcePanel(vm: SimViewModel, pcBytes: Set<Int>, argAddr: Int?, modi
     // keep the current PC line in view while stepping / running (like pytoy's
     // ensureCursorVisible). Approximate the line's y by index * a line height.
     val firstPcLine = pcLines.minOrNull()
-    LaunchedEffect(firstPcLine, vm.tick) {
+    // scroll to the PC line only when it MOVES (step/run) — not on every bump,
+    // so tapping a distant line to select it doesn't yank the view back to PC.
+    LaunchedEffect(firstPcLine) {
         if (firstPcLine != null) {
             val lineHeightPx = 34  // ~13sp mono line; good enough to keep it visible
             vScroll.animateScrollTo((firstPcLine * lineHeightPx).coerceIn(0, vScroll.maxValue))
@@ -199,7 +206,7 @@ private fun SourcePanel(vm: SimViewModel, pcBytes: Set<Int>, argAddr: Int?, modi
                     text = "$marker ${line.orig.trimEnd()}  # current value: ${m.mem[line.addr!!]}"
                     colours.add(HL_DATA)
                 } else {
-                    val raw = (0 until line.bytes.size).joinToString(" ") { m.mem[line.addr!! + it].toString() }
+                    val raw = (0 until line.bytes.size).joinToString(" ") { m.mem[(line.addr!! + it) % 256].toString() }
                     text = "$marker ${line.orig.trimEnd()}  # now bytes: $raw"
                     colours.add(HL_CODE)
                 }
@@ -207,7 +214,7 @@ private fun SourcePanel(vm: SimViewModel, pcBytes: Set<Int>, argAddr: Int?, modi
             // tapping a source line selects its address (bidirectional with the
             // memory panel), like pytoy's _source_clicked
             val rowMod = if (line.addr != null)
-                Modifier.pointerInput(line.addr) { detectTapGestures(onTap = { vm.select(line.addr) }) }
+                Modifier.clickable { vm.select(line.addr) }
             else Modifier
             HighlightRow(text, colours, rowMod)
         }
@@ -255,12 +262,10 @@ private fun MemoryPanel(
             val text = "  $marker ${addrCell.padStart(19)}  ->  ${valCell.padStart(19)}"
             val colours = memoryCellColours(a, m.selectedAddr, pcBytes, argAddr, m.changedCell, m.stopped)
             Box(
-                Modifier.fillMaxWidth().pointerInput(a) {
-                    detectTapGestures(
-                        onTap = { vm.select(a) },
-                        onLongPress = { onEdit(a) },
-                    )
-                }
+                Modifier.fillMaxWidth().combinedClickable(
+                    onClick = { vm.select(a) },
+                    onLongClick = { onEdit(a) },
+                )
             ) {
                 HighlightRow(text, colours)
             }
@@ -271,6 +276,7 @@ private fun MemoryPanel(
 
 @Composable
 private fun Controls(vm: SimViewModel) {
+    @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose when canUndo/stopped change
     val m = vm.machine
     Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
