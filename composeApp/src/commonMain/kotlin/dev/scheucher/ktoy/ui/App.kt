@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
@@ -33,7 +36,9 @@ import dev.scheucher.ktoy.core.Example
 @Composable
 fun App() {
     MaterialTheme {
-        Surface(Modifier.fillMaxSize()) {
+        // Keep content out of the status bar (top) and the navigation bar /
+        // camera cutout (bottom); the activity draws edge-to-edge.
+        Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             val vm: SimViewModel = viewModel { SimViewModel() }
             var onSimulator by remember { mutableStateOf(false) }
 
