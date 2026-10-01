@@ -4,8 +4,8 @@ package org.bytefred.ktoy.core
  * The bundled example programs, embedded as strings so they ship inside
  * the app (and the tests) with no filesystem access.
  *
- * GENERATED from pytoy examples/ by scripts/gen_ktoy_examples.py — do not
- * edit by hand; regenerate when the .toys / .toyo sources change.
+ * GENERATED from pytoy examples/ by scripts/gen_example_sources.py — do
+ * not edit by hand; regenerate when the .toys / .toyo sources change.
  */
 
 data class Example(val name: String, val kind: ExampleKind, val source: String)
