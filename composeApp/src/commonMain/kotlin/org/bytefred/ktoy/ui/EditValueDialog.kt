@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.ui
+package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
@@ -13,7 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import dev.scheucher.ktoy.core.parseVal
+import org.bytefred.ktoy.core.parseVal
 
 /**
  * Live-edit dialog for a memory cell. Asks only for the value (the address comes

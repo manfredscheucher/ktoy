@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.core
+package org.bytefred.ktoy.core
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

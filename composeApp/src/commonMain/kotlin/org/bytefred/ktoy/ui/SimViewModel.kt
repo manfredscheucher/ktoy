@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.ui
+package org.bytefred.ktoy.ui
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -6,13 +6,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import dev.scheucher.ktoy.core.AssemblyResult
-import dev.scheucher.ktoy.core.Example
-import dev.scheucher.ktoy.core.ExampleKind
-import dev.scheucher.ktoy.core.ListingLine
-import dev.scheucher.ktoy.core.Machine
-import dev.scheucher.ktoy.core.assemble
-import dev.scheucher.ktoy.core.parseToyo
+import org.bytefred.ktoy.core.AssemblyResult
+import org.bytefred.ktoy.core.Example
+import org.bytefred.ktoy.core.ExampleKind
+import org.bytefred.ktoy.core.ListingLine
+import org.bytefred.ktoy.core.Machine
+import org.bytefred.ktoy.core.assemble
+import org.bytefred.ktoy.core.parseToyo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive

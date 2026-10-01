@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.ui
+package org.bytefred.ktoy.ui
 
 import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -28,8 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import dev.scheucher.ktoy.core.EXAMPLES
-import dev.scheucher.ktoy.core.Example
+import org.bytefred.ktoy.core.EXAMPLES
+import org.bytefred.ktoy.core.Example
 
 /**
  * The app root: two screens. The example list, and — after picking one — the

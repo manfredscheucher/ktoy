@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.core
+package org.bytefred.ktoy.core
 
 /**
  * The bundled example programs, embedded as strings so they ship inside
@@ -222,6 +222,36 @@ stackbase: 0
         0
         0
 """),
+    Example("gcd", ExampleKind.ASM, """# gcd.toys
+# Greatest common divisor by subtraction (Euclid):
+#   while a != b: if a > b: a -= b  else: b -= a
+# gcd(48, 36) = 12.  Values 0..127 (msb is used as the sign for a > b).
+
+loop:   load  a
+        sub   b
+        ifzero done       # a == b -> gcd found
+        and   sign        # sign bit of (a - b)
+        ifzero a_gt_b     # bit clear -> a > b
+
+        # a < b:  b -= a
+        load  b
+        sub   a
+        store b
+        goto  loop
+
+a_gt_b: load  a
+        sub   b
+        store a           # a -= b
+        goto  loop
+
+done:   load  a           # a == b == gcd
+        stop
+
+# data
+a:      48
+b:      36
+sign:   128
+"""),
     Example("max3", ExampleKind.ASM, """# max3.toys
 # Largest of three named values a, b, c.
 #
@@ -331,35 +361,6 @@ arr:    3
         5
         9
         2
-"""),
-    Example("multiply", ExampleKind.ASM, """# multiply.toys
-# Computes result = a * b using repeated addition
-#
-# Algorithm:
-#   sum = 0
-#   while a > 0:
-#       sum += b
-#       a -= 1
-#   result = sum
-
-        load  a         # acc = a (loop counter)
-loop:   ifzero done     # a == 0 -> done
-        load  sum       # acc = sum
-        add   b         # acc = sum + b
-        store sum       # sum += b
-        load  a         # acc = a
-        sub   one       # acc = a - 1
-        store a         # a--
-        goto  loop
-
-done:   load  sum       # result in accumulator
-        stop
-
-# data
-a:      7
-b:      6
-sum:    0
-one:    1
 """),
     Example("sevenfold", ExampleKind.ASM, """# sevenfold.toys
 # Computes res = 7 * a using doubling and addition

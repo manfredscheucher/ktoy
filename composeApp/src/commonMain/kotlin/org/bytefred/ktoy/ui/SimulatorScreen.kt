@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.ui
+package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -30,8 +30,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import dev.scheucher.ktoy.core.decode
-import dev.scheucher.ktoy.core.describe
+import org.bytefred.ktoy.core.decode
+import org.bytefred.ktoy.core.describe
 
 /**
  * The simulator/debugger screen: source panel (assembly) + memory panel, with

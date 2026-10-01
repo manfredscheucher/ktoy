@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.core
+package org.bytefred.ktoy.core
 
 /**
  * Toy CPU assembler — a faithful Kotlin port of pytoy's assembler.py.

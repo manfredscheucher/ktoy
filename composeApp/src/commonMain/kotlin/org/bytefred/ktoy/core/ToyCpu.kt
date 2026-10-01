@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.core
+package org.bytefred.ktoy.core
 
 /**
  * Toy CPU ISA core: the shared instruction set, decoder, and executor.

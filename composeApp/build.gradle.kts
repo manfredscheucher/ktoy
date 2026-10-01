@@ -33,11 +33,11 @@ kotlin {
 }
 
 android {
-    namespace = "dev.scheucher.ktoy"
+    namespace = "org.bytefred.ktoy"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "dev.scheucher.ktoy"
+        applicationId = "org.bytefred.ktoy"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1

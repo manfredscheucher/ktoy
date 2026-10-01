@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.ui
+package org.bytefred.ktoy.ui
 
 import androidx.compose.ui.graphics.Color
 

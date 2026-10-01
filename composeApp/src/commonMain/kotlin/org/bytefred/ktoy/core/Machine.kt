@@ -1,4 +1,4 @@
-package dev.scheucher.ktoy.core
+package org.bytefred.ktoy.core
 
 /**
  * A snapshot of the machine's state, used for step-back (undo). All fields are

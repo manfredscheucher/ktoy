@@ -487,7 +487,7 @@ The Android app is built. Structure:
 - **Scaffold:** Kotlin 2.2.20, Compose Multiplatform 1.10.3, AGP 8.13.2, Gradle
   9.2.1, minSdk 24 (matching the OpenYarnStash conventions). One `composeApp`
   module, Android target only. The `kotlin-common` `:core` module is wired as a
-  git submodule for the leveled Logger. Namespace `dev.scheucher.ktoy`.
+  git submodule for the leveled Logger. Namespace `org.bytefred.ktoy`.
 - **Core (commonMain, ported from pytoy):**
   `core/ToyCpu.kt` (ISA, decode/executeOne, WRITES_ACC, describe),
   `core/Assembler.kt` (two-pass, line-numbered errors, did-you-mean, source-line
