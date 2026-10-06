@@ -65,7 +65,7 @@ git submodule update --init --recursive
 ./gradlew :composeApp:testDebugUnitTest    # run the tests
 ```
 
-The tests include a golden table that asserts ktoy computes the exact same final
+The tests include a snapshot table that asserts ktoy computes the exact same final
 accumulator and step count as pytoy for every bundled example, so the two
 implementations can't drift.
 

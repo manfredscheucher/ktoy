@@ -6,7 +6,7 @@ Written as a plan to implement later. The CPU core is already byte-identical to
 pytoy; the gaps below are features pytoy gained after the original port.
 
 Reference for every item: compare against the pytoy file named in brackets.
-Verify after each phase: `./gradlew :composeApp:testDebugUnitTest` (GoldenTest +
+Verify after each phase: `./gradlew :composeApp:testDebugUnitTest` (SnapshotTest +
 AssemblerTest must stay green — the CPU semantics must not drift).
 
 **Decided with Manfred:** do the core sync first (incl. I/O), web deploy after.
@@ -48,17 +48,17 @@ emits. ~35 lines total. No UI yet.
 
 ---
 
-## Phase 2 — examples + golden sync
+## Phase 2 — examples + snapshot sync
 
 - [ ] **Generator: pull 04-io.** `scripts/gen_example_sources.py:66`: loop over
       `("03-programs", "04-io")` so the memory-mapped I/O examples get embedded.
       Regenerate: `PYTOY=/Users/manfred/github/pytoy python3 scripts/gen_example_sources.py`.
       (Decide: embed only the deterministic 04-io examples, or all — the
       input-driven ones only make sense once the I/O panel exists, Phase 3.)
-- [ ] **Golden entries.** Add GoldenTest.kt entries for any new deterministic
+- [ ] **Snapshot entries.** Add SnapshotTest.kt entries for any new deterministic
       examples (04-io: numbers, hello_world, fibonacci, countdown). pytoy's values
-      live in `tests/golden/asm_golden.json` under `04-io/<name>`. NOTE: pytoy's
-      golden keys are now path-prefixed (`01-basics/12_ifzero`), ktoy uses bare
+      live in `tests/snapshot/asm_snapshot.json` under `04-io/<name>`. NOTE: pytoy's
+      snapshot keys are now path-prefixed (`01-basics/12_ifzero`), ktoy uses bare
       names — keep ktoy's bare-name scheme, just copy the acc/steps numbers.
 - [ ] **Re-check 12_ifzero if embedded.** pytoy changed it (now acc=0, steps=2).
       ktoy currently only embeds 03-programs, so it's likely not present — confirm.

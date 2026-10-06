@@ -425,15 +425,15 @@ the assembler are unchanged.
 
 - **Core + assembler**: unit tests in `commonTest` that assemble each bundled
   example and run it to STOP, asserting the final ACC **and step count and final
-  memory** match pytoy. The golden values already exist: pytoy's
-  `scripts/gen_golden.py` produces `tests/golden/asm_golden.json`
+  memory** match pytoy. The snapshot values already exist: pytoy's
+  `scripts/gen_snapshot.py` produces `tests/snapshot/asm_snapshot.json`
   (`name → {final_acc, steps, memory, hit_cap}`) for all `examples/asm/*.toys`.
   ktoy ships a copy of that JSON in `commonTest` resources and asserts against it,
-  so the two implementations cannot drift. A pytoy pytest (`tests/test_golden.py`)
+  so the two implementations cannot drift. A pytoy pytest (`tests/test_snapshot.py`)
   guards the JSON on the Python side.
-- Remember the two easy-to-miss semantics the golden run depends on: ACC masked
+- Remember the two easy-to-miss semantics the snapshot run depends on: ACC masked
   `& 0xFF` every step and PC wrapping mod 256 — get either wrong and steps/memory
-  diverge from the golden table.
+  diverge from the snapshot table.
 - GUI behaviour (highlighting, step/run/reset) tested where the Compose test
   harness allows; manual sign-off per target (Android / JVM / iOS / Web) is the
   real gate, tracked as a checklist.
@@ -522,8 +522,8 @@ so ktoy matches pytoy exactly:
 
 ### 10.2 Tests
 
-`commonTest` has a golden test (assembles + runs the 10 asm examples and the 2
-toyo examples, asserting final ACC + step count against pytoy's committed golden
+`commonTest` has a snapshot test (assembles + runs the 10 asm examples and the 2
+toyo examples, asserting final ACC + step count against pytoy's committed snapshot
 table) and an assembler test (20 cases: parseVal forms, happy path, and every
 error message including the did-you-mean / ignored-operand / too-big / source-
 line-echo behaviours).
