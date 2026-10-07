@@ -9,6 +9,7 @@ import androidx.lifecycle.viewModelScope
 import org.bytefred.ktoy.core.AssemblyResult
 import org.bytefred.ktoy.core.Example
 import org.bytefred.ktoy.core.ExampleKind
+import org.bytefred.ktoy.core.IoFormat
 import org.bytefred.ktoy.core.ListingLine
 import org.bytefred.ktoy.core.Machine
 import org.bytefred.ktoy.core.assemble
@@ -40,6 +41,11 @@ class SimViewModel : ViewModel() {
 
     var running by mutableStateOf(false); private set
     var stepsPerSecond by mutableStateOf(2.0)
+
+    // I/O panel: whether it's shown, and its display format. Both live here (not
+    // in the composable) so they survive rotation like the rest of the sim state.
+    var showIo by mutableStateOf(false)
+    var ioFormat by mutableStateOf(IoFormat.DECIMAL)
 
     // the auto-run coroutine, kept so it can be cancelled the instant any other
     // action touches the machine (load / reset / manual step / edit) — otherwise

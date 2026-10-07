@@ -13,7 +13,7 @@ data class Example(val name: String, val kind: ExampleKind, val source: String)
 enum class ExampleKind { ASM, TOYO }
 
 val EXAMPLES: List<Example> = listOf(
-    Example("fibonacci", ExampleKind.ASM, """# fibonacci.toys
+    Example("fibonacci_iter", ExampleKind.ASM, """# fibonacci.toys
 # Computes the n-th Fibonacci number
 # Result ends up in the accumulator
 #
@@ -222,7 +222,7 @@ stackbase: 0
         0
         0
 """),
-    Example("gcd", ExampleKind.ASM, """# gcd.toys
+    Example("gcd_iter", ExampleKind.ASM, """# gcd.toys
 # Greatest common divisor by subtraction (Euclid):
 #   while a != b: if a > b: a -= b  else: b -= a
 # gcd(48, 36) = 12.  Values 0..127 (msb is used as the sign for a > b).
@@ -362,33 +362,6 @@ arr:    3
         9
         2
 """),
-    Example("sevenfold", ExampleKind.ASM, """# sevenfold.toys
-# Computes res = 7 * a using doubling and addition
-#
-# b = a + a      (2a)
-# c = b + b      (4a)
-# res = a + b + c (a + 2a + 4a = 7a)
-#
-# With a = 4: result = 28
-
-        load  a
-        add   a
-        store b         # b = 2a
-
-        load  b
-        add   b
-        store c         # c = 4a
-
-        load  a
-        add   b
-        add   c
-        stop            # acc = a + 2a + 4a = 7a
-
-# data
-a:      4
-b:      0
-c:      0
-"""),
     Example("sort3", ExampleKind.ASM, """# sort3.toys
 # Sorts three named values a, b, c ascending, then returns the smallest.
 #
@@ -450,7 +423,7 @@ a:      3
 b:      1
 c:      4
 """),
-    Example("sort_array", ExampleKind.ASM, """# sort_array.toys
+    Example("sort_array_inline", ExampleKind.ASM, """# sort_array.toys
 # ---------------------------------------------------------------------------
 # Bubble sort of 10 bytes, in place, ascending.
 #
@@ -644,6 +617,332 @@ arr:    3
         5
         9
         2
+"""),
+    Example("times7_doubling", ExampleKind.ASM, """# sevenfold.toys
+# Computes res = 7 * a using doubling and addition
+#
+# b = a + a      (2a)
+# c = b + b      (4a)
+# res = a + b + c (a + 2a + 4a = 7a)
+#
+# With a = 4: result = 28
+
+        load  a
+        add   a
+        store b         # b = 2a
+
+        load  b
+        add   b
+        store c         # c = 4a
+
+        load  a
+        add   b
+        add   c
+        stop            # acc = a + 2a + 4a = 7a
+
+# data
+a:      4
+b:      0
+c:      0
+"""),
+    Example("countdown", ExampleKind.ASM, """# countdown.toys — count down from 10 to 1, writing each step to an out cell.
+# io0=10, io1=9, ... io9=1  (decimal).
+# Same self-modifying output-pointer trick as fibonacci.toys.
+#
+# pytoy: output=decimal
+
+wloop:  load  n
+        ifzero done       # n == 0 -> done
+
+        # write n to out[i] via a patched STORE
+        load  n
+iop:    21                # STORE opcode
+iarg:   240               # <- address, patched each pass (starts at io0)
+
+        # advance the output pointer
+        load  iarg
+        add   one
+        store iarg
+
+        # n = n - 1
+        load  n
+        sub   one
+        store n
+        goto  wloop
+
+done:   load  n
+        stop
+
+# data
+n:    10
+one:   1
+"""),
+    Example("fibonacci_io", ExampleKind.ASM, """# fibonacci.toys — compute fib(0..13) and write them to io0..io13 (decimal).
+# fib(0)=0, fib(1)=1, fib(n)=fib(n-1)+fib(n-2).  fib(13)=233 is the largest that
+# still fits in one byte (fib(14)=377 would overflow).
+#
+# The output index is advanced by self-modifying code: the STORE below has its
+# address byte patched each iteration to point at the next out cell.
+#
+# pytoy: output=decimal
+
+        load  a
+wloop:  load  count
+        ifzero done
+
+        # write the current fib value (in `a`) to out[i] via a patched STORE
+        load  a
+        store ival        # stash the value to write
+iop:    21                # STORE opcode (raw byte)
+iarg:   240               # <- address, starts at io0 (240), patched each pass
+        # (the STORE above wrote ival into out[i])
+
+        # advance the output pointer
+        load  iarg
+        add   one
+        store iarg
+
+        # fib step: next = a + b ; a = b ; b = next
+        load  a
+        add   b
+        store next
+        load  b
+        store a
+        load  next
+        store b
+
+        # count down
+        load  count
+        sub   one
+        store count
+        goto  wloop
+
+done:   load  a
+        stop
+
+# data
+a:     0            # fib(i)
+b:     1            # fib(i+1)
+next:  0
+count: 14           # write 14 values: fib(0)..fib(13)
+one:   1
+ival:  0
+"""),
+    Example("hello_world", ExampleKind.ASM, """# hello_world.toys — write "Hello world!" to the output cells as ASCII.
+# Each output cell holds one character code; the I/O widget (ascii mode) shows
+# them as letters.
+#
+# pytoy: output=ascii
+
+        load  H
+        store io0
+        load  e
+        store io1
+        load  l
+        store io2
+        load  l2
+        store io3
+        load  o
+        store io4
+        load  sp
+        store io5
+        load  w
+        store io6
+        load  o2
+        store io7
+        load  r
+        store io8
+        load  l3
+        store io9
+        load  d
+        store io10
+        load  ex
+        store io11
+        stop
+
+# data: ASCII codes for "Hello world!"
+H:   72
+e:  101
+l:  108
+l2: 108
+o:  111
+sp:  32
+w:  119
+o2: 111
+r:  114
+l3: 108
+d:  100
+ex:  33
+"""),
+    Example("numbers", ExampleKind.ASM, """# numbers.toys — write 0,1,2,...,14 into the output cells io0..io14.
+# The simplest I/O program: just stores to the memory-mapped output region.
+#
+# Try the View → I/O format menu (decimal / binary / hex / ascii / 7segment)
+# to see the same bytes displayed different ways. numbers_hex / numbers_ascii /
+# numbers_7seg are the same program opened in those other formats.
+#
+# pytoy: output=decimal
+
+        load  c0
+        store io0
+        load  c1
+        store io1
+        load  c2
+        store io2
+        load  c3
+        store io3
+        load  c4
+        store io4
+        load  c5
+        store io5
+        load  c6
+        store io6
+        load  c7
+        store io7
+        load  c8
+        store io8
+        load  c9
+        store io9
+        load  c10
+        store io10
+        load  c11
+        store io11
+        load  c12
+        store io12
+        load  c13
+        store io13
+        load  c14
+        store io14
+        stop
+
+# data: the constants 0..14
+c0:  0
+c1:  1
+c2:  2
+c3:  3
+c4:  4
+c5:  5
+c6:  6
+c7:  7
+c8:  8
+c9:  9
+c10: 10
+c11: 11
+c12: 12
+c13: 13
+c14: 14
+"""),
+    Example("numbers_ascii", ExampleKind.ASM, """# numbers_ascii.toys — write 0,1,2,...,14 into the output cells io0..io14.
+# Same bytes as numbers.toys, but the I/O panel opens in ascii mode. Codes 0..14
+# are control characters (no visible glyph) — this file is here to show that the
+# raw bytes are unchanged; only the display format differs. Switch the
+# View → I/O format menu to decimal/hex/7segment to read them.
+#
+# pytoy: output=ascii
+
+        load  c0
+        store io0
+        load  c1
+        store io1
+        load  c2
+        store io2
+        load  c3
+        store io3
+        load  c4
+        store io4
+        load  c5
+        store io5
+        load  c6
+        store io6
+        load  c7
+        store io7
+        load  c8
+        store io8
+        load  c9
+        store io9
+        load  c10
+        store io10
+        load  c11
+        store io11
+        load  c12
+        store io12
+        load  c13
+        store io13
+        load  c14
+        store io14
+        stop
+
+# data: the constants 0..14
+c0:  0
+c1:  1
+c2:  2
+c3:  3
+c4:  4
+c5:  5
+c6:  6
+c7:  7
+c8:  8
+c9:  9
+c10: 10
+c11: 11
+c12: 12
+c13: 13
+c14: 14
+"""),
+    Example("numbers_hex", ExampleKind.ASM, """# numbers_hex.toys — write 0,1,2,...,14 into the output cells io0..io14.
+# Same bytes as numbers.toys, but the I/O panel opens in hex mode, so they show
+# as 0..9 then a..e. Switch the View → I/O format menu to see them any other way.
+#
+# pytoy: output=hex
+
+        load  c0
+        store io0
+        load  c1
+        store io1
+        load  c2
+        store io2
+        load  c3
+        store io3
+        load  c4
+        store io4
+        load  c5
+        store io5
+        load  c6
+        store io6
+        load  c7
+        store io7
+        load  c8
+        store io8
+        load  c9
+        store io9
+        load  c10
+        store io10
+        load  c11
+        store io11
+        load  c12
+        store io12
+        load  c13
+        store io13
+        load  c14
+        store io14
+        stop
+
+# data: the constants 0..14
+c0:  0
+c1:  1
+c2:  2
+c3:  3
+c4:  4
+c5:  5
+c6:  6
+c7:  7
+c8:  8
+c9:  9
+c10: 10
+c11: 11
+c12: 12
+c13: 13
+c14: 14
 """),
     Example("fibonacci (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
 #

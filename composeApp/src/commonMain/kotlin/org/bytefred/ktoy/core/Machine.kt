@@ -12,6 +12,7 @@ data class MachineState(
     val stepCount: Int,
     val touched: Set<Int>,
     val changedCell: Int?,
+    val changedCellPrev: Int?,
     val accWritten: Boolean,
     val selectedAddr: Int?,
     val hasLiveEdits: Boolean,
@@ -39,6 +40,9 @@ class Machine(
     var stepCount: Int = 0; private set
     var touched: Set<Int> = dataAddrs.toSet(); private set
     var changedCell: Int? = null; private set
+    // value that [changedCell] held BEFORE the STORE overwrote it, for the one
+    // step the write is highlighted (the memory panel shows it as "# old: N").
+    var changedCellPrev: Int? = null; private set
     var accWritten: Boolean = false; private set
     var selectedAddr: Int? = null; private set
     var hasLiveEdits: Boolean = false; private set
@@ -57,6 +61,7 @@ class Machine(
         stepCount = 0
         touched = dataAddrs.toSet()
         changedCell = null
+        changedCellPrev = null
         accWritten = false
         selectedAddr = null
         hasLiveEdits = false
@@ -66,7 +71,8 @@ class Machine(
     private fun snapshot(): MachineState = MachineState(
         mem = mem.copyOf(), acc = acc, pc = pc, stopped = stopped,
         stepCount = stepCount, touched = touched.toSet(), changedCell = changedCell,
-        accWritten = accWritten, selectedAddr = selectedAddr, hasLiveEdits = hasLiveEdits,
+        changedCellPrev = changedCellPrev, accWritten = accWritten,
+        selectedAddr = selectedAddr, hasLiveEdits = hasLiveEdits,
     )
 
     private fun restore(s: MachineState) {
@@ -77,6 +83,7 @@ class Machine(
         stepCount = s.stepCount
         touched = s.touched.toSet()
         changedCell = s.changedCell
+        changedCellPrev = s.changedCellPrev
         accWritten = s.accWritten
         selectedAddr = s.selectedAddr
         hasLiveEdits = s.hasLiveEdits
@@ -97,11 +104,17 @@ class Machine(
         // snapshot before executing so this step can be fully undone
         history.addLast(snapshot())
 
+        // remember the cell's value before a STORE overwrites it, so the memory
+        // panel can show "# old: N" for this one step only (decode above already
+        // resolved argAddr; executeOne re-resolves it identically).
+        val oldVal = if (instr == 21 && argAddr != null) mem[argAddr] else null
+
         val res = executeOne(mem, pc, acc)
         pc = res.nextPc
         acc = res.acc
         if (instr == 21 && argAddr != null) touched = touched + argAddr
         changedCell = if (instr == 21) argAddr else null
+        changedCellPrev = oldVal   // null on any non-STORE step (clears itself)
         accWritten = instr in WRITES_ACC
         stepCount += 1
         selectedAddr = null
@@ -128,6 +141,7 @@ class Machine(
         mem[addr] = value and 0xFF
         touched = touched + addr
         changedCell = addr
+        changedCellPrev = null   // a hand edit isn't a STORE — no "# old" to show
         accWritten = false
         selectedAddr = addr
         hasLiveEdits = true

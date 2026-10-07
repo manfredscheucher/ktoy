@@ -58,7 +58,8 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     val symOf: (Int) -> String = { a -> rsym[a] ?: a.toString() }
 
     Column(Modifier.fillMaxSize().padding(8.dp)) {
-        // top bar: Load button (opens the example list) + current program title
+        // top bar: Load button (opens the example list) + current program title +
+        // an I/O panel toggle (ktoy's equivalent of pytoy's View → I/O panel)
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -66,6 +67,9 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
         ) {
             Button(onClick = onLoad) { Text("Load…") }
             Text(vm.title, style = MonoStyle)
+            OutlinedButton(onClick = { vm.showIo = !vm.showIo }) {
+                Text(if (vm.showIo) "Hide I/O" else "Show I/O")
+            }
         }
 
         // Two panels, like pytoy: left = the assembly source, right = the CPU &
@@ -94,6 +98,37 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
                     if (vm.hasSource) src(Modifier.weight(1f).fillMaxWidth())
                     mem(Modifier.weight(1f).fillMaxWidth())
                 }
+            }
+        }
+
+        // The memory-mapped I/O panel: the friendly view of io0..io14 plus the
+        // ready register. Shown below the two panels when toggled on; tapping a
+        // cell reuses the same edit dialog as the memory panel, so the user acts
+        // as the I/O device while the running program polls.
+        if (vm.showIo) {
+            // Own bordered container (not LabeledPanel, whose body forces
+            // fillMaxSize for the scrollable main panels — the I/O panel wraps
+            // its height instead, so it doesn't push the controls off-screen).
+            Column(
+                Modifier.fillMaxWidth()
+                    .padding(top = 3.dp)
+                    .border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(6.dp))
+            ) {
+                Text(
+                    "I/O",
+                    style = MonoStyle,
+                    modifier = Modifier.fillMaxWidth()
+                        .background(Color(0xFFEEEEEE))
+                        .padding(horizontal = 6.dp, vertical = 3.dp),
+                )
+                IoPanel(
+                    mem = m.mem,
+                    pc = m.pc,
+                    format = vm.ioFormat,
+                    onFormatChange = { vm.ioFormat = it },
+                    onEditCell = { editTarget = it },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
 
@@ -262,7 +297,12 @@ private fun MemoryPanel(
             val marker = if (a == m.pc) ">>" else "  "
             val addrCell = "${a.toString().padStart(3)} (${bin8(a)})"
             val valCell = "${v.toString().padStart(3)} (${bin8(v)})"
-            val text = "  $marker ${addrCell.padStart(19)}  ->  ${valCell.padStart(19)}"
+            var text = "  $marker ${addrCell.padStart(19)}  ->  ${valCell.padStart(19)}"
+            // the cell a STORE just overwrote: show its previous value as a
+            // comment, for this one step only (changed/prev clear next step).
+            if (!m.stopped && a == m.changedCell && m.changedCellPrev != null) {
+                text += "  # old: ${m.changedCellPrev}"
+            }
             val colours = memoryCellColours(a, m.selectedAddr, pcBytes, argAddr, m.changedCell, m.stopped)
             // untouched, non-program bytes are shown greyed out
             val textColor = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)

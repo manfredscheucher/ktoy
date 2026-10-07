@@ -129,8 +129,11 @@ private fun err(lineno: Int, orig: String, msg: String): String =
 fun assemble(src: String): AssemblyResult {
     val parsed = parseSource(src)
 
-    // pass 1 — addresses + symbols, and total size check
-    val syms = mutableMapOf<String, Int>()
+    // pass 1 — addresses + symbols, and total size check. Pre-seed the reserved
+    // memory-mapped I/O labels (io0..io14 = 240..254, ready = 255) so programs
+    // can write `store io0` / `load ready`. A user label of the same name
+    // overrides the seed (the assignment below runs after), which is fine.
+    val syms = mutableMapOf<String, Int>().apply { putAll(IO_SYMBOLS) }
     var addr = 0
     for (row in parsed) {
         if (row.label != null) syms[row.label] = addr
@@ -139,11 +142,15 @@ fun assemble(src: String): AssemblyResult {
         addr += if (opc != null && hasOperand(opc)) 2 else 1
     }
 
-    if (addr > 256) {
-        val over = addr - 256
+    // The Toy CPU has 256 bytes, but 240..255 are reserved for memory-mapped I/O,
+    // so the usable program space is 0..239. A byte at 240+ would alias an io
+    // cell and be clobbered at runtime.
+    if (addr > IO_BASE) {
+        val over = addr - IO_BASE
         val errors = listOf(
-            "Program is too big: it needs $addr bytes, but the Toy CPU has only " +
-                "256 ($over too many). Instructions with an operand " +
+            "Program is too big: it needs $addr bytes, but only the $IO_BASE " +
+                "bytes below the I/O region (240..255) are usable ($over too " +
+                "many). Instructions with an operand " +
                 "(load/store/add/sub/and/or/xor/goto/ifzero) take 2 bytes; the " +
                 "rest take 1. Remove some instructions or data."
         )
@@ -219,6 +226,22 @@ private fun resolve(
     }
     val k = op.lowercase()
     syms[k]?.let { return it }
+    // label arithmetic: `label+N` / `label-N` resolves to the label's address
+    // plus/minus a constant offset. The compiler uses this for a[const] so a
+    // constant array index becomes a direct `load arr+3` instead of self-
+    // modifying address patching.
+    LABEL_ARITH.matchEntire(op)?.let { m ->
+        val base = m.groupValues[1].lowercase()
+        val sign = m.groupValues[2]
+        val off = m.groupValues[3]
+        val baseAddr = syms[base]
+        if (baseAddr != null) {
+            val delta = try { parseVal(off) } catch (e: Exception) { null }
+            if (delta != null) {
+                return (baseAddr + (if (sign == "+") delta else -delta)) and 0xFF
+            }
+        }
+    }
     return try {
         parseVal(op)
     } catch (e: Exception) {
@@ -226,3 +249,5 @@ private fun resolve(
         0
     }
 }
+
+private val LABEL_ARITH = Regex("""\s*([A-Za-z_]\w*)\s*([+-])\s*(\w+)\s*""")

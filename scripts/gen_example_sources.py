@@ -60,15 +60,34 @@ def main():
         "",
         "val EXAMPLES: List<Example> = listOf(",
     ]
-    # Only the full programs (examples/asm/03-programs/). The 01-basics/ and
-    # 02-extended/ folders are per-opcode / concept demos meant for the pytoy
-    # repo, not the ktoy app, so they stay out of the embedded list.
+    # The full programs (examples/asm/03-programs/) plus the deterministic I/O
+    # demos (examples/asm/04-io/). The 01-basics/ and 02-extended/ folders are
+    # per-opcode / concept demos meant for the pytoy repo, not the ktoy app, so
+    # they stay out of the embedded list. File names are taken verbatim (no
+    # hardcoded list), so renames in pytoy flow through on the next regenerate.
     prog_dir = os.path.join(ASM_DIR, "03-programs")
     for f in sorted(os.listdir(prog_dir)):
         if not f.endswith(".toys"):
             continue
         name = f[:-5]
         src = open(os.path.join(prog_dir, f)).read()
+        lines.append(f'    Example("{name}", ExampleKind.ASM, '
+                     f'{kotlin_triple_string(src)}),')
+    # Only the deterministic 04-io demos: they finish on their own. The
+    # input-driven ones (poll_demo, greet_name, sort_array_io, pin_check) block
+    # on user-supplied io cells and would never halt headless, so skip them.
+    io_dir = os.path.join(ASM_DIR, "04-io")
+    io_deterministic = {
+        "countdown", "fibonacci_io", "hello_world",
+        "numbers", "numbers_ascii", "numbers_hex",
+    }
+    for f in sorted(os.listdir(io_dir)):
+        if not f.endswith(".toys"):
+            continue
+        name = f[:-5]
+        if name not in io_deterministic:
+            continue
+        src = open(os.path.join(io_dir, f)).read()
         lines.append(f'    Example("{name}", ExampleKind.ASM, '
                      f'{kotlin_triple_string(src)}),')
     for f in sorted(os.listdir(TOYO_DIR)):

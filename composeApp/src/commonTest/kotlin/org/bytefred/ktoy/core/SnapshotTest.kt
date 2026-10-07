@@ -15,18 +15,30 @@ class SnapshotTest {
 
     private data class Snapshot(val acc: Int, val steps: Int)
 
-    // Final ACC + total step count for each bundled ASM example, from pytoy.
+    // Final ACC + total step count for each bundled ASM example. Values are
+    // copied verbatim from pytoy's tests/snapshot/asm_snapshot.json (keys there
+    // are path-prefixed, e.g. "03-programs/fibonacci_iter"). The step counts use
+    // pytoy's HEADLESS convention (the terminating STOP is not counted), which
+    // is exactly what Machine.step() does, so the numbers transfer directly.
     private val snapshot = mapOf(
-        "fibonacci" to Snapshot(acc = 13, steps = 80),
+        // examples/asm/03-programs/
+        "fibonacci_iter" to Snapshot(acc = 13, steps = 80),
         "fibonacci_rec" to Snapshot(acc = 3, steps = 446),
+        "gcd_iter" to Snapshot(acc = 12, steps = 31),
         "max3" to Snapshot(acc = 4, steps = 14),
         "max_array" to Snapshot(acc = 9, steps = 114),
-        "multiply" to Snapshot(acc = 42, steps = 59),
-        "sevenfold" to Snapshot(acc = 28, steps = 9),
         "sort3" to Snapshot(acc = 1, steps = 19),
-        "sort_array" to Snapshot(acc = 1, steps = 1955),
+        "sort_array_inline" to Snapshot(acc = 1, steps = 1955),
         "sum3" to Snapshot(acc = 8, steps = 3),
         "sum_array" to Snapshot(acc = 25, steps = 89),
+        "times7_doubling" to Snapshot(acc = 28, steps = 9),
+        // examples/asm/04-io/ (deterministic demos only)
+        "countdown" to Snapshot(acc = 0, steps = 113),
+        "fibonacci_io" to Snapshot(acc = 121, steps = 270),
+        "hello_world" to Snapshot(acc = 33, steps = 24),
+        "numbers" to Snapshot(acc = 14, steps = 30),
+        "numbers_ascii" to Snapshot(acc = 14, steps = 30),
+        "numbers_hex" to Snapshot(acc = 14, steps = 30),
     )
 
     private val SAFETY_CAP = 200_000

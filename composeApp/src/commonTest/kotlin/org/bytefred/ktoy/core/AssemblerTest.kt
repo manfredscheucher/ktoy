@@ -143,12 +143,13 @@ val:    42
 
     @Test
     fun tooBigExplainsTwoByteCostAndOverage() {
-        // 130 * "load 0" = 260 bytes; 4 over 256; message explains the 2-byte cost
+        // 130 * "load 0" = 260 bytes; usable space is 0..239 (240..255 reserved
+        // for I/O), so 260 - 240 = 20 too many; message explains the 2-byte cost.
         val r = assemble("load 0\n".repeat(130))
         assertEquals(1, r.errors.size)
         val msg = r.errors[0]
         assertTrue("260 bytes" in msg, "got: $msg")
-        assertTrue("4 too many" in msg, "got: $msg")
+        assertTrue("20 too many" in msg, "got: $msg")
         assertTrue("2 bytes" in msg, "got: $msg")
     }
 
@@ -222,5 +223,65 @@ val:    42
         // and the already-covered simple typos still work
         assertTrue(assemble("addd x\nstop").errors[0].contains("did you mean 'add'?"))
         assertTrue(assemble("looad 5\nstop").errors[0].contains("did you mean 'load'?"))
+    }
+
+    // ── memory-mapped I/O labels (io0..io14 / ready) ─────────────────────────
+
+    @Test
+    fun ioLabelsAreSeeded() {
+        // io0 lives at IO_BASE (240), ready at IO_READY (255); programs can
+        // `load`/`store` them without declaring the labels themselves.
+        val r1 = assemble("load io0\nstop")
+        assertTrue(r1.errors.isEmpty(), "unexpected errors: ${r1.errors}")
+        assertEquals(240, r1.mem[1])
+
+        val r2 = assemble("store ready\nstop")
+        assertTrue(r2.errors.isEmpty(), "unexpected errors: ${r2.errors}")
+        assertEquals(255, r2.mem[1])
+    }
+
+    // ── label arithmetic (label+N / label-N) ─────────────────────────────────
+
+    @Test
+    fun labelPlusOffsetResolves() {
+        // `load foo+2` -> syms[foo] + 2 (the compiler uses this for arr+const)
+        val r = assemble("load foo+2\nstop\n# data\nfoo: 7\na: 8\nb: 9\n")
+        assertTrue(r.errors.isEmpty(), "unexpected errors: ${r.errors}")
+        assertEquals((r.syms["foo"]!! + 2) and 0xFF, r.mem[1])
+    }
+
+    @Test
+    fun labelMinusOffsetResolves() {
+        val r = assemble("load foo-1\nstop\n# data\nx: 1\nfoo: 7\n")
+        assertTrue(r.errors.isEmpty(), "unexpected errors: ${r.errors}")
+        assertEquals((r.syms["foo"]!! - 1) and 0xFF, r.mem[1])
+    }
+
+    @Test
+    fun labelPlusUnknownBaseIsError() {
+        val r = assemble("load nope+1\nstop\n")
+        assertTrue(r.errors.isNotEmpty())
+        assertTrue("nope+1" in r.errors[0], "got: ${r.errors[0]}")
+    }
+
+    // ── usable space is 0..239 (240..255 reserved for I/O) ───────────────────
+
+    @Test
+    fun exactly240BytesIsOk() {
+        // Addresses 240..255 are reserved for memory-mapped I/O, so the usable
+        // program space is 0..239: 240 one-byte instructions fill it exactly.
+        val src = List(240) { "right" }.joinToString("\n")
+        val r = assemble(src)
+        assertTrue(r.errors.isEmpty(), "unexpected errors: ${r.errors}")
+    }
+
+    @Test
+    fun oneBytePast240OverflowsIntoIoRegion() {
+        // 241 bytes would alias io0 (240), so it must be rejected and the error
+        // names the required size.
+        val src = List(241) { "right" }.joinToString("\n")
+        val r = assemble(src)
+        assertEquals(1, r.errors.size)
+        assertTrue("241" in r.errors[0], "got: ${r.errors[0]}")
     }
 }
