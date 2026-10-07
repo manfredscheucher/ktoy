@@ -134,7 +134,10 @@ class SimViewModel : ViewModel() {
     }
 
     fun editCell(addr: Int, value: Int) {
-        stopRun()
+        // Deliberately does NOT stop auto-run: editing an I/O cell while the
+        // program busy-polls `ready` is how the user feeds input live and the
+        // running program reacts (matches pytoy's _edit_cell, which leaves its
+        // timer running). Stopping here would defeat the I/O panel's whole point.
         machine?.editCell(addr, value)
         bump()
     }

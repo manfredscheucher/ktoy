@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.bytefred.ktoy.core.decode
 import org.bytefred.ktoy.core.describe
+import org.bytefred.ktoy.core.formatByte
+import org.bytefred.ktoy.core.IoFormat
 
 /**
  * The simulator/debugger screen: source panel (assembly) + memory panel, with
@@ -354,8 +356,6 @@ private fun Controls(vm: SimViewModel, onEdit: () -> Unit) {
     }
 }
 
-/** 8-bit binary string (unsigned), like pytoy's f"{v:08b}". */
-private fun bin8(v: Int): String {
-    val u = v and 0xFF
-    return (7 downTo 0).joinToString("") { if ((u shr it) and 1 == 1) "1" else "0" }
-}
+/** 8-bit binary string (unsigned), like pytoy's f"{v:08b}". Delegates to the one
+ *  binary formatter in Format.kt so the memory panel and the I/O panel can't drift. */
+private fun bin8(v: Int): String = formatByte(v, IoFormat.BINARY)
