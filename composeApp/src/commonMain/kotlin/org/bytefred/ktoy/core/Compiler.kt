@@ -48,6 +48,17 @@ sealed class Expr {
 }
 
 sealed class Stmt {
+    /**
+     * 1-based C source line this statement came from, or null if it has no C
+     * origin (nodes synthesised by the lifter/codegen). Set by the parser and
+     * carried through fold/rename/lift via [carryLine]. Only consumed when
+     * compileSource is called with annotateCLines = true, where codegen tags
+     * each emitted asm line with a `# @c:N` marker. A plain `var` (not a
+     * constructor param) so it stays out of data-class equality/copy and the
+     * many AST-rebuild sites don't have to thread it explicitly.
+     */
+    var cLine: Int? = null
+
     data class Block(val stmts: List<Stmt>) : Stmt()
     data class Decl(val name: String, val init: Expr?) : Stmt()
     data class ArrayDecl(val name: String, val size: Int, val init: List<Expr>?) : Stmt()
@@ -211,6 +222,29 @@ private fun _constName(value: Int): String {
     return "c_$v"
 }
 
+/**
+ * Append a `# @c:N` marker tying this asm line to C source line N. The assembler
+ * ignores everything after the first '#', so the marker is inert: an annotated
+ * file assembles to the same memory image. If the line already has a comment the
+ * marker is appended inside it (still one comment); otherwise a fresh `  # @c:N`
+ * comment is added. Returns the line unchanged when cLine is null (no C origin).
+ */
+private fun annotateLine(line: String, cLine: Int?): String {
+    if (cLine == null) return line
+    if ('#' in line) return "$line @c:$cLine"
+    return "$line  # @c:$cLine"
+}
+
+/**
+ * Propagate a statement's recorded C source line from [old] to a rebuilt [new]
+ * node (fold / rename / lift all construct fresh Stmt objects). No-op when old
+ * has no line. Returns [new] for use inline. Mirrors pytoy's _carry_line.
+ */
+private fun <T : Stmt> carryLine(old: Stmt, new: T): T {
+    if (old !== new) new.cLine = old.cLine
+    return new
+}
+
 // ── Parser (recursive descent) ─────────────────────────────────────────────
 
 private class Parser(private val toks: List<Token>) {
@@ -288,6 +322,13 @@ private class Parser(private val toks: List<Token>) {
     }
 
     private fun parseStatement(): Stmt {
+        // Record the C source line of the statement's first token so codegen can
+        // emit `# @c:N` markers. carryLine threads it through fold/rename/lift.
+        val line = peek().line
+        return parseStatementInner().also { it.cLine = it.cLine ?: line }
+    }
+
+    private fun parseStatementInner(): Stmt {
         val t = peek()
         if (t.kind == "op" && t.value == "{") return parseBlock()
         if (t.kind == "kw" && t.value == "int") return parseDecl()
@@ -620,8 +661,16 @@ private class CodeGen(private val compact: Boolean, private val safeCompare: Boo
     private val addrofSlots = linkedMapOf<String, String>()       // slot -> addrof byte label
     private var ixtmp: String? = null
 
-    private fun emit(text: String) { code.add(text) }
-    private fun comment(text: String) { code.add("        # $text") }
+    // Parallel to `code`: the C source line each emitted line came from (null for
+    // lines with no C origin). Appended on every emit()/comment() from curCLine;
+    // only consumed (as `# @c:N`) when annotateCLines is on. peephole() keeps the
+    // two lists in lockstep. curCLine is the line of the statement currently being
+    // generated, set/restored by genStmt.
+    val codeLines = mutableListOf<Int?>()
+    private var curCLine: Int? = null
+
+    private fun emit(text: String) { code.add(text); codeLines.add(curCLine) }
+    private fun comment(text: String) { code.add("        # $text"); codeLines.add(curCLine) }
 
     private fun newLabel(base: String): String {
         labelN++
@@ -1062,6 +1111,19 @@ private class CodeGen(private val compact: Boolean, private val safeCompare: Boo
 
     // -- statements --
     private fun genStmt(s: Stmt) {
+        // Tag every line this statement emits with its C source line. Nested
+        // statements (Block/If/While recurse into genStmt) set their own line and
+        // restore the parent's afterwards, so each line gets the nearest origin.
+        val prev = curCLine
+        if (s.cLine != null) curCLine = s.cLine
+        try {
+            genStmtInner(s)
+        } finally {
+            curCLine = prev
+        }
+    }
+
+    private fun genStmtInner(s: Stmt) {
         when (s) {
             is Stmt.Block -> s.stmts.forEach { genStmt(it) }
             is Stmt.Decl -> {
@@ -1271,9 +1333,13 @@ private class CodeGen(private val compact: Boolean, private val safeCompare: Boo
         emit("        stop            # unreachable: bad $name marker")
     }
 
-    private fun peephole(src: List<String>): List<String> {
-        // Drop a `load X` immediately following `store X` (store leaves ACC
-        // unchanged). Only safe when the `load` carries NO label.
+    /**
+     * Drop a `load X` immediately following `store X` (store leaves ACC
+     * unchanged). Only safe when the `load` carries NO label. [srcLines] is the
+     * parallel C-source-line list, filtered in lockstep so each annotation stays
+     * attached to the correct final line. Returns the filtered (code, lines).
+     */
+    private fun peephole(src: List<String>, srcLines: List<Int?>): Pair<List<String>, List<Int?>> {
         data class Parts(val label: String?, val mn: String?, val arg: String?)
         fun parts(line: String): Parts {
             var body = line.split("#", limit = 2)[0].trim()
@@ -1295,6 +1361,7 @@ private class CodeGen(private val compact: Boolean, private val safeCompare: Boo
             return null
         }
         val out = mutableListOf<String>()
+        val outLines = mutableListOf<Int?>()
         var i = 0
         while (i < src.size) {
             val line = src[i]
@@ -1305,19 +1372,21 @@ private class CodeGen(private val compact: Boolean, private val safeCompare: Boo
                     val p2 = parts(src[j])
                     if (p2.mn == "load" && p2.arg == p.arg && p2.label == null) {
                         out.addAll(src.subList(i, j))
+                        outLines.addAll(srcLines.subList(i, j))
                         i = j + 1
                         continue
                     }
                 }
             }
             out.add(line)
+            outLines.add(srcLines[i])
             i++
         }
-        return out
+        return out to outLines
     }
 
     fun generate(mainBody: Stmt, bodies: List<FuncBody>, sourceName: String,
-                 noStack: Boolean): String {
+                 noStack: Boolean, annotateCLines: Boolean = false): String {
         for (b in bodies) registerSlots(b.name, b.params)
 
         if (!noStack) addGlobalSlot("sp", SP_TOP)
@@ -1332,7 +1401,14 @@ private class CodeGen(private val compact: Boolean, private val safeCompare: Boo
         lines.add("# Toy CPU assembly. 8-bit values, wraps mod 256.")
         lines.add("# The return value ends up in ACC when the program stops.")
         lines.add("")
-        lines.addAll(peephole(code))
+        // Peephole first (it drops lines), carrying the parallel C-line list in
+        // lockstep so each annotation stays on the correct FINAL line.
+        val (peeped, peepedLines) = peephole(code, codeLines)
+        if (annotateCLines) {
+            peeped.forEachIndexed { k, ln -> lines.add(annotateLine(ln, peepedLines[k])) }
+        } else {
+            lines.addAll(peeped)
+        }
         lines.add("")
         lines.add(DATA_MARKER)
         for (label in declaredOrder) lines.add("$label: 0")
@@ -1486,6 +1562,19 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
     private var uid = 0
     private var curCaller: String? = null
 
+    // C line of the statement currently being lifted. Threaded through
+    // [liftStmt] so the synthetic nodes built by [liftCall]/[expandCall]
+    // (arg-temp Decls, CallSite, Push/Assign/SetMark/CallJump/capture/Pop, the
+    // read BuiltinStmt) carry the originating statement's line into codegen.
+    // Mirrors pytoy's CallLifter._cur_line / _stamp.
+    private var curCLine: Int? = null
+
+    /** Tag a freshly built node with [curCLine] (if any) and return it. */
+    private fun <T : Stmt> stamp(node: T): T {
+        if (curCLine != null) node.cLine = curCLine
+        return node
+    }
+
     private fun nextSite(fname: String): Int {
         val k = callCounts.getOrElse(fname) { 0 }
         callCounts[fname] = k + 1
@@ -1572,7 +1661,7 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
         is Expr.Num -> e
     }
 
-    private fun renameStmt(s: Stmt, rename: Map<String, String>): Stmt = when (s) {
+    private fun renameStmt(s: Stmt, rename: Map<String, String>): Stmt = carryLine(s, when (s) {
         is Stmt.Decl -> Stmt.Decl(rename.getOrElse(s.name) { s.name },
             s.init?.let { renameExpr(it, rename) })
         is Stmt.Assign -> Stmt.Assign(rename.getOrElse(s.name) { s.name }, renameExpr(s.expr, rename))
@@ -1589,64 +1678,79 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
         is Stmt.ExprStmt -> Stmt.ExprStmt(renameExpr(s.expr, rename))
         is Stmt.Label, is Stmt.Goto -> s
         else -> s
-    }
+    })
 
     // ── statement pass ──
+    // Set the "current C line" for everything this statement emits (the nodes
+    // appended here, plus any call sequences liftCalls appends via liftCall),
+    // and restore it afterwards so a nested liftStmt doesn't leak its line
+    // outward. A Block has no line of its own; its children set theirs.
+    // Mirrors pytoy's lift_stmt wrapper.
     private fun liftStmt(s: Stmt, out: MutableList<Stmt>, retSlot: String?) {
+        val prev = curCLine
+        if (s.cLine != null) curCLine = s.cLine
+        try {
+            liftStmtInner(s, out, retSlot)
+        } finally {
+            curCLine = prev
+        }
+    }
+
+    private fun liftStmtInner(s: Stmt, out: MutableList<Stmt>, retSlot: String?) {
         when (s) {
             is Stmt.Block -> s.stmts.forEach { liftStmt(it, out, retSlot) }
             is Stmt.Decl -> {
                 val init2 = s.init?.let { liftCalls(it, out) }
-                out.add(Stmt.Decl(s.name, init2))
+                out.add(carryLine(s, Stmt.Decl(s.name, init2)))
             }
             is Stmt.ArrayDecl -> {
                 val init2 = s.init?.map { liftCalls(it, out) }
-                out.add(Stmt.ArrayDecl(s.name, s.size, init2))
+                out.add(carryLine(s, Stmt.ArrayDecl(s.name, s.size, init2)))
             }
-            is Stmt.Assign -> out.add(Stmt.Assign(s.name, liftCalls(s.expr, out)))
+            is Stmt.Assign -> out.add(carryLine(s, Stmt.Assign(s.name, liftCalls(s.expr, out))))
             is Stmt.IdxAssign -> {
                 val idx2 = liftCalls(s.idx, out)
                 val expr2 = liftCalls(s.expr, out)
-                out.add(Stmt.IdxAssign(s.name, idx2, expr2))
+                out.add(carryLine(s, Stmt.IdxAssign(s.name, idx2, expr2)))
             }
             is Stmt.DerefAssign -> {
                 val ptr2 = liftCalls(s.ptr, out)
                 val expr2 = liftCalls(s.expr, out)
-                out.add(Stmt.DerefAssign(ptr2, expr2))
+                out.add(carryLine(s, Stmt.DerefAssign(ptr2, expr2)))
             }
             is Stmt.ExprStmt -> liftCalls(s.expr, out)
             is Stmt.Return -> {
                 val expr2 = liftCalls(s.expr!!, out)
                 if (retSlot == null) {
-                    out.add(Stmt.Return(expr2))
+                    out.add(carryLine(s, Stmt.Return(expr2)))
                 } else {
-                    out.add(Stmt.Assign(retSlot, expr2))
-                    out.add(Stmt.Goto("${retSlot.dropLast(5)}__dispatch"))
+                    out.add(carryLine(s, Stmt.Assign(retSlot, expr2)))
+                    out.add(stamp(Stmt.Goto("${retSlot.dropLast(5)}__dispatch")))
                 }
             }
             is Stmt.If -> {
                 val cond2 = liftCalls(s.cond, out)
                 val then2 = blockOf(s.then, retSlot)
                 val else2 = s.els?.let { blockOf(it, retSlot) }
-                out.add(Stmt.If(cond2, then2, else2))
+                out.add(carryLine(s, Stmt.If(cond2, then2, else2)))
             }
             is Stmt.While -> {
                 val cond = s.cond
                 if (callsIn(cond).isEmpty()) {
                     val bodyOut = mutableListOf<Stmt>()
                     liftStmt(s.body, bodyOut, retSlot)
-                    out.add(Stmt.While(cond, Stmt.Block(bodyOut)))
+                    out.add(carryLine(s, Stmt.While(cond, Stmt.Block(bodyOut))))
                     return
                 }
                 val end = fresh("while_end")
                 val inner = mutableListOf<Stmt>()
                 val cond2 = liftCalls(cond, inner)
-                inner.add(Stmt.If(Expr.UnOp("!", cond2), Stmt.Goto(end), null))
+                inner.add(stamp(Stmt.If(Expr.UnOp("!", cond2), Stmt.Goto(end), null)))
                 liftStmt(s.body, inner, retSlot)
-                out.add(Stmt.While(Expr.Num(1), Stmt.Block(inner)))
-                out.add(Stmt.Label(end))
+                out.add(carryLine(s, Stmt.While(Expr.Num(1), Stmt.Block(inner))))
+                out.add(stamp(Stmt.Label(end)))
             }
-            is Stmt.Label, is Stmt.Goto -> out.add(s)
+            is Stmt.Label, is Stmt.Goto -> out.add(stamp(s))
             else -> throw CompileError("cannot compile statement $s")
         }
     }
@@ -1654,7 +1758,7 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
     private fun blockOf(s: Stmt, retSlot: String?): Stmt {
         val inner = mutableListOf<Stmt>()
         liftStmt(s, inner, retSlot)
-        return Stmt.Block(inner)
+        return carryLine(s, Stmt.Block(inner))
     }
 
     // ── save/restore insertion (live-variable analysis) ──
@@ -1775,7 +1879,7 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
             is Stmt.Block -> {
                 val (new, liveNew) = liveBlock(s.stmts, live, liveAtLabel, callerSlots,
                     changed, record, caller, skip)
-                return (if (record) Stmt.Block(new!!) else s) to liveNew
+                return (if (record) carryLine(s, Stmt.Block(new!!)) else s) to liveNew
             }
             is Stmt.Decl -> {
                 live.remove(s.name)
@@ -1828,7 +1932,7 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
                 val merged = (liveThen + liveElse).toMutableSet()
                 exprUses(s.cond, merged)
                 val outS: Stmt = if (record) {
-                    Stmt.If(s.cond, asStmt(newThen)!!, asStmt(newElse))
+                    carryLine(s, Stmt.If(s.cond, asStmt(newThen)!!, asStmt(newElse)))
                 } else s
                 return outS to merged
             }
@@ -1846,7 +1950,7 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
                 val outS: Stmt = if (record) {
                     val (newBody, _) = liveBlock((s.body as Stmt.Block).stmts, bodyLiveOut,
                         liveAtLabel, callerSlots, changed, true, caller, skip)
-                    Stmt.While(s.cond, Stmt.Block(newBody!!))
+                    carryLine(s, Stmt.While(s.cond, Stmt.Block(newBody!!)))
                 } else s
                 return outS to bodyLiveOut
             }
@@ -1883,14 +1987,20 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
 
         if (!record) return s to live
 
+        // Expand: [push saves] param-assigns setmark call_jump capture [pop rev].
+        // Every emitted statement belongs to the same C statement as the call,
+        // so tag them all with the CallSite node's recorded line. Mirrors
+        // pytoy's expandCall `tag(...)` using stmt_lines[id(call_site)].
+        val line = s.cLine
+        fun <T : Stmt> tag(node: T): T { if (line != null) node.cLine = line; return node }
         val doSave = save.isNotEmpty() && !skip
         val stmts = mutableListOf<Stmt>()
-        if (doSave) for (slot in save) stmts.add(Stmt.Push(slot))
-        for ((pslot, tmp) in s.paramPairs) stmts.add(Stmt.Assign(pslot, Expr.Var(tmp)))
-        stmts.add(Stmt.SetMark(s.name, s.k))
-        stmts.add(Stmt.CallJump(s.name, s.cont))
-        stmts.add(Stmt.Decl(s.cap, Expr.Var("${s.name}__ret")))
-        if (doSave) for (slot in save.reversed()) stmts.add(Stmt.Pop(slot))
+        if (doSave) for (slot in save) stmts.add(tag(Stmt.Push(slot)))
+        for ((pslot, tmp) in s.paramPairs) stmts.add(tag(Stmt.Assign(pslot, Expr.Var(tmp))))
+        stmts.add(tag(Stmt.SetMark(s.name, s.k)))
+        stmts.add(tag(Stmt.CallJump(s.name, s.cont)))
+        stmts.add(tag(Stmt.Decl(s.cap, Expr.Var("${s.name}__ret"))))
+        if (doSave) for (slot in save.reversed()) stmts.add(tag(Stmt.Pop(slot)))
         return stmts to live
     }
 
@@ -1936,11 +2046,11 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
             val args2 = args.map { liftCalls(it, out) }
             if (name == "read") {
                 val cap = fresh("readret")
-                out.add(Stmt.Decl(cap, null))
-                out.add(Stmt.BuiltinStmt(name, args2, cap))
+                out.add(stamp(Stmt.Decl(cap, null)))
+                out.add(stamp(Stmt.BuiltinStmt(name, args2, cap)))
                 return Expr.Var(cap)
             }
-            out.add(Stmt.BuiltinStmt(name, args2, null))
+            out.add(stamp(Stmt.BuiltinStmt(name, args2, null)))
             return Expr.Num(0)
         }
 
@@ -1954,7 +2064,7 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
         for (arg in args) {
             val arg2 = liftCalls(arg, out)
             val tmp = fresh("arg")
-            out.add(Stmt.Decl(tmp, arg2))
+            out.add(stamp(Stmt.Decl(tmp, arg2)))
             argTemps.add(tmp)
         }
         val paramPairs = f.params.zip(argTemps).map { (pname, tmp) ->
@@ -1964,7 +2074,7 @@ private class CallLifter(funcsList: List<Func>, recursive: Set<String>) {
         val k = nextSite(name)
         val cont = "${name}__cont_$k"
         val cap = fresh("callret")
-        out.add(Stmt.CallSite(name, paramPairs, k, cont, cap, argTemps))
+        out.add(stamp(Stmt.CallSite(name, paramPairs, k, cont, cap, argTemps)))
         return Expr.Var(cap)
     }
 }
@@ -2063,7 +2173,7 @@ private fun foldExpr(e: Expr): Expr {
     }
 }
 
-private fun foldStmt(s: Stmt): Stmt = when (s) {
+private fun foldStmt(s: Stmt): Stmt = carryLine(s, when (s) {
     is Stmt.Decl -> Stmt.Decl(s.name, s.init?.let { foldExpr(it) })
     is Stmt.Assign -> Stmt.Assign(s.name, foldExpr(s.expr))
     is Stmt.IdxAssign -> Stmt.IdxAssign(s.name, foldExpr(s.idx), foldExpr(s.expr))
@@ -2074,7 +2184,7 @@ private fun foldStmt(s: Stmt): Stmt = when (s) {
     is Stmt.While -> Stmt.While(foldExpr(s.cond), foldStmt(s.body))
     is Stmt.Block -> Stmt.Block(s.stmts.map { foldStmt(it) })
     else -> s
-}
+})
 
 private fun foldProgram(funcs: List<Func>): List<Func> =
     funcs.map { Func(it.name, it.params, foldStmt(it.body)) }
@@ -2100,8 +2210,19 @@ data class Opts(
 /**
  * Compile C source into Toy CPU assembly text (.toys). Faithful port of pytoy's
  * compile_source(src, source_name, opts).
+ *
+ * When annotateCLines is true, each emitted asm line that originates from a C
+ * statement gets a trailing `# @c:N` comment (N = 1-based C source line). The
+ * marker is inert (the assembler ignores everything after '#'), so the memory
+ * image is identical to the unannotated output. Default false → byte-identical
+ * to the plain output.
  */
-fun compileSource(src: String, sourceName: String, opts: Opts = Opts()): String {
+fun compileSource(
+    src: String,
+    sourceName: String,
+    opts: Opts = Opts(),
+    annotateCLines: Boolean = false,
+): String {
     val toks = lex(src)
     var funcs = Parser(toks).parseProgram()
 
@@ -2152,7 +2273,8 @@ fun compileSource(src: String, sourceName: String, opts: Opts = Opts()): String 
 
     val gen = CodeGen(compact = opts.compact, safeCompare = opts.safeCompare)
     val noStack = opts.stackfree || recursive.isEmpty()
-    var asm = gen.generate(mainBlock, bodies, sourceName, noStack = noStack)
+    var asm = gen.generate(mainBlock, bodies, sourceName, noStack = noStack,
+                           annotateCLines = annotateCLines)
     asm = passthroughDirectives(src, asm)
     return asm
 }

@@ -528,6 +528,45 @@ table) and an assembler test (20 cases: parseVal forms, happy path, and every
 error message including the did-you-mean / ignored-operand / too-big / source-
 line-echo behaviours).
 
+### 10.4 Example categorization (C | asm browser)
+
+The bundled examples are categorized so a browser UI can group them. The
+`Example` model (generated `ExampleSources.kt`) now has three kinds —
+`ExampleKind { ASM, C, TOYO }` — and a `compilers: List<String>` field used only
+for C examples. `source` holds the raw text: `.toys` for ASM, the `.toyc` C
+source for C (so the UI can show the C|asm view by compiling on selection),
+`.toyo` listing for TOYO.
+
+**Compiler compatibility** for a C example (which of `"minicc"` / `"toycc"`
+accept it) is computed in the Python generator, which runs against the pytoy
+checkout: it actually tries pytoy's `minicc` and `toycc` on the source and
+catches their errors (same logic as pytoy's `examples_index._detect_compilers`).
+Recursion is the usual splitter — minicc rejects it, so the recursive examples
+(`count_rec`, `fibonacci_rec`, `gcd_rec`, `sort_array_fn`, `sum_countdown`) are
+tagged `toycc` only; the simple ones list both.
+
+**Grouping helper** (generated): `groupedExamples(): Map<String, List<Example>>`
+keyed `"Assembly"`, `"C (minicc)"`, `"C (toycc)"`, `"Bytecode"` (empty categories
+dropped). A C example appears under every compiler that accepts it, so a
+both-compilers example shows in both C lists. Mirrors pytoy's `grouped_examples`.
+The UI consumes this; building the UI is a separate task.
+
+**What's embedded.** C examples from `examples/c/02-extended/` and `03-programs/`
+(24 files). `examples/c/04-io/` is **skipped**: those use `read()`/`write()`
+memory-mapped I/O (`greet_name`/`pin_check` block on user input and never halt
+headless), matching the deterministic-run convention and the existing
+`CExamples.kt` test exclusion. `SimViewModel.load()` now compiles a `C` example
+with ktoy's toycc before assembling (the `when(kind)` is exhaustive so a future
+kind can't silently fall through to the ASM path).
+
+**Tests** (`ExampleCatalogTest`, commonTest): grouping returns the four expected
+categories in order; a recursive C example is toycc-only while a simple one
+lists both; and every embedded C example compiles with ktoy's toycc, assembles
+cleanly, and runs to its `// expect: N` value. That both verifies the embedding
+and gives the C|asm feature verified data. (The existing `CCompilerTest` already
+proves ktoy's `compileSource` output matches pytoy byte-for-byte for these same
+sources.)
+
 ### 10.3 Not in v1 (deferred)
 
 iOS / JVM desktop / Web targets (the scaffold is Android-only for now; the core

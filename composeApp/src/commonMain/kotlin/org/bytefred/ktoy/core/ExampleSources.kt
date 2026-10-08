@@ -4,13 +4,32 @@ package org.bytefred.ktoy.core
  * The bundled example programs, embedded as strings so they ship inside
  * the app (and the tests) with no filesystem access.
  *
+ * Three kinds (see [ExampleKind]):
+ *   - ASM  — assembly source (*.toys); to load: assemble.
+ *   - C    — C source (*.toyc); to load: compile (with a compiler from
+ *            [Example.compilers]) then assemble. `source` holds the C text
+ *            itself, so the UI can show the C|asm view.
+ *   - TOYO — pre-compiled bytecode listing (*.toyo); to load: parse.
+ *
+ * For C examples, [Example.compilers] names the compiler(s) that accept the
+ * source — a subset of "minicc", "toycc". minicc rejects recursion (and
+ * other constructs toycc supports), so a recursive example lists only
+ * "toycc" while a simple one lists both. The list is empty for ASM/TOYO.
+ *
  * GENERATED from pytoy examples/ by scripts/gen_example_sources.py — do
- * not edit by hand; regenerate when the .toys / .toyo sources change.
+ * not edit by hand; regenerate when the .toys / .toyc / .toyo sources or
+ * the compilers change.
  */
 
-data class Example(val name: String, val kind: ExampleKind, val source: String)
+enum class ExampleKind { ASM, C, TOYO }
 
-enum class ExampleKind { ASM, TOYO }
+data class Example(
+    val name: String,
+    val kind: ExampleKind,
+    val source: String,
+    /** C-only: compilers that accept this source ("minicc"/"toycc"); empty otherwise. */
+    val compilers: List<String> = emptyList(),
+)
 
 val EXAMPLES: List<Example> = listOf(
     Example("fibonacci_iter", ExampleKind.ASM, """# fibonacci.toys
@@ -944,6 +963,655 @@ c12: 12
 c13: 13
 c14: 14
 """),
+    Example("bit_operators.toyc", ExampleKind.C, """// expect: 36
+/*
+ * bitops.c - showcase the bitwise operators and shifts, which map directly
+ * to Toy CPU opcodes (and, or, xor, not, left, right).
+ *
+ *   x    = 0xF0            = 11110000
+ *   y    = 0x3C            = 00111100
+ *   a = x & y             = 00110000 = 0x30 = 48
+ *   b = x | y             = 11111100 = 0xFC = 252
+ *   c = x ^ y             = 11001100 = 0xCC = 204
+ *   a = a >> 2            = 00001100 = 12
+ *   a = a << 1            = 00011000 = 24
+ *   result = a + (c & 0x0F)   c & 0x0F = 00001100 = 12; 24 + 12 = 36
+ *
+ * Expected result: ACC = 36
+ */
+int main(void) {
+    int x = 0xF0;
+    int y = 0x3C;
+    int a = x & y;
+    int c = x ^ y;
+    a = a >> 2;
+    a = a << 1;
+    return a + (c & 0x0F);
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("if_then_else.toyc", ExampleKind.C, """// expect: 5
+/*
+ * ifelse.c - simple if/else demonstration.
+ *
+ * a = 7, b = 12. Since a < b, the result is b - a = 5.
+ *
+ * Expected result: ACC = 5
+ */
+int main(void) {
+    int a = 7;
+    int b = 12;
+    int r;
+    if (a < b) {
+        r = b - a;
+    } else {
+        r = a - b;
+    }
+    return r;
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("msb_shift_vs_mask.toyc", ExampleKind.C, """// expect: 0
+/*
+ * msb_shift_vs_mask.toyc - two ways to read the top bit (bit 7) of a byte.
+ *
+ * Same result, different cost on the Toy CPU:
+ *   x >> 7      shifts right seven times -> seven RIGHT instructions
+ *   x & 128     one AND, then test -> much shorter
+ *
+ * Many tasks have several correct solutions; the cheaper one matters here
+ * because code and data share the same 256 bytes.
+ *
+ * Returns 0 when both methods agree.
+ */
+
+int main(void) {
+    int x = 200;              // 11001000, top bit set
+
+    int msb1 = x >> 7;        // via shift
+
+    int msb2 = 0;             // via mask
+    if (x & 128) msb2 = 1;
+
+    return msb1 ^ msb2;       // 0 -> both agree
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("multiply_doubling.toyc", ExampleKind.C, """// expect: 42
+/*
+ * multiply_doubling.c - a * b by double-and-add, using +, shifts and a bit test.
+ *
+ * One step per BIT of b instead of per unit: add a when b's low bit is set,
+ * then double a and halve b. b has at most 8 bits, so at most 8 steps -- so
+ * 255 * 255 no longer explodes the way repeated addition does.
+ *
+ * b = 110 binary = 4 + 2, so 7*6 = 7*4 + 7*2 = 28 + 14 = 42.
+ *
+ * This is the method the '*' operator compiles to. C analogue of
+ * examples/asm/02-extended/multiply_doubling.toys.
+ */
+int main(void) {
+    int a = 7;
+    int b = 6;
+    int res = 0;
+    while (b != 0) {
+        if (b & 1) {
+            res = res + a;
+        }
+        a = a << 1;
+        b = b >> 1;
+    }
+    return res;
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("multiply_operator.toyc", ExampleKind.C, """// expect: 42
+/*
+ * multiply_operator.c - compute a * b with the '*' operator.
+ *
+ * The Toy CPU has no multiply instruction, so the compiler expands '*' to a
+ * double-and-add loop (one step per bit of b). See multiply_repeated.toyc and
+ * multiply_doubling.toyc for the same two methods written out by hand with only
+ * +, -, and shifts.
+ *
+ * With a = 7, b = 6: result = 42.
+ */
+int main(void) {
+    int a = 7;
+    int b = 6;
+    return a * b;
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("multiply_repeated.toyc", ExampleKind.C, """// expect: 42
+/*
+ * multiply_repeated.c - a * b by repeated addition, using only '+'.
+ *
+ * Add a to the result b times. Simple, but slow: the loop runs b times, so
+ * 255 * 255 would do 255 additions. multiply_doubling.toyc does the same in
+ * about 8 steps. (The '*' operator itself compiles to the doubling method;
+ * this file spells out the naive one by hand.)
+ *
+ * C analogue of examples/asm/02-extended/multiply_repeated.toys.
+ * With a = 7, b = 6: result = 42.
+ */
+int main(void) {
+    int a = 7;
+    int b = 6;
+    int res = 0;
+    while (b != 0) {
+        res = res + a;
+        b = b - 1;
+    }
+    return res;
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("popcount.toyc", ExampleKind.C, """// expect: 3
+/*
+ * popcount.c - count the set bits (1-bits) of a number.
+ *
+ * Look at the lowest bit, add it to the count, then shift right; repeat until
+ * the number is zero. The lowest bit is x & 1 (the Toy CPU has no `%`, but
+ * `x & 1` is exactly `x % 2` for the low bit).
+ *
+ * x = 37 = 32 + 4 + 1 = 100101 in binary -> 3 bits set.
+ *
+ * Expected result: ACC = 3
+ */
+
+int popcount(int x) {
+    int count = 0;
+    while (x != 0) {
+        count = count + (x & 1);   /* add the lowest bit */
+        x = x >> 1;                /* drop it */
+    }
+    return count;
+}
+
+int main(void) {
+    return popcount(37);
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("times7_operator.toyc", ExampleKind.C, """// expect: 28
+/*
+ * sevenfold.c - compute 7 * a.
+ *
+ * Port of examples/asm/03-programs/sevenfold.toys. Uses the '*' operator (repeated addition).
+ * With a = 4: result = 28.
+ *
+ * Expected result: ACC = 28
+ */
+int main(void) {
+    int a = 4;
+    return 7 * a;
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("bigint_add.toyc", ExampleKind.C, """// expect: 0
+/*
+ * bigint_add.toyc - add two numbers wider than one byte.
+ *
+ * The Toy CPU is 8-bit, so a 32-bit value is kept as four bytes (little-endian,
+ * least significant first). Addition goes byte by byte, carrying into the next
+ * byte when a sum overflows past 255.
+ *
+ * Carry is detected with the top-bit mask (x & 128), not a 7-step shift:
+ *   carry out of a+b = bit 7 of  (a & b) | ((a ^ b) & ~sum)
+ *
+ * A = 123456789  -> bytes [21, 205, 91, 7]
+ * B = 314159265  -> bytes [161, 176, 185, 18]
+ * C = A + B = 437616054 -> bytes [182, 125, 21, 26]
+ *
+ * Returns 0: C is checked against the expected bytes by XOR-ing the differences
+ * together (0 only if every byte matches).
+ */
+
+int main(void) {
+    int a0 = 21;  int a1 = 205; int a2 = 91;  int a3 = 7;
+    int b0 = 161; int b1 = 176; int b2 = 185; int b3 = 18;
+    int k;
+
+    int c0 = (a0 + b0) & 255;
+    k = ((a0 & b0) | ((a0 ^ b0) & ~c0)) & 128;
+
+    int c1 = (a1 + b1) & 255; if (k) c1 = (c1 + 1) & 255;
+    k = ((a1 & b1) | ((a1 ^ b1) & ~c1)) & 128;
+
+    int c2 = (a2 + b2) & 255; if (k) c2 = (c2 + 1) & 255;
+    k = ((a2 & b2) | ((a2 ^ b2) & ~c2)) & 128;
+
+    int c3 = (a3 + b3) & 255; if (k) c3 = (c3 + 1) & 255;
+
+    return (c0 ^ 182) | (c1 ^ 125) | (c2 ^ 21) | (c3 ^ 26);
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("count_iter.toyc", ExampleKind.C, """// expect: 10
+/*
+ * count_iter.c - count up to 10 ITERATIVELY.
+ *
+ * Start at 1 and increment while x < 10, so x ends at 10.
+ * The recursive version is in count_rec.toyc; both return 10.
+ *
+ * Expected result: ACC = 10
+ */
+
+int main(void) {
+    int x = 1;
+    while (x < 10) {
+        x = x + 1;
+    }
+    return x;
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("count_rec.toyc", ExampleKind.C, """// expect: 10
+/*
+ * count_rec.c - count up to 10 RECURSIVELY.
+ *
+ * f(n) = 0            if n == 0
+ *      = f(n - 1) + 1 otherwise
+ * so f(10) = 10.
+ *
+ * The iterative version is in count_iter.toyc; both return 10.
+ * toycc compiles the recursion with a self-modifying-code stack (see the
+ * manual).
+ *
+ * Expected result: ACC = 10
+ */
+
+int f(int n) {
+    if (n == 0) {
+        return 0;
+    }
+    return f(n - 1) + 1;
+}
+
+int main(void) {
+    return f(10);
+}
+""", compilers = listOf("toycc")),
+    Example("fibonacci_array.toyc", ExampleKind.C, """// expect: 34
+/*
+ * fibonacci_array.c - fill an array with the first 10 Fibonacci numbers.
+ *
+ * a[0]=0, a[1]=1, then a[i] = a[i-1] + a[i-2]. The array ends up holding
+ * 0 1 1 2 3 5 8 13 21 34, and main returns the last one, a[9] = 34.
+ *
+ * Shows arrays with a computed index (a[i], a[i-1], a[i-2]) built from a loop.
+ *
+ * Expected result: ACC = 34
+ */
+
+int main(void) {
+    int a[10];
+    int i;
+    a[0] = 0;
+    a[1] = 1;
+    i = 2;
+    while (i < 10) {
+        a[i] = a[i - 1] + a[i - 2];
+        i = i + 1;
+    }
+    return a[9];
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("fibonacci_iter.toyc", ExampleKind.C, """// expect: 55
+/*
+ * fibonacci_iter.c - the n-th Fibonacci number, ITERATIVE.
+ *
+ * The recursive version is in fibonacci_rec.toyc; both compute fib(10) = 55.
+ * (8-bit values wrap mod 256, so fib(14) = 377 would overflow.)
+ *
+ * Expected result: ACC = 55
+ */
+
+int fibonacci_iter(int n) {
+    int a = 0;
+    int b = 1;
+    while (n != 0) {
+        b = a + b;   /* new b = a + old b */
+        a = b - a;   /* a = old b */
+        n = n - 1;
+    }
+    return a;
+}
+
+int main(void) {
+    return fibonacci_iter(10);
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("fibonacci_rec.toyc", ExampleKind.C, """// expect: 55
+/*
+ * fibonacci_rec.c - the n-th Fibonacci number, RECURSIVE.
+ *
+ * fibonacci_rec(n) = n                              if n < 2
+ *                  = fibonacci_rec(n-1) + fibonacci_rec(n-2)   otherwise
+ *
+ * The iterative version is in fibonacci_iter.toyc; both compute fib(10) = 55.
+ *
+ * The Toy CPU has no call/return and no stack, yet toycc compiles this real
+ * recursion by giving each function fixed global slots and bracketing every
+ * call with save/restore of the caller's live-across slots on a stack that
+ * grows down from the top of memory (see the manual).
+ *
+ * Expected result: ACC = 55
+ */
+
+int fibonacci_rec(int n) {
+    if (n < 2) {
+        return n;
+    }
+    return fibonacci_rec(n - 1) + fibonacci_rec(n - 2);
+}
+
+int main(void) {
+    return fibonacci_rec(10);
+}
+""", compilers = listOf("toycc")),
+    Example("gcd_iter.toyc", ExampleKind.C, """// expect: 12
+/*
+ * gcd_iter.c - greatest common divisor, ITERATIVE (subtraction algorithm).
+ *
+ * The recursive version is in gcd_rec.toyc; both compute the same result.
+ *
+ * gcd(48, 36): 48-36=12, 36-12=24, 24-12=12, 12-12=0 -> gcd = 12.
+ *
+ * Expected result: ACC = 12
+ */
+
+int gcd_iter(int a, int b) {
+    while (a != b) {
+        if (a > b) {
+            a = a - b;
+        } else {
+            b = b - a;
+        }
+    }
+    return a;
+}
+
+int main(void) {
+    return gcd_iter(48, 36);
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("gcd_rec.toyc", ExampleKind.C, """// expect: 12
+/*
+ * gcd_rec.c - greatest common divisor, RECURSIVE (subtraction algorithm).
+ *
+ * The iterative version is in gcd_iter.toyc; both compute the same result.
+ * toycc compiles recursion with a self-modifying-code stack (see the manual).
+ *
+ * gcd(48, 36) = gcd(12, 36) = gcd(12, 24) = gcd(12, 12) = 12.
+ *
+ * Expected result: ACC = 12
+ */
+
+int gcd_rec(int a, int b) {
+    if (a == b) {
+        return a;
+    }
+    if (a > b) {
+        return gcd_rec(a - b, b);
+    }
+    return gcd_rec(a, b - a);
+}
+
+int main(void) {
+    return gcd_rec(48, 36);
+}
+""", compilers = listOf("toycc")),
+    Example("max3.toyc", ExampleKind.C, """// expect: 4
+/*
+ * max3.c - the largest of three values a, b, c.
+ *
+ * A helper function max3(a, b, c) using only the `>` comparison. The three
+ * values are the first three digits of pi (3, 1, 4). For the maximum of a whole
+ * array, see max_array.toyc.
+ *
+ * max(3, 1, 4) = 4.
+ *
+ * Expected result: ACC = 4
+ */
+
+int max3(int a, int b, int c) {
+    int m = a;
+    if (b > m) { m = b; }
+    if (c > m) { m = c; }
+    return m;
+}
+
+int main(void) {
+    return max3(3, 1, 4);
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("max_array.toyc", ExampleKind.C, """// expect: 9
+/*
+ * max_array.c - the largest element of an array.
+ *
+ * The array holds the 10 digits of pi (3 1 4 1 5 9 2 6 5 3). A loop walks it,
+ * keeping the largest seen so far, using the `>` comparison. This is the C
+ * version of examples/asm/03-programs/max_array.toys (self-modifying code by hand). See
+ * max3.toyc for the simpler three-value version.
+ *
+ * max(3,1,4,1,5,9,2,6,5,3) = 9.
+ *
+ * Expected result: ACC = 9
+ */
+
+int main(void) {
+    int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
+    int m = a[0];
+    int i;
+    i = 1;
+    while (i < 10) {
+        if (a[i] > m) {
+            m = a[i];
+        }
+        i = i + 1;
+    }
+    return m;
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("sort3.toyc", ExampleKind.C, """// expect: 1
+/*
+ * sort3.c - sort three values and return the smallest.
+ *
+ * sort3(a, b, c) orders a <= b <= c with a few compare-and-swap steps (the same
+ * idea as bubble sort, but on three named variables instead of an array), then
+ * returns the smallest, a. The three values are the first three digits of pi
+ * (3, 1, 4). For sorting a whole array, see sort_array_inline.toyc.
+ *
+ * sorted(3, 1, 4) = 1, 3, 4  ->  smallest = 1.
+ *
+ * Expected result: ACC = 1
+ */
+
+int sort3(int a, int b, int c) {
+    int t;
+    if (a > b) { t = a; a = b; b = t; }   // a <= b
+    if (b > c) { t = b; b = c; c = t; }   // b <= c
+    if (a > b) { t = a; a = b; b = t; }   // a <= b again
+    return a;                             // smallest
+}
+
+int main(void) {
+    return sort3(3, 1, 4);
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("sort_array_fn.toyc", ExampleKind.C, """// expect: 1
+/*
+ * sort_array_function.c - bubble sort where the array is passed to a FUNCTION
+ * (see sort_array_inline.toyc for the version that sorts inline in main).
+ *
+ * The array decays to a pointer at the call: bubblesort() receives main's
+ * array by its base address and sorts it IN PLACE through indirect element
+ * access (a[i] == *(a + i), reached with self-modifying code). main then reads
+ * a[0], the smallest element.
+ *
+ * Array = the 10 digits of pi:  3 1 4 1 5 9 2 6 5 3
+ * After sorting:                1 1 2 3 3 4 5 5 6 9
+ *
+ * Expected result: ACC = 1
+ */
+
+int bubblesort(int a[], int n) {
+    int i;
+    int j;
+    int t;
+    i = 0;
+    while (i < n) {
+        j = 0;
+        while (j < n - 1 - i) {
+            if (a[j] > a[j + 1]) {
+                t = a[j];
+                a[j] = a[j + 1];
+                a[j + 1] = t;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    return 0;
+}
+
+int main(void) {
+    int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
+    bubblesort(a, 10);
+    return a[0];
+}
+""", compilers = listOf("toycc")),
+    Example("sort_array_inline.toyc", ExampleKind.C, """// expect: 1
+/*
+ * sort_array_inline.c - iterative bubble sort of a fixed 10-element array,
+ * done inline in main (see sort_array_function.toyc for the version that
+ * passes the array to a function).
+ *
+ * Port of examples/asm/03-programs/sort_array.toys to C. The array holds the 10 digits of pi
+ * (3 1 4 1 5 9 2 6 5 3); after sorting it is 1 1 2 3 3 4 5 5 6 9, so main
+ * returns a[0] = 1.
+ *
+ * toycc compiles the array as a contiguous block of data bytes plus a
+ * base-pointer byte, and reaches a[i] with self-modifying code: it computes
+ * the element address (base + i), patches it into a raw LOAD/STORE address
+ * byte, and executes that instruction (the sum_array.toys / sort_array.toys
+ * trick).
+ *
+ * The // expect annotation only checks ACC (= a[0] = 1); the full sorted array
+ * is verified from memory by scripts/verify_bubblesort_c.py and by
+ * tests/test_toycc.py::test_bubblesort_full_array.
+ *
+ * Expected result: ACC = 1
+ */
+int main(void) {
+    int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
+    int n = 10;
+    int i;
+    int j;
+    int t;
+    i = 0;
+    while (i < n) {
+        j = 0;
+        while (j < n - 1 - i) {   /* after pass i the last i are in place */
+            if (a[j] > a[j + 1]) {
+                t = a[j];
+                a[j] = a[j + 1];
+                a[j + 1] = t;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    return a[0];
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("sum3.toyc", ExampleKind.C, """// expect: 8
+/*
+ * sum3.c - add three values a + b + c.
+ *
+ * The simplest possible use of a helper function: sum3(a, b, c) returns their
+ * sum. The three values are the first three digits of pi (3, 1, 4). For summing
+ * a whole array, see sum_array.toyc.
+ *
+ * 3 + 1 + 4 = 8.
+ *
+ * Expected result: ACC = 8
+ */
+
+int sum3(int a, int b, int c) {
+    return a + b + c;
+}
+
+int main(void) {
+    return sum3(3, 1, 4);
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("sum_array.toyc", ExampleKind.C, """// expect: 39
+/*
+ * sum_array.c - sum the elements of an array.
+ *
+ * The array holds the 10 digits of pi (3 1 4 1 5 9 2 6 5 3). A loop walks it
+ * with a running index, adding each element. This is the C version of
+ * examples/asm/03-programs/sum_array.toys (which does the same with hand-written self-modifying
+ * code). See sum3.toyc for the simpler three-value version.
+ *
+ * 3+1+4+1+5+9+2+6+5+3 = 39.
+ *
+ * Expected result: ACC = 39
+ */
+
+int main(void) {
+    int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
+    int s;
+    int i;
+    s = 0;
+    i = 0;
+    while (i < 10) {
+        s = s + a[i];
+        i = i + 1;
+    }
+    return s;
+}
+""", compilers = listOf("minicc", "toycc")),
+    Example("sum_countdown.toyc", ExampleKind.C, """// expect: 15
+/*
+ * countdown.c - count down from 5 and accumulate the sum 5+4+3+2+1.
+ *
+ * Demonstrates a while loop with a decrementing counter and +=.
+ * 5 + 4 + 3 + 2 + 1 = 15.
+ *
+ * Expected result: ACC = 15
+ */
+int main(void) {
+    int i = 5;
+    int total = 0;
+    while (i != 0) {
+        total += i;
+        i -= 1;
+    }
+    return total;
+}
+""", compilers = listOf("toycc")),
+    Example("sum_of_squares.toyc", ExampleKind.C, """// expect: 25
+/*
+ * functions.c - small helper functions that call each other.
+ *
+ * Demonstrates toycc's function support: functions with parameters, called
+ * from main and from one another. The Toy CPU has no call/return instruction,
+ * so toycc gives each non-recursive function fixed global slots for its
+ * parameters and return value, emits one copy of its body, and jumps back to
+ * the right call site with a marker (see the compiler README and doc).
+ *
+ * square(x) = x * x;  sum_of_squares(a, b) = square(a) + square(b).
+ * With a = 3, b = 4:  square(3) + square(4) = 9 + 16 = 25.
+ *
+ * Expected result: ACC = 25
+ */
+
+int square(int x) {
+    return x * x;
+}
+
+int sum_of_squares(int a, int b) {
+    return square(a) + square(b);
+}
+
+int main(void) {
+    return sum_of_squares(3, 4);
+}
+""", compilers = listOf("minicc", "toycc")),
     Example("fibonacci (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
 #
 # ADDR  BYTES                   SOURCE
@@ -1028,3 +1696,33 @@ c14: 14
 #   c               =   9  (00001001)
 """),
 )
+
+/**
+ * Examples grouped for a browser UI, keyed by display category:
+ *   "Assembly", "C (minicc)", "C (toycc)", "Bytecode".
+ *
+ * A C example appears under EVERY compiler that accepts it (an example
+ * both accept shows in both "C (minicc)" and "C (toycc)"). Empty
+ * categories are omitted. Mirrors pytoy's grouped_examples.
+ */
+fun groupedExamples(): Map<String, List<Example>> {
+    val groups = linkedMapOf<String, MutableList<Example>>()
+    fun add(key: String, ex: Example) {
+        groups.getOrPut(key) { mutableListOf() }.add(ex)
+    }
+    for (ex in EXAMPLES) {
+        when (ex.kind) {
+            ExampleKind.ASM -> add("Assembly", ex)
+            ExampleKind.TOYO -> add("Bytecode", ex)
+            ExampleKind.C -> {
+                if ("minicc" in ex.compilers) add("C (minicc)", ex)
+                if ("toycc" in ex.compilers) add("C (toycc)", ex)
+            }
+        }
+    }
+    // Fixed display order; drop any category with no examples.
+    val order = listOf("Assembly", "C (minicc)", "C (toycc)", "Bytecode")
+    val out = linkedMapOf<String, List<Example>>()
+    for (key in order) groups[key]?.let { out[key] = it }
+    return out
+}

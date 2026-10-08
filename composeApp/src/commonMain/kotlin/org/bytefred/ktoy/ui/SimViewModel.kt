@@ -13,6 +13,7 @@ import org.bytefred.ktoy.core.IoFormat
 import org.bytefred.ktoy.core.ListingLine
 import org.bytefred.ktoy.core.Machine
 import org.bytefred.ktoy.core.assemble
+import org.bytefred.ktoy.core.compileSource
 import org.bytefred.ktoy.core.parseToyo
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -79,22 +80,37 @@ class SimViewModel : ViewModel() {
         bump()
     }
 
-    /** Load an example (ASM is assembled; TOYO is parsed as a byte image). */
+    /**
+     * Load an example:
+     *   - ASM  — assemble the source directly.
+     *   - C    — compile the C source to assembly first (with ktoy's toycc),
+     *            then assemble it. The example's `name` keeps its .toyc
+     *            extension so the generated header matches pytoy.
+     *   - TOYO — parse the source as a byte image.
+     */
     fun load(example: Example) {
         stopRun()
         title = example.name
-        if (example.kind == ExampleKind.TOYO) {
-            val mem = parseToyo(example.source)
-            listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
-            syms = emptyMap()
-            hasSource = false
-            machine = Machine(mem, (0..255).toSet())
-        } else {
-            val res: AssemblyResult = assemble(example.source)
-            listing = res.listing
-            syms = res.syms
-            hasSource = true
-            machine = Machine(res.mem, res.dataAddrs)
+        when (example.kind) {
+            ExampleKind.TOYO -> {
+                val mem = parseToyo(example.source)
+                listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
+                syms = emptyMap()
+                hasSource = false
+                machine = Machine(mem, (0..255).toSet())
+            }
+            ExampleKind.ASM, ExampleKind.C -> {
+                val asm = if (example.kind == ExampleKind.C) {
+                    compileSource(example.source, example.name)
+                } else {
+                    example.source
+                }
+                val res: AssemblyResult = assemble(asm)
+                listing = res.listing
+                syms = res.syms
+                hasSource = true
+                machine = Machine(res.mem, res.dataAddrs)
+            }
         }
         bump()
     }
