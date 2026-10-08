@@ -8,9 +8,12 @@ androidx-core = "1.17.0"
 androidx-lifecycle = "2.9.4"
 composeMultiplatform = "1.10.3"
 exifinterface = "1.4.1"
-kotlin = "2.2.20"
+kotlin = "2.3.21"
+# kotlin-wrappers: 2026.9.3 pulls kotlin-stdlib-js 2.4.20 (ABI 2.4), which the
+# 2.3.21 compiler can't read ("Incompatible ABI version"). Stay on the last
+# release built against Kotlin 2.3.x.
 kotlinBrowser = "2025.9.11"
-kotlinx-coroutines = "1.10.2"
+kotlinx-coroutines = "1.11.0"
 kotlinxDatetime = "0.7.1"
 
 [libraries]
