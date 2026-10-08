@@ -1,6 +1,6 @@
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
-    alias(libs.plugins.androidApplication)
+    alias(libs.plugins.androidKmpLibrary)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
 }
@@ -8,7 +8,13 @@ plugins {
 kotlin {
     jvmToolchain(21)
 
-    androidTarget()
+    androidLibrary {
+        namespace = "org.bytefred.ktoy.shared"
+        compileSdk = libs.versions.android.compileSdk.get().toInt()
+        minSdk = libs.versions.android.minSdk.get().toInt()
+        androidResources { enable = true }   // CRITICAL: else Compose resources aren't packaged (CMP-9547)
+        withHostTest {}
+    }
 
     jvm()
 
@@ -27,6 +33,8 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
         }
         androidMain.dependencies {
+            // AppBackHandler.android.kt (the Android actual) uses
+            // androidx.activity.compose.BackHandler, so this stays here.
             implementation(libs.androidx.activity.compose)
         }
         jvmMain.dependencies {
@@ -81,27 +89,4 @@ val genExamples = tasks.register<Exec>("genExampleSources") {
 // Run the generator before any Kotlin source is compiled.
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask<*>>().configureEach {
     dependsOn(genExamples)
-}
-
-android {
-    namespace = "org.bytefred.ktoy"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
-
-    defaultConfig {
-        applicationId = "org.bytefred.ktoy"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = project.version.toString()
-    }
-
-    buildTypes {
-        getByName("release") {
-            isMinifyEnabled = false
-        }
-    }
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
 }

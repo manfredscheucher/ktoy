@@ -1,12 +1,14 @@
 [versions]
-agp = "8.13.2"
-android-compileSdk = "36"
+agp = "9.4.0"
+android-compileSdk = "37"
 android-minSdk = "24"
-android-targetSdk = "36"
-androidx-activity = "1.11.0"
-androidx-core = "1.17.0"
-androidx-lifecycle = "2.9.4"
-composeMultiplatform = "1.10.3"
+android-targetSdk = "37"
+androidx-activity = "1.13.0"
+androidx-core = "1.19.1"
+# CMP-line lifecycle (org.jetbrains.androidx.lifecycle), tied to Compose MP — NOT
+# the Android androidx.lifecycle version. 2.11.0 ships with Compose MP 1.12.1.
+androidx-lifecycle = "2.11.0"
+composeMultiplatform = "1.12.1"
 exifinterface = "1.4.1"
 kotlin = "2.3.21"
 # kotlin-wrappers: 2026.9.3 pulls kotlin-stdlib-js 2.4.20 (ABI 2.4), which the
@@ -14,7 +16,7 @@ kotlin = "2.3.21"
 # release built against Kotlin 2.3.x.
 kotlinBrowser = "2025.9.11"
 kotlinx-coroutines = "1.11.0"
-kotlinxDatetime = "0.7.1"
+kotlinxDatetime = "0.8.0"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
@@ -30,7 +32,9 @@ kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
+androidKmpLibrary = { id = "com.android.kotlin.multiplatform.library", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
+kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMultiplatform" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
