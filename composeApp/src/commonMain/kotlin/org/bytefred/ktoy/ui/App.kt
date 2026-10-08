@@ -1,6 +1,5 @@
 package org.bytefred.ktoy.ui
 
-import androidx.compose.ui.backhandler.BackHandler
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,8 +48,10 @@ fun App() {
             if (!vm.hasProgram) vm.loadEmpty()
             var showList by remember { mutableStateOf(false) }
 
-            // System-back closes the example list if it's open.
-            BackHandler(enabled = showList) { showList = false }
+            // System-back closes the example list if it's open. Wrapped in a
+            // platform shim: Android maps it to the real system-back handler;
+            // JVM/web have no system back, so it's a no-op there.
+            AppBackHandler(enabled = showList) { showList = false }
 
             SimulatorScreen(vm = vm, onLoad = { showList = true })
 

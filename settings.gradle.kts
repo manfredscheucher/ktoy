@@ -34,9 +34,9 @@ plugins {
 
 include(":composeApp")
 
-// Shared, app-agnostic logic from the kotlin-common git submodule (checked out under
-// ./kotlin-common/). We only need :core here — it provides the leveled Logger
-// (Log/LogLevel, Logcat on Android, println elsewhere). It resolves libs.* against
-// THIS build's version catalog.
-include(":core")
-project(":core").projectDir = file("kotlin-common/core")
+// kotlin-common :core (the leveled Logger) is currently unused by ktoy and its
+// commonMain doesn't compile for the js/browser target (kotlin.time.Instant on
+// Kotlin 2.3), so we don't include it. Re-enable both lines if ktoy starts using
+// the Logger — and then :core needs a js() target in the submodule:
+// include(":core")
+// project(":core").projectDir = file("kotlin-common/core")
