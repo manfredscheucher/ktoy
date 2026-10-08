@@ -36,9 +36,14 @@ import org.bytefred.ktoy.core.formatByte
 import org.bytefred.ktoy.core.IoFormat
 
 /**
- * The simulator/debugger screen: source panel (assembly) + memory panel, with
- * Step / Run / Undo / Reset. Portrait stacks the panels; landscape (wide) puts
- * them side by side. Highlighting mirrors pytoy.
+ * The simulator/debugger screen with an adaptive 1/2/3-column layout driven by
+ * what's loaded (pytoy's three-column view):
+ *   - bytecode (.toyo) → memory only (1 column)
+ *   - assembly (.toys) → asm + memory (2 columns)
+ *   - C (.toyc)        → C + asm + memory (3 columns)
+ * Portrait stacks the columns; landscape puts them side by side. A click in ANY
+ * column highlights the linked lines/cells in the others transitively (C ↔ asm ↔
+ * bytecode). Highlighting mirrors pytoy.
  */
 @Composable
 fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
@@ -47,6 +52,8 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     val m = vm.machine ?: return
 
     var editTarget by remember { mutableStateOf<Int?>(null) }
+    // true while the C-edit dialog is open (long-press on the C column)
+    var editCOpen by remember { mutableStateOf(false) }
 
     // current instruction (for PC / argument highlighting)
     val dec = decode(m.mem, m.pc)
@@ -58,6 +65,11 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     // per describe() call
     val rsym = remember(vm.syms) { vm.syms.entries.associate { (k, v) -> v to k } }
     val symOf: (Int) -> String = { a -> rsym[a] ?: a.toString() }
+
+    // the shared transitive selection, computed once and read by all panels so a
+    // click anywhere lights up consistently everywhere (pytoy's _selection_sets)
+    val sel = vm.selectionSets()
+    val (changedCLines, changedRows) = vm.changeSets()
 
     Column(Modifier.fillMaxSize().padding(8.dp)) {
         // top bar: Load button (opens the example list) + current program title +
@@ -74,29 +86,36 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             }
         }
 
-        // Two panels, like pytoy: left = the assembly source, right = the CPU &
-        // memory (registers/status AND the memory listing). Side by side when
-        // wide, stacked when narrow; each in a labelled, bordered box.
+        // Adaptive columns, like pytoy: C (only for a C load) | asm (only with
+        // source) | CPU & memory (always). Side by side when wide, stacked when
+        // narrow; each in a labelled, bordered box.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
             val wide = maxWidth > maxHeight
+            val cCol: @Composable (Modifier) -> Unit = { mod ->
+                CSourcePanel(vm, sel.cLines, changedCLines, { editCOpen = true }, mod)
+            }
             val src: @Composable (Modifier) -> Unit = { mod ->
-                LabeledPanel("Assembly", mod) { SourcePanel(vm, pcBytes, dec.argAddr, Modifier.fillMaxSize()) }
+                LabeledPanel("Assembly", mod) {
+                    SourcePanel(vm, pcBytes, dec.argAddr, sel.asmRows, changedRows, Modifier.fillMaxSize())
+                }
             }
             val mem: @Composable (Modifier) -> Unit = { mod ->
                 LabeledPanel("CPU & memory", mod) {
                     Column(Modifier.fillMaxSize()) {
                         StatusBlock(vm, symOf)
-                        MemoryPanel(vm, pcBytes, dec.argAddr, { editTarget = it }, Modifier.fillMaxSize())
+                        MemoryPanel(vm, pcBytes, dec.argAddr, sel.addrs, { editTarget = it }, Modifier.fillMaxSize())
                     }
                 }
             }
             if (wide) {
                 Row(Modifier.fillMaxSize()) {
+                    if (vm.hasCSource) cCol(Modifier.weight(1f).fillMaxSize())
                     if (vm.hasSource) src(Modifier.weight(1f).fillMaxSize())
                     mem(Modifier.weight(1f).fillMaxSize())
                 }
             } else {
                 Column(Modifier.fillMaxSize()) {
+                    if (vm.hasCSource) cCol(Modifier.weight(1f).fillMaxWidth())
                     if (vm.hasSource) src(Modifier.weight(1f).fillMaxWidth())
                     mem(Modifier.weight(1f).fillMaxWidth())
                 }
@@ -144,6 +163,22 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             onDismiss = { editTarget = null },
             onConfirm = { value -> vm.editCell(addr, value); editTarget = null },
         )
+    }
+
+    // C-edit dialog: long-press the C column to edit + recompile. applyEditedC
+    // returns null on success (dialog closes) or the error (dialog stays open).
+    if (editCOpen) {
+        EditCDialog(
+            initial = vm.cText ?: "",
+            onSave = { newC -> vm.applyEditedC(newC) },
+            onDismiss = { editCOpen = false },
+        )
+    }
+
+    // Error dialog for failed compiler-switch / C-edit / C-load (pytoy's
+    // show_error_dialog). Shown whenever the VM has set an error message.
+    vm.errorMessage?.let { msg ->
+        ErrorDialog(message = msg, onDismiss = { vm.clearError() })
     }
 }
 
@@ -196,7 +231,14 @@ private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
 }
 
 @Composable
-private fun SourcePanel(vm: SimViewModel, pcBytes: Set<Int>, argAddr: Int?, modifier: Modifier) {
+private fun SourcePanel(
+    vm: SimViewModel,
+    pcBytes: Set<Int>,
+    argAddr: Int?,
+    selAsmRows: Set<Int>,
+    changedRows: Set<Int>,
+    modifier: Modifier,
+) {
     val m = vm.machine ?: return
     // addr -> listing line index, for PC/arg line highlighting
     val lineForAddr = remember(vm.tick, vm.listing) {
@@ -238,9 +280,14 @@ private fun SourcePanel(vm: SimViewModel, pcBytes: Set<Int>, argAddr: Int?, modi
             val changed = m.lineChanged(line.addr, line.bytes.size)
             var text = if (line.orig.isNotEmpty()) "$marker ${line.orig.trimEnd()}" else marker
             val colours = mutableListOf<Color>()
-            if (i == m.selectedAddr?.let { lineForAddr[it] }) colours.add(HL_SELECTED)
+            // the transitive selection: a click in ANY column resolves to the asm
+            // rows that light up here (a selected C line maps to several rows)
+            if (i in selAsmRows) colours.add(HL_SELECTED)
             if (i in pcLines) colours.add(HL_PC)
             if (i == argLine) colours.add(HL_ARG)
+            // a STORE just overwrote a byte: its owning asm row goes red too
+            // (change propagation), even when the written value equals the original
+            if (i in changedRows && HL_CODE !in colours) colours.add(HL_CODE)
             if (changed) {
                 if (line.isData) {
                     text = "$marker ${line.orig.trimEnd()}  # current value: ${m.mem[line.addr!!]}"
@@ -248,11 +295,11 @@ private fun SourcePanel(vm: SimViewModel, pcBytes: Set<Int>, argAddr: Int?, modi
                 } else {
                     val raw = (0 until line.bytes.size).joinToString(" ") { m.mem[(line.addr!! + it) % 256].toString() }
                     text = "$marker ${line.orig.trimEnd()}  # now bytes: $raw"
-                    colours.add(HL_CODE)
+                    if (HL_CODE !in colours) colours.add(HL_CODE)
                 }
             }
-            // tapping a source line selects its address (bidirectional with the
-            // memory panel), like pytoy's _source_clicked
+            // tapping a source line selects its address (resolves across all
+            // columns via the VM's shared selection), like pytoy's _source_clicked
             val rowMod = if (line.addr != null)
                 Modifier.clickable { vm.select(line.addr) }
             else Modifier
@@ -267,6 +314,7 @@ private fun MemoryPanel(
     vm: SimViewModel,
     pcBytes: Set<Int>,
     argAddr: Int?,
+    selAddrs: Set<Int>,
     onEdit: (Int) -> Unit,
     modifier: Modifier,
 ) {
@@ -274,8 +322,10 @@ private fun MemoryPanel(
     // Show ALL 256 addresses. Addresses the program actually occupies (a listing
     // line's byte(s)) or that were written at runtime are "used"; the rest are
     // untouched zero bytes, shown greyed out rather than hidden.
+    // A plain set: we only ever test membership (the panel iterates 0..255),
+    // so no ordering is needed — and sortedSetOf is JVM-only (breaks js/wasm).
     val usedAddrs = remember(vm.tick, vm.listing) {
-        val addrs = sortedSetOf<Int>()
+        val addrs = mutableSetOf<Int>()
         for (line in vm.listing) {
             val a = line.addr ?: continue
             addrs.add(a)
@@ -305,7 +355,9 @@ private fun MemoryPanel(
             if (!m.stopped && a == m.changedCell && m.changedCellPrev != null) {
                 text += "  # old: ${m.changedCellPrev}"
             }
-            val colours = memoryCellColours(a, m.selectedAddr, pcBytes, argAddr, m.changedCell, m.stopped)
+            // the transitive selection lights up ALL the bytes of the selected
+            // statement here, not just the one cell clicked (pytoy's sel_addrs)
+            val colours = memoryCellColours(a, selAddrs, pcBytes, argAddr, m.changedCell, m.stopped)
             // untouched, non-program bytes are shown greyed out
             val textColor = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)
             Box(
@@ -318,6 +370,72 @@ private fun MemoryPanel(
             }
         }
       }
+    }
+}
+
+/**
+ * The C column: the C source with a line-number gutter, a header carrying the
+ * compiler-switch button (full C toycc ↔ mini C minicc), and transitive
+ * highlighting — the selected statement in orange (HL_SELECTED) and a
+ * STORE-changed statement in red (HL_CODE). Tapping a line selects it across all
+ * columns (vm.selectCLine); long-pressing opens the C-edit dialog. Mirrors
+ * pytoy's c_box + _refresh_c. Shown only when a C program is loaded.
+ */
+@Composable
+private fun CSourcePanel(
+    vm: SimViewModel,
+    selCLines: Set<Int>,
+    changedCLines: Set<Int>,
+    onEditC: () -> Unit,
+    modifier: Modifier,
+) {
+    val cText = vm.cText ?: return
+    val lines = cText.split("\n")
+    val gutterWidth = (lines.size.toString().length).coerceAtLeast(1)
+    // the button offers the OTHER compiler, read as the action to take
+    val other = if (vm.currentCompiler == "toycc") "minicc" else "toycc"
+    val switchLabel = if (other == "minicc") "Switch to mini C" else "Switch to full C"
+
+    Column(
+        modifier
+            .padding(3.dp)
+            .border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(6.dp))
+    ) {
+        // header: title + the compiler-switch button (pytoy's btn_switch_compiler)
+        Row(
+            Modifier.fillMaxWidth()
+                .background(Color(0xFFEEEEEE))
+                .padding(horizontal = 6.dp, vertical = 3.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Text("C source", style = MonoStyle)
+            OutlinedButton(onClick = { vm.switchCompiler() }) { Text(switchLabel) }
+        }
+        val vScroll = rememberScrollState()
+        ScrollbarBox(vScroll, Modifier.fillMaxSize()) {
+          Column(
+              Modifier.fillMaxSize().padding(4.dp)
+                  .verticalScroll(vScroll)
+                  .horizontalScroll(rememberScrollState())
+                  // long-press anywhere in the C column opens the edit dialog,
+                  // mirroring the memory panel's long-click-to-edit
+                  .combinedClickable(onClick = {}, onLongClick = onEditC)
+          ) {
+            lines.forEachIndexed { i, line ->
+                val cLine = i + 1   // 1-based, matching the markers
+                val colours = mutableListOf<Color>()
+                if (cLine in selCLines) colours.add(HL_SELECTED)
+                if (cLine in changedCLines) colours.add(HL_CODE)
+                val gutter = "${cLine.toString().padStart(gutterWidth)} | "
+                HighlightRow(
+                    gutter + line,
+                    colours,
+                    Modifier.clickable { vm.selectCLine(cLine) },
+                )
+            }
+          }
+        }
     }
 }
 

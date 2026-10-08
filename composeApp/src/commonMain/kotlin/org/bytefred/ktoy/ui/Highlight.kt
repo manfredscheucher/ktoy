@@ -17,12 +17,16 @@ val HL_CODE     = Color(0xFFFF6666)   // strong red: a code byte was overwritten
 
 /**
  * The active highlight colours for a memory cell, in pytoy's precedence order,
- * so a cell with several roles shows all of them. Order: selected, PC, change,
- * argument. (Red overwrite/data colours are handled in the source panel.)
+ * so a cell with several roles shows all of them. Order: selected, PC, argument,
+ * change. (Red overwrite/data colours are handled in the source panel.)
+ *
+ * [selectedAddrs] is the transitive selection set (one click can light up all
+ * the bytes of a C statement, not just the tapped cell), so a byte is "selected"
+ * when it's in that set.
  */
 fun memoryCellColours(
     addr: Int,
-    selectedAddr: Int?,
+    selectedAddrs: Set<Int>,
     pcBytes: Set<Int>,
     argAddr: Int?,
     changedCell: Int?,
@@ -30,7 +34,7 @@ fun memoryCellColours(
 ): List<Color> {
     // order matches pytoy's stripe order: selected, PC, argument, change
     val colours = mutableListOf<Color>()
-    if (addr == selectedAddr) colours.add(HL_SELECTED)
+    if (addr in selectedAddrs) colours.add(HL_SELECTED)
     if (addr in pcBytes) colours.add(HL_PC)
     if (addr == argAddr) colours.add(HL_ARG)
     if (!stopped && addr == changedCell) colours.add(HL_CHANGE)
