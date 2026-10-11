@@ -139,6 +139,59 @@ private val INSTR: Map<Int, InstrInfo> = mapOf(
     21 to InstrInfo("STORE", "a"), 24 to InstrInfo("GOTO", "a"), 25 to InstrInfo("IFZERO", "a"),
 )
 
+// Per-opcode human-readable effect, for the Help reference. Keyed by opcode so a
+// new opcode in INSTR would render with a blank effect — guarded by a test that
+// every INSTR opcode has a non-empty effect here (mirrors pytoy's reference).
+private val EFFECTS: Map<Int, String> = mapOf(
+    0 to "halt execution", 1 to "ACC >>= 1 (shift right)",
+    2 to "ACC <<= 1 (shift left)", 15 to "ACC = ~ACC (bitwise not)",
+    17 to "ACC &= mem[addr]", 18 to "ACC |= mem[addr]",
+    19 to "ACC ^= mem[addr]", 20 to "ACC = mem[addr] (load)",
+    21 to "mem[addr] = ACC (store)", 22 to "ACC += mem[addr]",
+    23 to "ACC -= mem[addr]", 24 to "PC = addr (goto)",
+    25 to "if ACC==0: PC = addr (ifzero)", 128 to "do nothing",
+)
+
+/**
+ * The Help -> reference text: the 14 instructions (built from INSTR so it can't
+ * drift from the real ISA) plus the GUI keyboard shortcuts. Mirrors pytoy's
+ * simulator._reference_text().
+ */
+fun referenceText(): String {
+    val lines = mutableListOf("TOY CPU — INSTRUCTION SET", "")
+    lines.add("  " + "mnemonic".padEnd(9) + " " + "opcode".padStart(6) +
+              "  " + "bytes".padStart(5) + "   effect")
+    lines.add("  " + "-".repeat(54))
+    for (op in INSTR.keys.sorted()) {
+        val name = INSTR.getValue(op).name.lowercase()
+        val nbytes = if (hasOperand(op)) 2 else 1
+        lines.add("  " + name.padEnd(9) + " " + op.toString().padStart(6) +
+                  "  " + nbytes.toString().padStart(5) + "   " + (EFFECTS[op] ?: ""))
+    }
+    lines += listOf(
+        "",
+        "Any opcode not listed behaves like nop.",
+        "Arithmetic wraps modulo 256. ifzero is the only conditional.",
+        "",
+        "KEYBOARD SHORTCUTS",
+        "",
+        "  Space / Enter    step one instruction",
+        "  Backspace        step back (undo one step)",
+        "  R                run / stop",
+        "  Esc              reset to the start",
+        "  Cmd/Ctrl+O       load a program",
+        "  Cmd/Ctrl+R       reload from disk",
+        "  Cmd/Ctrl+S       save the current program",
+        "",
+        "Tap a memory cell to edit it.",
+    )
+    return lines.joinToString("\n")
+}
+
+/** The opcodes with a reference effect — for a test guarding EFFECTS vs INSTR. */
+internal fun instrOpcodes(): Set<Int> = INSTR.keys
+internal fun effectOpcodes(): Set<Int> = EFFECTS.keys
+
 /**
  * A human description of the instruction at (instr, argAddr), e.g.
  * "LOAD a (addr:7, val:3)". [sym] maps an address to its label (or its number).
