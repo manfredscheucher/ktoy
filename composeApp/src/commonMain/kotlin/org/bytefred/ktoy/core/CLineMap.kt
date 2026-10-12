@@ -81,14 +81,18 @@ data class SelectionSets(
  * Resolve a selection (a C line and/or a byte address) into the full set of
  * highlighted things across all three columns.
  *
- * Either anchor may be null; whichever is given is expanded through both maps:
- *   - a C line expands down to its asm rows and their byte addresses;
- *   - a byte address expands up to its asm row and that row's C line, then back
- *     down so the C line's sibling asm rows / bytes also light up (one C
- *     statement normally owns several asm lines).
+ * Either anchor may be null. The fan-out depends on WHERE the click came from
+ * ([fromC]):
+ *   - a C-line click ([fromC] = true) expands DOWN to all the asm rows it owns
+ *     and their byte addresses (a C statement normally owns several asm lines) —
+ *     the full down-fan;
+ *   - an asm-row / memory-cell click ([fromC] = false) resolves UP to that one
+ *     row and its own bytes plus the owning C line, but does NOT fan back out to
+ *     the C line's sibling asm rows — only the clicked line lights up on the asm
+ *     side.
  *
- * Both null (an unmapped/blank click) resolves to empty sets — deselect clears
- * everything. Mirrors pytoy's transitive_selection exactly.
+ * Both anchors null (an unmapped/blank click) resolves to empty sets — deselect
+ * clears everything. Mirrors pytoy's transitive_selection.
  */
 fun transitiveSelection(
     cLine: Int?,
@@ -97,6 +101,7 @@ fun transitiveSelection(
     asmToC: Map<Int, Int>,
     lineToAddr: Map<Int, Int>,
     addrToLine: Map<Int, Int>,
+    fromC: Boolean = true,
 ): SelectionSets {
     val cLines = mutableSetOf<Int>()
     if (cLine != null) cLines.add(cLine)
@@ -104,10 +109,16 @@ fun transitiveSelection(
     addrToCLine(addr, addrToLine, asmToC)?.let { cLines.add(it) }
 
     val asmRows = mutableSetOf<Int>()
-    for (cl in cLines) asmRows += cLineToAsmRows(cl, cToAsm)
-    // an asm row owning the selected byte, even when no C line attributes it
+    // only a C-origin click fans down to all the statement's asm rows; an asm /
+    // memory click keeps just the clicked row (resolved below from the address)
+    if (fromC) for (cl in cLines) asmRows += cLineToAsmRows(cl, cToAsm)
+    // the asm row owning the selected byte (the only row for an asm/mem click)
     if (addr != null) addrToLine[addr]?.let { asmRows.add(it) }
 
+    // asm/mem click lights only the clicked row's own bytes; a C click lights
+    // every fanned-out row's bytes. asmRowsToAddrs gives one anchor byte per row
+    // via lineToAddr, so add the raw clicked addr too (covers a two-byte row's
+    // operand, and a bare memory cell with no asm row).
     val addrs = asmRowsToAddrs(asmRows, lineToAddr).toMutableSet()
     if (addr != null) addrs.add(addr)
     return SelectionSets(cLines, asmRows, addrs)

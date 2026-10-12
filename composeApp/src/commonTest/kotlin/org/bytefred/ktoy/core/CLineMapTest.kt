@@ -114,6 +114,25 @@ class CLineMapTest {
     }
 
     @Test
+    fun asmClickLightsOnlyTheClickedRowNotSiblings() {
+        // fromC = false (an asm-row / memory-cell click): the clicked row resolves
+        // UP to its C line, but does NOT fan back out to the C statement's sibling
+        // asm rows — only the one row + its own bytes light on the asm side.
+        val (cToAsm, asmToC, lineToAddr, addrToLine) = mapsFor(PROG)
+        val rows = cToAsm.getValue(2)
+        assertTrue(rows.size >= 2, "need a statement owning several rows to prove no fan-out")
+        val row = rows.first { it in lineToAddr }
+        val addr = lineToAddr.getValue(row)
+
+        val sel = transitiveSelection(
+            null, addr, cToAsm, asmToC, lineToAddr, addrToLine, fromC = false,
+        )
+        assertEquals(setOf(2), sel.cLines, "still resolves up to the owning C line")
+        assertEquals(setOf(row), sel.asmRows, "only the clicked asm row, no siblings")
+        assertTrue(addr in sel.addrs)
+    }
+
+    @Test
     fun deselectClearsEverything() {
         val (cToAsm, asmToC, lineToAddr, addrToLine) = mapsFor(PROG)
         val sel = transitiveSelection(null, null, cToAsm, asmToC, lineToAddr, addrToLine)

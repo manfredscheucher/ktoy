@@ -87,6 +87,11 @@ class SimViewModel : ViewModel() {
     // its anchor highlight; selectedCLine adds the C column.
     var selectedCLine: Int? = null; private set
     var selectedAddr: Int? = null; private set
+    // true when the current selection was made by clicking a C line (fan DOWN to
+    // all its asm rows); false for an asm-row / memory-cell click (single row,
+    // resolve UP to the C line only, no sibling-row fan-out). See select /
+    // selectCLine and transitiveSelection(fromC=…).
+    private var selectedFromC: Boolean = true
 
     // An error to surface in a dialog (failed compiler switch / C edit / load).
     // The UI shows it and calls clearError() on dismiss.
@@ -101,7 +106,8 @@ class SimViewModel : ViewModel() {
     // I/O panel: whether it's shown, and its display format. Both live here (not
     // in the composable) so they survive rotation like the rest of the sim state.
     var showIo by mutableStateOf(false)
-    var ioFormat by mutableStateOf(IoFormat.DECIMAL)
+    // ASCII by default (the user reads I/O as characters most of the time).
+    var ioFormat by mutableStateOf(IoFormat.ASCII)
 
     // the auto-run coroutine, kept so it can be cancelled the instant any other
     // action touches the machine (load / reset / manual step / edit) — otherwise
@@ -384,6 +390,7 @@ class SimViewModel : ViewModel() {
         }
         selectedAddr = addr
         selectedCLine = addrToCLine(addr, addrToLine, asmToC)
+        selectedFromC = false   // asm/mem click: single row, no sibling fan-out
         machine?.select(addr)
         memSelectedAddr = if (fromMemory) addr else null
         bump()
@@ -404,6 +411,7 @@ class SimViewModel : ViewModel() {
         val addrs = asmRowsToAddrs(rows.toSet(), lineToAddr)
         selectedCLine = cLine
         selectedAddr = addrs.minOrNull()
+        selectedFromC = true   // C click: fan DOWN to all the statement's rows
         machine?.select(selectedAddr)
         memSelectedAddr = null
         bump()
@@ -412,15 +420,27 @@ class SimViewModel : ViewModel() {
     private fun clearSelection(fromMemory: Boolean) {
         selectedCLine = null
         selectedAddr = null
+        selectedFromC = true   // back to the neutral default
         machine?.select(null)
         memSelectedAddr = null
         bump()
+    }
+
+    /**
+     * The 1-based C line the current PC maps to (its asm row's `# @c:N`), or null
+     * when there's no C source or the PC's row has no C origin. Lets the C column
+     * show the yellow PC highlight approximately, like the asm/memory panels.
+     */
+    fun pcCLine(): Int? {
+        val m = machine ?: return null
+        return addrToCLine(m.pc, addrToLine, asmToC)
     }
 
     /** The transitive highlight sets for the current selection, shared by all
      *  three panels so one click lights up consistently everywhere. */
     fun selectionSets(): SelectionSets = transitiveSelection(
         selectedCLine, selectedAddr, cToAsm, asmToC, lineToAddr, addrToLine,
+        fromC = selectedFromC,
     )
 
     /**
@@ -446,9 +466,10 @@ class SimViewModel : ViewModel() {
         // timer running). Stopping here would defeat the I/O panel's whole point.
         machine?.editCell(addr, value)
         // resolve the edited byte up to its C line so the C column highlights the
-        // owning statement too (consistent with a memory-panel click).
+        // owning statement too (consistent with a memory-panel click: single row).
         selectedAddr = addr
         selectedCLine = addrToCLine(addr, addrToLine, asmToC)
+        selectedFromC = false
         bump()
     }
 

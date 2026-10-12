@@ -82,6 +82,67 @@ class ExampleCatalogTest {
     }
 
     @Test
+    fun treeGroupsByCategoryThenSubfolder() {
+        val tree = groupedExamplesTree()
+        // Same top-level categories and order as the flat grouping.
+        assertEquals(
+            listOf("Assembly", "C (minicc)", "C (toycc)", "Bytecode"),
+            tree.keys.toList(),
+            "unexpected tree categories / order",
+        )
+
+        // Assembly is split by subfolder; the I/O demos live under "04-io".
+        val asm = tree.getValue("Assembly")
+        assertTrue("03-programs" in asm.keys, "Assembly missing 03-programs subfolder")
+        assertTrue("04-io" in asm.keys, "Assembly missing 04-io subfolder")
+        val ioNames = asm.getValue("04-io").map { it.name }.toSet()
+        assertTrue(
+            "countdown" in ioNames && "hello_world" in ioNames,
+            "Assembly/04-io should hold the deterministic I/O demos, got $ioNames",
+        )
+        // Every ASM leaf is an ASM example sitting under its own subfolder.
+        for ((sub, examples) in asm) {
+            assertTrue(examples.all { it.kind == ExampleKind.ASM && it.subfolder == sub })
+        }
+
+        // C nodes are bucketed by subfolder, and each leaf is narrowed to the
+        // node's single compiler so load() opens it on that one.
+        for (node in listOf("minicc", "toycc")) {
+            val bySub = tree.getValue("C ($node)")
+            assertTrue(bySub.isNotEmpty(), "C ($node) has no subfolders")
+            for ((sub, examples) in bySub) {
+                assertTrue(examples.isNotEmpty(), "C ($node)/$sub is empty")
+                assertTrue(examples.all {
+                    it.kind == ExampleKind.C && it.compilers == listOf(node) && it.subfolder == sub
+                }, "C ($node)/$sub leaf not narrowed to [$node] or wrong subfolder")
+            }
+        }
+
+        // Bytecode is flat: a single unnamed "" subfolder holding every .toyo.
+        val bytecode = tree.getValue("Bytecode")
+        assertEquals(setOf(""), bytecode.keys, "Bytecode should have one \"\" subfolder")
+        assertTrue(bytecode.getValue("").all { it.kind == ExampleKind.TOYO })
+    }
+
+    @Test
+    fun treeAndFlatGroupingHoldTheSameExamples() {
+        val flat = groupedExamples()
+        val tree = groupedExamplesTree()
+        for ((category, flatList) in flat) {
+            val treeList = tree.getValue(category).values.flatten()
+            // Same examples, same order (tree preserves EXAMPLES order per bucket,
+            // but across subfolders the order still matches the flat list because
+            // subfolders are emitted in EXAMPLES order too). Compare by name set
+            // AND by count to catch drops/dupes.
+            assertEquals(
+                flatList.map { it.name }.toSet(), treeList.map { it.name }.toSet(),
+                "category '$category' differs between flat and tree grouping",
+            )
+            assertEquals(flatList.size, treeList.size, "category '$category' count differs")
+        }
+    }
+
+    @Test
     fun everyCExampleCompilesAssemblesAndRunsToExpected() {
         val cExamples = EXAMPLES.filter { it.kind == ExampleKind.C }
         assertTrue(cExamples.isNotEmpty(), "no embedded C examples found")

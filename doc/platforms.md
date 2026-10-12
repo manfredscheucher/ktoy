@@ -36,7 +36,7 @@ git submodule update --init --recursive        # kotlin-common (shared logger)
 ## Run
 
 ```bash
-./scripts/runDesktop.sh      # JVM desktop window  (:composeApp:run)
+./scripts/runJVM.sh      # JVM desktop window  (:composeApp:run)
 ./scripts/runWeb.sh          # web dev-server on http://localhost:8604 + Chrome
 ./scripts/runIosSimulator.sh # iOS Simulator (macOS + Xcode only)
 # Android: machine-local device/emulator scripts in _private/scripts/

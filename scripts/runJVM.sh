@@ -2,7 +2,7 @@
 # Run the JVM desktop build via Compose's run task. Opens a phone-sized window
 # (the window size is set in composeApp/src/jvmMain/.../main.kt).
 #
-#   ./scripts/runDesktop.sh
+#   ./scripts/runJVM.sh
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

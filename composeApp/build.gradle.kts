@@ -72,6 +72,10 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
+            // provides the Main (AWT/Swing EDT) coroutine dispatcher on desktop;
+            // without it viewModelScope.launch crashes with "Main dispatcher is
+            // missing" when the auto-run loop starts (toggleRun).
+            implementation(libs.kotlinx.coroutines.swing)
         }
         jsMain.dependencies {
             implementation(libs.kotlin.browser)

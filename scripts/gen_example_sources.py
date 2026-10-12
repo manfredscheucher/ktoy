@@ -120,6 +120,10 @@ def main():
         " *            itself, so the UI can show the C|asm view.",
         " *   - TOYO — pre-compiled bytecode listing (*.toyo); to load: parse.",
         " *",
+        " * Each example also carries its repo [Example.subfolder] (e.g. \"01-basics\",",
+        " * \"04-io\"; \"\" for bytecode), so the browser UI can group by subfolder like",
+        " * pytoy's ExamplesDialog instead of a flat list.",
+        " *",
         " * For C examples, [Example.compilers] names the compiler(s) that accept the",
         " * source — a subset of \"minicc\", \"toycc\". minicc rejects recursion (and",
         " * other constructs toycc supports), so a recursive example lists only",
@@ -138,6 +142,8 @@ def main():
         "    val source: String,",
         "    /** C-only: compilers that accept this source (\"minicc\"/\"toycc\"); empty otherwise. */",
         "    val compilers: List<String> = emptyList(),",
+        "    /** Repo subfolder this came from (e.g. \"01-basics\", \"04-io\"); \"\" for bytecode. */",
+        "    val subfolder: String = \"\",",
         ")",
         "",
         "val EXAMPLES: List<Example> = listOf(",
@@ -158,7 +164,8 @@ def main():
         name = f[:-5]
         src = open(os.path.join(prog_dir, f)).read()
         lines.append(f'    Example("{name}", ExampleKind.ASM, '
-                     f'{kotlin_triple_string(src)}),')
+                     f'{kotlin_triple_string(src)}, '
+                     f'subfolder = "03-programs"),')
         n_examples += 1
     # Only the deterministic 04-io demos: they finish on their own. The
     # input-driven ones (poll_demo, greet_name, sort_array_io, pin_check) block
@@ -176,7 +183,8 @@ def main():
             continue
         src = open(os.path.join(io_dir, f)).read()
         lines.append(f'    Example("{name}", ExampleKind.ASM, '
-                     f'{kotlin_triple_string(src)}),')
+                     f'{kotlin_triple_string(src)}, '
+                     f'subfolder = "04-io"),')
         n_examples += 1
 
     # ── C ────────────────────────────────────────────────────────────────────
@@ -204,7 +212,8 @@ def main():
                 continue
             lines.append(f'    Example("{name}", ExampleKind.C, '
                          f'{kotlin_triple_string(src)}, '
-                         f'compilers = {kotlin_string_list(compilers)}),')
+                         f'compilers = {kotlin_string_list(compilers)}, '
+                         f'subfolder = "{sub}"),')
             n_examples += 1
 
     # ── TOYO ─────────────────────────────────────────────────────────────────
@@ -220,10 +229,17 @@ def main():
     lines.append(")")
     lines.append("")
 
-    # ── grouping helper for a browser UI ──────────────────────────────────────
-    # Mirrors pytoy's grouped_examples: a map keyed by display category. A C
-    # example appears under EVERY compiler that accepts it, so a "both" example
-    # shows in both C lists. Insertion order of the keys is the display order.
+    # ── grouping helpers for a browser UI ─────────────────────────────────────
+    # Mirrors pytoy's grouped_examples / ExamplesDialog: a C example appears under
+    # EVERY compiler that accepts it, so a "both" example shows in both C lists.
+    # Insertion order of the keys is the display order.
+    #
+    # groupedExamples()     — flat: category -> List<Example>.
+    # groupedExamplesTree() — nested: category -> subfolder -> List<Example>,
+    #                         the tree the ExampleListScreen renders. A C leaf
+    #                         under "C (minicc)" carries an Example whose
+    #                         `compilers` is narrowed to just minicc (so load()
+    #                         opens it on that compiler); likewise for toycc.
     lines += [
         "/**",
         " * Examples grouped for a browser UI, keyed by display category:",
@@ -252,6 +268,53 @@ def main():
         "    val order = listOf(\"Assembly\", \"C (minicc)\", \"C (toycc)\", \"Bytecode\")",
         "    val out = linkedMapOf<String, List<Example>>()",
         "    for (key in order) groups[key]?.let { out[key] = it }",
+        "    return out",
+        "}",
+        "",
+        "/**",
+        " * The example tree for the browser UI: category -> subfolder -> examples,",
+        " * mirroring pytoy's ExamplesDialog. Top-level categories, in display order:",
+        " *   \"Assembly\"    — .toys, children grouped by subfolder (01-basics, ...).",
+        " *   \"C (minicc)\"  — C examples minicc accepts, grouped by subfolder.",
+        " *   \"C (toycc)\"   — C examples toycc accepts, grouped by subfolder.",
+        " *   \"Bytecode\"    — .toyo listings under a single \"\" subfolder (flat).",
+        " *",
+        " * A C example both compilers accept appears under BOTH C nodes; which node",
+        " * a leaf sits under IS the chosen compiler. To make picking a leaf load it",
+        " * on THAT compiler (via load()'s compiler preference), a C leaf's Example is",
+        " * narrowed so `compilers` holds only the node's compiler.",
+        " */",
+        "fun groupedExamplesTree(): Map<String, Map<String, List<Example>>> {",
+        "    val out = linkedMapOf<String, Map<String, List<Example>>>()",
+        "",
+        "    fun bucket(predicate: (Example) -> Boolean, pick: (Example) -> Example):",
+        "        Map<String, List<Example>> {",
+        "        val bySub = linkedMapOf<String, MutableList<Example>>()",
+        "        for (ex in EXAMPLES) if (predicate(ex)) {",
+        "            bySub.getOrPut(ex.subfolder) { mutableListOf() }.add(pick(ex))",
+        "        }",
+        "        return bySub",
+        "    }",
+        "",
+        "    // Assembly: one subfolder bucket per subfolder, preserving EXAMPLES order.",
+        "    val asm = bucket({ it.kind == ExampleKind.ASM }, { it })",
+        "    if (asm.isNotEmpty()) out[\"Assembly\"] = asm",
+        "",
+        "    // C: one top-level node per compiler, each example narrowed to that",
+        "    // compiler and bucketed by subfolder; a compiler node is omitted if it",
+        "    // accepts nothing.",
+        "    for (compiler in listOf(\"minicc\", \"toycc\")) {",
+        "        val bySub = bucket(",
+        "            { it.kind == ExampleKind.C && compiler in it.compilers },",
+        "            { it.copy(compilers = listOf(compiler)) },",
+        "        )",
+        "        if (bySub.isNotEmpty()) out[\"C ($compiler)\"] = bySub",
+        "    }",
+        "",
+        "    // Bytecode: flat — a single \"\" subfolder holding every .toyo listing.",
+        "    val toyo = EXAMPLES.filter { it.kind == ExampleKind.TOYO }",
+        "    if (toyo.isNotEmpty()) out[\"Bytecode\"] = linkedMapOf(\"\" to toyo)",
+        "",
         "    return out",
         "}",
         "",

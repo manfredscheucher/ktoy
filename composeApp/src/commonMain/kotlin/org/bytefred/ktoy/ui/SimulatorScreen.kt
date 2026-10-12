@@ -2,7 +2,7 @@ package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,6 +29,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import org.bytefred.ktoy.core.decode
 import org.bytefred.ktoy.core.describe
@@ -52,7 +55,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     val m = vm.machine ?: return
 
     var editTarget by remember { mutableStateOf<Int?>(null) }
-    // true while the C-edit dialog is open (long-press on the C column)
+    // true while the C-edit dialog is open (double-tap the C column on desktop/web)
     var editCOpen by remember { mutableStateOf(false) }
 
     // current instruction (for PC / argument highlighting)
@@ -80,7 +83,18 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         ) {
             SimMenuBar(vm, onBrowseExamples = onLoad)
-            Text(vm.title, style = MonoStyle)
+            // The title must never push the menu off-screen or wrap the bar: cap
+            // it to one line + ellipsis and let it shrink (weight) so a long
+            // program name is truncated, not overflowed. General layout fix
+            // (web + jvm), not target-specific.
+            Text(
+                vm.title,
+                style = MonoStyle,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.End,
+                modifier = Modifier.weight(1f, fill = false).padding(start = 8.dp),
+            )
         }
         // a transient "Saved …" status line from the File menu, auto-cleared
         vm.statusMessage?.let { msg ->
@@ -95,9 +109,21 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
         // source) | CPU & memory (always). Side by side when wide, stacked when
         // narrow; each in a labelled, bordered box.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-            val wide = maxWidth > maxHeight
+            // How many columns are actually shown (C only for a C load; asm only
+            // with source; memory always).
+            val cols = (if (vm.hasCSource) 1 else 0) +
+                (if (vm.hasSource) 1 else 0) + 1
+            // Side-by-side when the window is landscape-ish OR simply wide enough
+            // to give each column a usable minimum. Using BOTH an aspect test and
+            // a per-column width floor makes the breakpoint adapt on resize across
+            // web + jvm (a wide-but-short window still goes side-by-side; a narrow
+            // one stacks even if it's tall). ~240.dp/column is the floor pytoy's
+            // panels need before text starts clipping.
+            val minPerCol = 240.dp
+            val wide = maxWidth > maxHeight || maxWidth >= minPerCol * cols
+            val pcCLine = vm.pcCLine()
             val cCol: @Composable (Modifier) -> Unit = { mod ->
-                CSourcePanel(vm, sel.cLines, changedCLines, { editCOpen = true }, mod)
+                CSourcePanel(vm, sel.cLines, changedCLines, pcCLine, { editCOpen = true }, mod)
             }
             val src: @Composable (Modifier) -> Unit = { mod ->
                 LabeledPanel("Assembly", mod) {
@@ -158,7 +184,11 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             }
         }
 
-        Controls(vm, onEdit = { vm.memSelectedAddr?.let { editTarget = it } })
+        Controls(
+            vm,
+            onLoad = onLoad,
+            onEdit = { vm.memSelectedAddr?.let { editTarget = it } },
+        )
     }
 
     editTarget?.let { addr ->
@@ -170,8 +200,9 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
         )
     }
 
-    // C-edit dialog: long-press the C column to edit + recompile. applyEditedC
-    // returns null on success (dialog closes) or the error (dialog stays open).
+    // C-edit dialog: double-tap the C column to edit + recompile (works on both
+    // desktop/web and touch). applyEditedC returns null on success (dialog
+    // closes) or the error message (dialog stays open).
     if (editCOpen) {
         EditCDialog(
             initial = vm.cText ?: "",
@@ -261,17 +292,12 @@ private fun SourcePanel(
 
     val vScroll = rememberScrollState()
     val hScroll = rememberScrollState()
-    // keep the current PC line in view while stepping / running (like pytoy's
-    // ensureCursorVisible). Approximate the line's y by index * a line height.
-    val firstPcLine = pcLines.minOrNull()
-    // scroll to the PC line only when it MOVES (step/run) — not on every bump,
-    // so tapping a distant line to select it doesn't yank the view back to PC.
-    LaunchedEffect(firstPcLine) {
-        if (firstPcLine != null) {
-            val lineHeightPx = 34  // ~13sp mono line; good enough to keep it visible
-            vScroll.animateScrollTo((firstPcLine * lineHeightPx).coerceIn(0, vScroll.maxValue))
-        }
-    }
+    // keep the focused asm line centred: a selected row (a click elsewhere
+    // resolved here) wins, else the current PC line while stepping / running
+    // (like pytoy's ensureCursorVisible). Fires only when the line changes, so
+    // tapping doesn't fight the view.
+    val focusLine = selAsmRows.minOrNull() ?: pcLines.minOrNull()
+    scrollToLine(vScroll, focusLine)
     // display-only line-number gutter (pytoy's _refresh_source), toggled from
     // View -> Line numbers. Never part of any saved file; labels, not numbers,
     // are how asm refers to lines.
@@ -350,6 +376,10 @@ private fun MemoryPanel(
     // then each label right-justified to width 19, matching the addr/val cells.
     val header = "     " + "address (binary)".padStart(19) + "  ->  " + "value (binary)".padStart(19)
     val vScroll = rememberScrollState()
+    // scroll so a selected cell (or, failing that, the PC) is visible+centred
+    // when a click elsewhere resolves here. +1 for the header row above address 0.
+    val focusAddr = selAddrs.minOrNull() ?: m.pc
+    scrollToLine(vScroll, focusAddr + 1)
     ScrollbarBox(vScroll, modifier.fillMaxSize()) {
       Column(Modifier.fillMaxSize().padding(4.dp)
         .verticalScroll(vScroll)
@@ -366,16 +396,21 @@ private fun MemoryPanel(
             if (!m.stopped && a == m.changedCell && m.changedCellPrev != null) {
                 text += "  # old: ${m.changedCellPrev}"
             }
-            // the transitive selection lights up ALL the bytes of the selected
-            // statement here, not just the one cell clicked (pytoy's sel_addrs)
+            // the transitive selection: a C-line click lights up ALL the bytes of
+            // the statement here; an asm/memory click lights only the clicked
+            // row's own bytes (pytoy's sel_addrs)
             val colours = memoryCellColours(a, selAddrs, pcBytes, argAddr, m.changedCell, m.stopped)
             // untouched, non-program bytes are shown greyed out
             val textColor = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)
+            // single-tap selects the cell; double-tap (desktop/web) edits it.
+            // mobile edits via the bottom-bar Edit button, not a long-press.
             Box(
-                Modifier.fillMaxWidth().combinedClickable(
-                    onClick = { vm.select(a, fromMemory = true) },
-                    onLongClick = { onEdit(a) },
-                )
+                Modifier.fillMaxWidth().pointerInput(a) {
+                    detectTapGestures(
+                        onTap = { vm.select(a, fromMemory = true) },
+                        onDoubleTap = { onEdit(a) },
+                    )
+                }
             ) {
                 HighlightRow(text, colours, textColor = textColor)
             }
@@ -387,16 +422,19 @@ private fun MemoryPanel(
 /**
  * The C column: the C source with a line-number gutter, a header carrying the
  * compiler-switch button (full C toycc ↔ mini C minicc), and transitive
- * highlighting — the selected statement in orange (HL_SELECTED) and a
- * STORE-changed statement in red (HL_CODE). Tapping a line selects it across all
- * columns (vm.selectCLine); long-pressing opens the C-edit dialog. Mirrors
- * pytoy's c_box + _refresh_c. Shown only when a C program is loaded.
+ * highlighting — the selected statement in orange (HL_SELECTED), the current
+ * instruction's C line in yellow (HL_PC, mapped up from the PC's asm row) and a
+ * STORE-changed statement in red (HL_CODE). Single-tap a line to select it across
+ * all columns (vm.selectCLine); DOUBLE-TAP opens the C-edit dialog (works on
+ * desktop/web and touch — no long-press). Mirrors pytoy's c_box + _refresh_c.
+ * Shown only when a C program is loaded.
  */
 @Composable
 private fun CSourcePanel(
     vm: SimViewModel,
     selCLines: Set<Int>,
     changedCLines: Set<Int>,
+    pcCLine: Int?,
     onEditC: () -> Unit,
     modifier: Modifier,
 ) {
@@ -424,26 +462,36 @@ private fun CSourcePanel(
             OutlinedButton(onClick = { vm.switchCompiler() }) { Text(switchLabel) }
         }
         val vScroll = rememberScrollState()
+        // keep the selected C line visible (centred) when a click in another
+        // column resolves to a C statement here; falls back to the PC's C line.
+        scrollToLine(vScroll, selCLines.minOrNull()?.minus(1) ?: pcCLine?.minus(1))
         ScrollbarBox(vScroll, Modifier.fillMaxSize()) {
           Column(
               Modifier.fillMaxSize().padding(4.dp)
                   .verticalScroll(vScroll)
                   .horizontalScroll(rememberScrollState())
-                  // long-press anywhere in the C column opens the edit dialog,
-                  // mirroring the memory panel's long-click-to-edit
-                  .combinedClickable(onClick = {}, onLongClick = onEditC)
           ) {
             lines.forEachIndexed { i, line ->
                 val cLine = i + 1   // 1-based, matching the markers
                 val colours = mutableListOf<Color>()
                 if (cLine in selCLines) colours.add(HL_SELECTED)
+                if (cLine == pcCLine) colours.add(HL_PC)
                 if (cLine in changedCLines) colours.add(HL_CODE)
                 val gutter = if (vm.showLineNumbers)
                     "${cLine.toString().padStart(gutterWidth)} | " else ""
+                // single-tap selects the C line; double-tap (desktop/web) opens
+                // the C edit dialog. Per-line gesture (not on the container) so a
+                // child tap handler can't swallow the double-tap. Mobile edits via
+                // the bottom-bar Edit button (memory cell), same as pytoy.
                 HighlightRow(
                     gutter + line,
                     colours,
-                    Modifier.clickable { vm.selectCLine(cLine) },
+                    Modifier.pointerInput(cLine) {
+                        detectTapGestures(
+                            onTap = { vm.selectCLine(cLine) },
+                            onDoubleTap = { onEditC() },
+                        )
+                    },
                 )
             }
           }
@@ -451,39 +499,131 @@ private fun CSourcePanel(
     }
 }
 
+/**
+ * Scroll [state] so the row at [lineIndex] (0-based) is roughly centred in the
+ * viewport, whenever [lineIndex] changes. Used so a click in one column scrolls
+ * the others to the matching line. Approximates row height (mono ~34px); null
+ * leaves the scroll untouched.
+ */
 @Composable
-private fun Controls(vm: SimViewModel, onEdit: () -> Unit) {
-    @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose when canUndo/stopped change
-    val m = vm.machine
-    Column(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Button(onClick = { vm.step() }, enabled = m?.stopped == false && !vm.running) { Text("Step") }
-            Button(onClick = { vm.toggleRun() }, enabled = m?.stopped == false) { Text(if (vm.running) "Stop" else "Run") }
-            OutlinedButton(onClick = { vm.stepBack() }, enabled = m?.canUndo == true) { Text("Undo") }
-            OutlinedButton(onClick = { vm.reset() }, enabled = m?.canUndo == true) { Text("Reset") }
-            // Edit the value at the address selected in the CPU & memory panel;
-            // enabled only when such a selection exists.
-            OutlinedButton(onClick = onEdit, enabled = vm.memSelectedAddr != null) { Text("Edit") }
-        }
-        // steps-per-second for Run (float, like pytoy's spinbox; range 0.1..1000)
-        Row(
-            Modifier.fillMaxWidth().padding(top = 6.dp),
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text("steps/sec:", style = MonoStyle)
-            var spsText by remember { mutableStateOf(vm.stepsPerSecond.toString()) }
-            OutlinedTextField(
-                value = spsText,
-                onValueChange = {
-                    spsText = it
-                    it.toDoubleOrNull()?.let { v -> vm.stepsPerSecond = v.coerceIn(0.1, 1000.0) }
-                },
-                singleLine = true,
-                modifier = Modifier.width(110.dp),
-            )
+private fun scrollToLine(state: androidx.compose.foundation.ScrollState, lineIndex: Int?) {
+    LaunchedEffect(lineIndex) {
+        if (lineIndex != null) {
+            val lineHeightPx = 34
+            // centre the line: subtract half the viewport so it lands mid-screen,
+            // not at the very top.
+            val target = (lineIndex * lineHeightPx) -
+                (state.viewportSize / 2) + (lineHeightPx / 2)
+            state.animateScrollTo(target.coerceIn(0, state.maxValue))
         }
     }
+}
+
+/**
+ * The bottom controls bar, in pytoy's order:
+ *   Load · Examples · Reload — GAP — Step · Run · steps/sec · Undo · Reset — Edit
+ * (Edit pushed all the way to the right). Load opens the platform file picker,
+ * Examples opens the bundled example list ([onLoad]), Reload re-runs the last
+ * file. Two weight spacers hold the gap after the file group and keep Edit at
+ * the far right. Edit is the mobile entry point for editing a selected cell
+ * (desktop/web also double-tap the cell).
+ */
+@Composable
+private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
+    @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose when canUndo/stopped change
+    val m = vm.machine
+    val loadFromDisk = rememberFileLoader { name, text -> vm.loadFromFile(name, text) }
+    Row(
+        Modifier.fillMaxWidth().padding(top = 6.dp),
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        // ── Load / Examples / Reload (the file group) ──
+        if (fileLoadSupported) {
+            OutlinedButton(onClick = loadFromDisk) { Text("Load") }
+        }
+        OutlinedButton(onClick = onLoad) { Text("Examples") }
+        if (fileReloadSupported) {
+            OutlinedButton(onClick = { vm.reload() }, enabled = vm.canReload) { Text("Reload") }
+        }
+
+        // the GAP between the file group and the run controls
+        Box(Modifier.weight(1f))
+
+        // ── Step / Run / steps/sec / Undo / Reset ──
+        Button(onClick = { vm.step() }, enabled = m?.stopped == false && !vm.running) { Text("Step") }
+        Button(onClick = { vm.toggleRun() }, enabled = m?.stopped == false) { Text(if (vm.running) "Stop" else "Run") }
+        StepsPerSecInput(vm.stepsPerSecond) { vm.stepsPerSecond = it }
+        OutlinedButton(onClick = { vm.stepBack() }, enabled = m?.canUndo == true) { Text("Undo") }
+        OutlinedButton(onClick = { vm.reset() }, enabled = m?.canUndo == true) { Text("Reset") }
+
+        // push Edit to the far right
+        Box(Modifier.weight(1f))
+
+        // Edit the value at the address selected in the CPU & memory panel;
+        // enabled only when such a selection exists.
+        OutlinedButton(onClick = onEdit, enabled = vm.memSelectedAddr != null) { Text("Edit") }
+    }
+}
+
+// steps/sec range (float, like pytoy's QDoubleSpinBox).
+private const val SPS_MIN = 0.1
+private const val SPS_MAX = 1000.0
+private const val SPS_STEP = 0.5
+
+/**
+ * A −/+ stepper for the Run speed (steps per second). A Double, shown with one
+ * decimal so the user sees that sub-1 values are allowed (e.g. "0.5"). The field
+ * accepts any float in [SPS_MIN, SPS_MAX]; the buttons nudge by [SPS_STEP].
+ * Shape copied from kotlin-common's IntegerInput, adapted to Float (no shared
+ * dependency, per the house rules). pytoy's spin_speed.
+ */
+@Composable
+private fun StepsPerSecInput(value: Double, onValueChange: (Double) -> Unit) {
+    Text("steps/sec:", style = MonoStyle)
+    // Local edit buffer so a half-typed value (e.g. "0.") isn't clobbered while
+    // typing. Re-sync it from [value] only when a ± button moved the value away
+    // from what the buffer parses to — so button taps update the field but typing
+    // doesn't fight itself.
+    var text by remember { mutableStateOf(fmt1(value)) }
+    LaunchedEffect(value) {
+        if (text.toDoubleOrNull() != value) text = fmt1(value)
+    }
+    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+        // Text "−"/"+" buttons rather than material-icons, to avoid pulling in the
+        // icons dependency (ktoy keeps its deps minimal).
+        OutlinedButton(
+            onClick = { onValueChange((value - SPS_STEP).coerceIn(SPS_MIN, SPS_MAX)) },
+            enabled = value > SPS_MIN,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+        ) { Text("−") }
+        OutlinedTextField(
+            value = text,
+            onValueChange = {
+                text = it
+                // Only commit a value that's already IN range, so an
+                // in-progress keystroke ("0." → 0.0, below SPS_MIN) isn't
+                // coerced up and then written back over what the user is
+                // typing. The field re-clamps on the ± buttons / resync.
+                it.toDoubleOrNull()?.let { v ->
+                    if (v in SPS_MIN..SPS_MAX) onValueChange(v)
+                }
+            },
+            singleLine = true,
+            modifier = Modifier.width(96.dp),
+        )
+        OutlinedButton(
+            onClick = { onValueChange((value + SPS_STEP).coerceIn(SPS_MIN, SPS_MAX)) },
+            enabled = value < SPS_MAX,
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
+        ) { Text("+") }
+    }
+}
+
+/** Format a Double with one decimal (e.g. 2.0, 0.5) without platform printf. */
+private fun fmt1(v: Double): String {
+    val scaled = kotlin.math.round(v * 10).toLong()
+    return "${scaled / 10}.${kotlin.math.abs(scaled % 10)}"
 }
 
 /** 8-bit binary string (unsigned), like pytoy's f"{v:08b}". Delegates to the one

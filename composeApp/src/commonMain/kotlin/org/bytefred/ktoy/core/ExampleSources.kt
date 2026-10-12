@@ -11,6 +11,10 @@ package org.bytefred.ktoy.core
  *            itself, so the UI can show the C|asm view.
  *   - TOYO — pre-compiled bytecode listing (*.toyo); to load: parse.
  *
+ * Each example also carries its repo [Example.subfolder] (e.g. "01-basics",
+ * "04-io"; "" for bytecode), so the browser UI can group by subfolder like
+ * pytoy's ExamplesDialog instead of a flat list.
+ *
  * For C examples, [Example.compilers] names the compiler(s) that accept the
  * source — a subset of "minicc", "toycc". minicc rejects recursion (and
  * other constructs toycc supports), so a recursive example lists only
@@ -29,6 +33,8 @@ data class Example(
     val source: String,
     /** C-only: compilers that accept this source ("minicc"/"toycc"); empty otherwise. */
     val compilers: List<String> = emptyList(),
+    /** Repo subfolder this came from (e.g. "01-basics", "04-io"); "" for bytecode. */
+    val subfolder: String = "",
 )
 
 val EXAMPLES: List<Example> = listOf(
@@ -74,7 +80,7 @@ n:      7
 a:      0
 b:      1
 one:    1
-"""),
+""", subfolder = "03-programs"),
     Example("fibonacci_rec", ExampleKind.ASM, """# Recursive Fibonacci, Toy CPU. fib(n)=n if n<2 else fib(n-1)+fib(n-2) mod 256.
 # Real stack via sp + self-modifying indirect load/store.
 # Frame (pushed by caller): [marker][n]. markers: 0=top,1=after fib(n-1),2=after fib(n-2).
@@ -240,7 +246,7 @@ stackbase: 0
         0
         0
         0
-"""),
+""", subfolder = "03-programs"),
     Example("gcd_iter", ExampleKind.ASM, """# gcd.toys
 # Greatest common divisor by subtraction (Euclid):
 #   while a != b: if a > b: a -= b  else: b -= a
@@ -270,7 +276,7 @@ done:   load  a           # a == b == gcd
 a:      48
 b:      36
 sign:   128
-"""),
+""", subfolder = "03-programs"),
     Example("max3", ExampleKind.ASM, """# max3.toys
 # Largest of three named values a, b, c.
 #
@@ -315,7 +321,7 @@ best:   0
 a:      3
 b:      1
 c:      4
-"""),
+""", subfolder = "03-programs"),
     Example("max_array", ExampleKind.ASM, """# max_array.toys
 # Finds the maximum of an array using self-modifying code
 #
@@ -380,7 +386,7 @@ arr:    3
         5
         9
         2
-"""),
+""", subfolder = "03-programs"),
     Example("sort3", ExampleKind.ASM, """# sort3.toys
 # Sorts three named values a, b, c ascending, then returns the smallest.
 #
@@ -441,7 +447,7 @@ t:      0
 a:      3
 b:      1
 c:      4
-"""),
+""", subfolder = "03-programs"),
     Example("sort_array_inline", ExampleKind.ASM, """# sort_array.toys
 # ---------------------------------------------------------------------------
 # Bubble sort of 10 bytes, in place, ascending.
@@ -567,7 +573,7 @@ arr:    3
         6
         5
         3
-"""),
+""", subfolder = "03-programs"),
     Example("sum3", ExampleKind.ASM, """# sum3.toys
 # Adds three named values: a + b + c.
 #
@@ -586,7 +592,7 @@ arr:    3
 a:      3
 b:      1
 c:      4
-"""),
+""", subfolder = "03-programs"),
     Example("sum_array", ExampleKind.ASM, """# sum_array.toys
 # Sums an array of values using self-modifying code
 #
@@ -636,7 +642,7 @@ arr:    3
         5
         9
         2
-"""),
+""", subfolder = "03-programs"),
     Example("times7_doubling", ExampleKind.ASM, """# sevenfold.toys
 # Computes res = 7 * a using doubling and addition
 #
@@ -663,7 +669,7 @@ arr:    3
 a:      4
 b:      0
 c:      0
-"""),
+""", subfolder = "03-programs"),
     Example("countdown", ExampleKind.ASM, """# countdown.toys — count down from 10 to 1, writing each step to an out cell.
 # io0=10, io1=9, ... io9=1  (decimal).
 # Same self-modifying output-pointer trick as fibonacci.toys.
@@ -695,7 +701,7 @@ done:   load  n
 # data
 n:    10
 one:   1
-"""),
+""", subfolder = "04-io"),
     Example("fibonacci_io", ExampleKind.ASM, """# fibonacci.toys — compute fib(0..13) and write them to io0..io13 (decimal).
 # fib(0)=0, fib(1)=1, fib(n)=fib(n-1)+fib(n-2).  fib(13)=233 is the largest that
 # still fits in one byte (fib(14)=377 would overflow).
@@ -746,7 +752,7 @@ next:  0
 count: 14           # write 14 values: fib(0)..fib(13)
 one:   1
 ival:  0
-"""),
+""", subfolder = "04-io"),
     Example("hello_world", ExampleKind.ASM, """# hello_world.toys — write "Hello world!" to the output cells as ASCII.
 # Each output cell holds one character code; the I/O widget (ascii mode) shows
 # them as letters.
@@ -792,7 +798,7 @@ r:  114
 l3: 108
 d:  100
 ex:  33
-"""),
+""", subfolder = "04-io"),
     Example("numbers", ExampleKind.ASM, """# numbers.toys — write 0,1,2,...,14 into the output cells io0..io14.
 # The simplest I/O program: just stores to the memory-mapped output region.
 #
@@ -850,7 +856,7 @@ c11: 11
 c12: 12
 c13: 13
 c14: 14
-"""),
+""", subfolder = "04-io"),
     Example("numbers_ascii", ExampleKind.ASM, """# numbers_ascii.toys — write 0,1,2,...,14 into the output cells io0..io14.
 # Same bytes as numbers.toys, but the I/O panel opens in ascii mode. Codes 0..14
 # are control characters (no visible glyph) — this file is here to show that the
@@ -907,7 +913,7 @@ c11: 11
 c12: 12
 c13: 13
 c14: 14
-"""),
+""", subfolder = "04-io"),
     Example("numbers_hex", ExampleKind.ASM, """# numbers_hex.toys — write 0,1,2,...,14 into the output cells io0..io14.
 # Same bytes as numbers.toys, but the I/O panel opens in hex mode, so they show
 # as 0..9 then a..e. Switch the View → I/O format menu to see them any other way.
@@ -962,7 +968,7 @@ c11: 11
 c12: 12
 c13: 13
 c14: 14
-"""),
+""", subfolder = "04-io"),
     Example("bit_operators.toyc", ExampleKind.C, """// expect: 36
 /*
  * bitops.c - showcase the bitwise operators and shifts, which map directly
@@ -988,7 +994,7 @@ int main(void) {
     a = a << 1;
     return a + (c & 0x0F);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
     Example("if_then_else.toyc", ExampleKind.C, """// expect: 5
 /*
  * ifelse.c - simple if/else demonstration.
@@ -1008,7 +1014,7 @@ int main(void) {
     }
     return r;
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
     Example("msb_shift_vs_mask.toyc", ExampleKind.C, """// expect: 0
 /*
  * msb_shift_vs_mask.toyc - two ways to read the top bit (bit 7) of a byte.
@@ -1033,7 +1039,7 @@ int main(void) {
 
     return msb1 ^ msb2;       // 0 -> both agree
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
     Example("multiply_doubling.toyc", ExampleKind.C, """// expect: 42
 /*
  * multiply_doubling.c - a * b by double-and-add, using +, shifts and a bit test.
@@ -1060,7 +1066,7 @@ int main(void) {
     }
     return res;
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
     Example("multiply_operator.toyc", ExampleKind.C, """// expect: 42
 /*
  * multiply_operator.c - compute a * b with the '*' operator.
@@ -1077,7 +1083,7 @@ int main(void) {
     int b = 6;
     return a * b;
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
     Example("multiply_repeated.toyc", ExampleKind.C, """// expect: 42
 /*
  * multiply_repeated.c - a * b by repeated addition, using only '+'.
@@ -1100,7 +1106,7 @@ int main(void) {
     }
     return res;
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
     Example("popcount.toyc", ExampleKind.C, """// expect: 3
 /*
  * popcount.c - count the set bits (1-bits) of a number.
@@ -1126,7 +1132,7 @@ int popcount(int x) {
 int main(void) {
     return popcount(37);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
     Example("times7_operator.toyc", ExampleKind.C, """// expect: 28
 /*
  * sevenfold.c - compute 7 * a.
@@ -1140,7 +1146,7 @@ int main(void) {
     int a = 4;
     return 7 * a;
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
     Example("bigint_add.toyc", ExampleKind.C, """// expect: 0
 /*
  * bigint_add.toyc - add two numbers wider than one byte.
@@ -1178,7 +1184,7 @@ int main(void) {
 
     return (c0 ^ 182) | (c1 ^ 125) | (c2 ^ 21) | (c3 ^ 26);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("count_iter.toyc", ExampleKind.C, """// expect: 10
 /*
  * count_iter.c - count up to 10 ITERATIVELY.
@@ -1196,7 +1202,7 @@ int main(void) {
     }
     return x;
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("count_rec.toyc", ExampleKind.C, """// expect: 10
 /*
  * count_rec.c - count up to 10 RECURSIVELY.
@@ -1222,7 +1228,7 @@ int f(int n) {
 int main(void) {
     return f(10);
 }
-""", compilers = listOf("toycc")),
+""", compilers = listOf("toycc"), subfolder = "03-programs"),
     Example("fibonacci_array.toyc", ExampleKind.C, """// expect: 34
 /*
  * fibonacci_array.c - fill an array with the first 10 Fibonacci numbers.
@@ -1247,7 +1253,7 @@ int main(void) {
     }
     return a[9];
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("fibonacci_iter.toyc", ExampleKind.C, """// expect: 55
 /*
  * fibonacci_iter.c - the n-th Fibonacci number, ITERATIVE.
@@ -1272,7 +1278,7 @@ int fibonacci_iter(int n) {
 int main(void) {
     return fibonacci_iter(10);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("fibonacci_rec.toyc", ExampleKind.C, """// expect: 55
 /*
  * fibonacci_rec.c - the n-th Fibonacci number, RECURSIVE.
@@ -1300,7 +1306,7 @@ int fibonacci_rec(int n) {
 int main(void) {
     return fibonacci_rec(10);
 }
-""", compilers = listOf("toycc")),
+""", compilers = listOf("toycc"), subfolder = "03-programs"),
     Example("gcd_iter.toyc", ExampleKind.C, """// expect: 12
 /*
  * gcd_iter.c - greatest common divisor, ITERATIVE (subtraction algorithm).
@@ -1326,7 +1332,7 @@ int gcd_iter(int a, int b) {
 int main(void) {
     return gcd_iter(48, 36);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("gcd_rec.toyc", ExampleKind.C, """// expect: 12
 /*
  * gcd_rec.c - greatest common divisor, RECURSIVE (subtraction algorithm).
@@ -1352,7 +1358,7 @@ int gcd_rec(int a, int b) {
 int main(void) {
     return gcd_rec(48, 36);
 }
-""", compilers = listOf("toycc")),
+""", compilers = listOf("toycc"), subfolder = "03-programs"),
     Example("max3.toyc", ExampleKind.C, """// expect: 4
 /*
  * max3.c - the largest of three values a, b, c.
@@ -1376,7 +1382,7 @@ int max3(int a, int b, int c) {
 int main(void) {
     return max3(3, 1, 4);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("max_array.toyc", ExampleKind.C, """// expect: 9
 /*
  * max_array.c - the largest element of an array.
@@ -1404,7 +1410,7 @@ int main(void) {
     }
     return m;
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("sort3.toyc", ExampleKind.C, """// expect: 1
 /*
  * sort3.c - sort three values and return the smallest.
@@ -1430,7 +1436,7 @@ int sort3(int a, int b, int c) {
 int main(void) {
     return sort3(3, 1, 4);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("sort_array_fn.toyc", ExampleKind.C, """// expect: 1
 /*
  * sort_array_function.c - bubble sort where the array is passed to a FUNCTION
@@ -1472,7 +1478,7 @@ int main(void) {
     bubblesort(a, 10);
     return a[0];
 }
-""", compilers = listOf("toycc")),
+""", compilers = listOf("toycc"), subfolder = "03-programs"),
     Example("sort_array_inline.toyc", ExampleKind.C, """// expect: 1
 /*
  * sort_array_inline.c - iterative bubble sort of a fixed 10-element array,
@@ -1516,7 +1522,7 @@ int main(void) {
     }
     return a[0];
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("sum3.toyc", ExampleKind.C, """// expect: 8
 /*
  * sum3.c - add three values a + b + c.
@@ -1537,7 +1543,7 @@ int sum3(int a, int b, int c) {
 int main(void) {
     return sum3(3, 1, 4);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("sum_array.toyc", ExampleKind.C, """// expect: 39
 /*
  * sum_array.c - sum the elements of an array.
@@ -1564,7 +1570,7 @@ int main(void) {
     }
     return s;
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("sum_countdown.toyc", ExampleKind.C, """// expect: 15
 /*
  * countdown.c - count down from 5 and accumulate the sum 5+4+3+2+1.
@@ -1583,7 +1589,7 @@ int main(void) {
     }
     return total;
 }
-""", compilers = listOf("toycc")),
+""", compilers = listOf("toycc"), subfolder = "03-programs"),
     Example("sum_of_squares.toyc", ExampleKind.C, """// expect: 25
 /*
  * functions.c - small helper functions that call each other.
@@ -1611,7 +1617,7 @@ int sum_of_squares(int a, int b) {
 int main(void) {
     return sum_of_squares(3, 4);
 }
-""", compilers = listOf("minicc", "toycc")),
+""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("fibonacci (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
 #
 # ADDR  BYTES                   SOURCE
@@ -1724,5 +1730,52 @@ fun groupedExamples(): Map<String, List<Example>> {
     val order = listOf("Assembly", "C (minicc)", "C (toycc)", "Bytecode")
     val out = linkedMapOf<String, List<Example>>()
     for (key in order) groups[key]?.let { out[key] = it }
+    return out
+}
+
+/**
+ * The example tree for the browser UI: category -> subfolder -> examples,
+ * mirroring pytoy's ExamplesDialog. Top-level categories, in display order:
+ *   "Assembly"    — .toys, children grouped by subfolder (01-basics, ...).
+ *   "C (minicc)"  — C examples minicc accepts, grouped by subfolder.
+ *   "C (toycc)"   — C examples toycc accepts, grouped by subfolder.
+ *   "Bytecode"    — .toyo listings under a single "" subfolder (flat).
+ *
+ * A C example both compilers accept appears under BOTH C nodes; which node
+ * a leaf sits under IS the chosen compiler. To make picking a leaf load it
+ * on THAT compiler (via load()'s compiler preference), a C leaf's Example is
+ * narrowed so `compilers` holds only the node's compiler.
+ */
+fun groupedExamplesTree(): Map<String, Map<String, List<Example>>> {
+    val out = linkedMapOf<String, Map<String, List<Example>>>()
+
+    fun bucket(predicate: (Example) -> Boolean, pick: (Example) -> Example):
+        Map<String, List<Example>> {
+        val bySub = linkedMapOf<String, MutableList<Example>>()
+        for (ex in EXAMPLES) if (predicate(ex)) {
+            bySub.getOrPut(ex.subfolder) { mutableListOf() }.add(pick(ex))
+        }
+        return bySub
+    }
+
+    // Assembly: one subfolder bucket per subfolder, preserving EXAMPLES order.
+    val asm = bucket({ it.kind == ExampleKind.ASM }, { it })
+    if (asm.isNotEmpty()) out["Assembly"] = asm
+
+    // C: one top-level node per compiler, each example narrowed to that
+    // compiler and bucketed by subfolder; a compiler node is omitted if it
+    // accepts nothing.
+    for (compiler in listOf("minicc", "toycc")) {
+        val bySub = bucket(
+            { it.kind == ExampleKind.C && compiler in it.compilers },
+            { it.copy(compilers = listOf(compiler)) },
+        )
+        if (bySub.isNotEmpty()) out["C ($compiler)"] = bySub
+    }
+
+    // Bytecode: flat — a single "" subfolder holding every .toyo listing.
+    val toyo = EXAMPLES.filter { it.kind == ExampleKind.TOYO }
+    if (toyo.isNotEmpty()) out["Bytecode"] = linkedMapOf("" to toyo)
+
     return out
 }

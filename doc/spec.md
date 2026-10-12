@@ -346,8 +346,22 @@ line is this byte in memory".
 
 ### 5.4 Program picker (replaces file dialog on mobile)
 
-Bundled `examples/` programs are listed by name; picking one assembles and loads
-it. On desktop a "Load file…" option can still open an arbitrary `.toys`/`.toyo`
+Bundled `examples/` programs are picked from a **collapsible tree**, grouped by
+category then repo subfolder (mirrors pytoy's `ExamplesDialog`), not a flat list.
+Top-level nodes: Assembly / C (minicc) / C (toycc) / Bytecode. Assembly and C
+nodes expand into their repo subfolders (e.g. `03-programs`, `04-io`,
+`02-extended`); Bytecode is flat. Category nodes start expanded, subfolders start
+collapsed. Picking a leaf assembles/compiles and loads it.
+
+Each `Example` carries a `subfolder` field (generated from pytoy's folder
+layout); `groupedExamplesTree()` in `ExampleSources.kt` builds the
+category→subfolder→examples map the picker renders. A C example both compilers
+accept appears under BOTH C nodes; which node a leaf sits under IS the chosen
+compiler — the tree narrows that leaf's `compilers` to the node's single
+compiler so `load()` opens it on minicc or toycc accordingly (matching pytoy,
+whose leaves carry `(example, compiler)`).
+
+On desktop a "Load file…" option can still open an arbitrary `.toys`/`.toyo`
 (nice-to-have); on mobile the bundled list is the main entry.
 
 ### 5.5 Responsive layout and lifecycle (Android especially)
@@ -573,3 +587,56 @@ iOS / JVM desktop / Web targets (the scaffold is Android-only for now; the core
 is pure commonMain so adding them later is straightforward). No file load/save
 (everything is in RAM; the examples are bundled). The C compiler stays out of
 scope (§1.2).
+
+---
+
+## 11. GUI fixes round (Manfred's review of the running app)
+
+A batch of GUI corrections after Manfred ran the simulator on JVM + web. Each is
+his request; the pytoy-consistent choice was taken where the ask was open.
+
+1. **Monospace data views.** The C / assembly / memory panels and the I/O widget
+   all render through `HighlightRow` / `IoCell`, which use `MonoStyle`
+   (`FontFamily.Monospace`). Already correct; verified the `>>` marker and
+   columns line up because the data font is truly monospace (the rest of the GUI
+   keeps the default font).
+2. **Title layout.** The program title (top bar, right) now has `maxLines = 1`,
+   `overflow = Ellipsis`, `textAlign = End` and `weight(1f, fill = false)` so a
+   long name is truncated instead of breaking/overflowing the bar. General fix,
+   not target-specific.
+3. **Bottom controls order (pytoy).** `Load · Examples · Reload — gap — Step ·
+   Run · steps/sec · Undo · Reset — Edit (far right)`. Load/Examples/Reload are
+   surfaced as buttons in the bottom bar (the File menu keeps them too); Edit is
+   pushed right by a weight spacer. Known trade-off: on a very narrow phone the
+   single row can clip the right end (pytoy also uses one bottom bar); the
+   adaptive columns above handle the main content.
+4. **No "set ready" input.** ktoy never had a dedicated ready(255) input/button;
+   `ready` is the 16th I/O cell and is set by tapping it like any I/O cell. No
+   change needed.
+5. **I/O format picker in the panel.** Already present (`FormatSelector` chips
+   inside `IoPanel`). Default format changed to **ASCII** (`ioFormat` in the VM).
+6. **No C-open dialog.** ktoy already loads a C program straight into the three
+   columns (`vm.load(example)`); there is no intermediate compiler-choice /
+   comparison popup. No change needed.
+7. **Double-tap to edit.** Memory cells and the C column now open the edit dialog
+   on `onDoubleTap` (`detectTapGestures`); single tap still selects. Long-press
+   removed. Works on touch too; mobile also has the bottom-bar Edit button for a
+   selected memory cell.
+8. **Auto portrait/landscape.** `wide = maxWidth > maxHeight || maxWidth >=
+   240.dp * columnCount` — side-by-side when landscape-ish OR wide enough to give
+   each shown column a ~240.dp floor, stacked otherwise. Adapts on resize.
+9. **PC highlight in the C column.** `vm.pcCLine()` maps the PC's asm row up to
+   its C line; that line gets `HL_PC` (yellow), like the asm/memory panels.
+10. **Selection fan-out.** `transitiveSelection(..., fromC)`: a **C-line click**
+    fans DOWN to all the statement's asm rows + bytes (as before); an **asm /
+    memory click** resolves UP to the owning C line but lights ONLY the clicked
+    row and its own bytes (no sibling-row fan-out). The VM tracks `selectedFromC`.
+11. **Scroll-to-selection (centred).** `scrollToLine()` scrolls each column so the
+    focused line (selected line, else PC) lands mid-viewport, on selection change.
+12. **steps/sec stepper.** `StepsPerSecInput` = `−` / field / `+` (text
+    `OutlinedButton`s, not material-icons — shape adapted from kotlin-common's
+    `IntegerInput`, no shared dep and no icons dependency).
+    Shows one decimal (e.g. `2.0`, `0.5`); range 0.1..1000, step 0.5; sub-1 values
+    allowed.
+13. **Line numbers default ON.** `showLineNumbers = true` with the View-menu
+    toggle kept. Verified, unchanged.
