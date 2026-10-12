@@ -19,6 +19,7 @@ import org.bytefred.ktoy.core.addrToCLine
 import org.bytefred.ktoy.core.asmRowsToAddrs
 import org.bytefred.ktoy.core.assemble
 import org.bytefred.ktoy.core.detectCompilers
+import org.bytefred.ktoy.core.exportToyo
 import org.bytefred.ktoy.core.parseToyo
 import org.bytefred.ktoy.core.transitiveSelection
 import kotlinx.coroutines.Job
@@ -49,6 +50,26 @@ class SimViewModel : ViewModel() {
     var syms: Map<String, Int> = emptyMap(); private set
     var hasSource: Boolean = true; private set
     var title: String = ""; private set
+
+    // The current assembly source text (for .toys Save), or null for a .toyo load
+    // with no source. Mirrors pytoy's _asm_text.
+    var asmText: String? = null; private set
+
+    // ── File-menu state ───────────────────────────────────────────────────────
+    // The last file opened from disk (name + raw text + inferred kind), so Reload
+    // can re-run it. null until a file is loaded from disk (examples don't set it).
+    var currentFileName: String? = null; private set
+    private var currentFileText: String? = null
+    private var currentFileKind: ExampleKind? = null
+
+    // View -> Line numbers (the gutter in the source panels). On by default.
+    var showLineNumbers by mutableStateOf(true)
+
+    // A transient status message for the File menu (e.g. "Saved foo.toyo"), shown
+    // briefly in the UI. Cleared by the UI after showing.
+    var statusMessage: String? by mutableStateOf(null); private set
+    fun clearStatus() { statusMessage = null }
+    fun setStatus(msg: String?) { statusMessage = msg }
 
     // ── C-source state (null / empty for an ASM or TOYO load) ────────────────
     // The loaded C program (source + compiler + C↔asm maps), or null. hasCSource
@@ -129,10 +150,105 @@ class SimViewModel : ViewModel() {
         listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
         syms = emptyMap()
         hasSource = false
+        asmText = null
         machine = Machine(mem, (0..255).toSet())
         clearCSource()
+        clearCurrentFile()
         rebuildAddrMaps()
         bump()
+    }
+
+    // ── loading a file from disk / device ─────────────────────────────────────
+
+    private fun clearCurrentFile() {
+        currentFileName = null
+        currentFileText = null
+        currentFileKind = null
+    }
+
+    /** Infer a program's kind from its file name extension (default: ASM). */
+    private fun kindOf(name: String): ExampleKind = when {
+        name.endsWith(".toyc", ignoreCase = true) -> ExampleKind.C
+        name.endsWith(".toyo", ignoreCase = true) -> ExampleKind.TOYO
+        else -> ExampleKind.ASM   // .toys and anything else
+    }
+
+    /**
+     * Load a program the user picked from disk (name + raw text). The kind is
+     * inferred from the extension. On a compile/assemble failure the previous
+     * program is left intact and an error is surfaced (same as example loading).
+     * Records the file so Reload can re-run it.
+     */
+    fun loadFromFile(fileName: String, text: String) {
+        val kind = kindOf(fileName)
+        val compilers = if (kind == ExampleKind.C) detectCompilers(text) else emptyList()
+        if (kind == ExampleKind.C && compilers.isEmpty()) {
+            errorMessage = "Neither minicc nor toycc accepts this C source."
+            return
+        }
+        load(Example(fileName, kind, text, compilers))
+        // load() clears errorMessage up front and only sets it on failure, so a
+        // null error means the load took — record the file for Reload only then.
+        if (errorMessage == null) {
+            currentFileName = fileName
+            currentFileText = text
+            currentFileKind = kind
+            title = fileName
+            bump()
+        }
+    }
+
+    /** True if there is a disk file to reload (not just an example). */
+    val canReload: Boolean get() = currentFileText != null
+
+    /** Re-run the last file loaded from disk. No-op if none. */
+    fun reload() {
+        val text = currentFileText ?: return
+        val name = currentFileName ?: return
+        loadFromFile(name, text)
+    }
+
+    // ── saving the current program ────────────────────────────────────────────
+
+    /**
+     * The export formats that fit the current program, as (label, extension).
+     * .toyo (the live byte image, incl. edits) is always available; .toys only
+     * with assembly source; .toyc only for a C program. Mirrors pytoy's
+     * _save_formats().
+     */
+    fun saveFormats(): List<Pair<String, String>> {
+        val out = mutableListOf("Bytecode (.toyo)" to ".toyo")
+        if (asmText != null) out.add("Assembly (.toys)" to ".toys")
+        if (cText != null) out.add("C source (.toyc)" to ".toyc")
+        return out
+    }
+
+    /** A suggested base file name for Save (the current file's stem, or title). */
+    fun suggestedSaveName(): String {
+        val n = currentFileName ?: title
+        return n.substringBeforeLast('.').ifBlank { "program" }
+    }
+
+    /**
+     * The text to write for a given export extension:
+     *  - .toyo : the LIVE byte image (listing rebuilt from current memory, so
+     *            hand edits and runtime stores are saved), via exportToyo().
+     *  - .toys : the current assembly source.
+     *  - .toyc : the current C source.
+     * Returns null if the format doesn't apply to the loaded program.
+     */
+    fun exportText(extension: String): String? = when (extension) {
+        ".toyo" -> {
+            val m = machine ?: return null
+            val live = listing.map { line ->
+                val a = line.addr ?: return@map line
+                line.copy(bytes = line.bytes.indices.map { m.mem[(a + it) % 256] })
+            }
+            exportToyo(live, syms)
+        }
+        ".toys" -> asmText
+        ".toyc" -> cText
+        else -> null
     }
 
     /**
@@ -147,6 +263,9 @@ class SimViewModel : ViewModel() {
      */
     fun load(example: Example) {
         stopRun()
+        // a fresh load clears any stale error from a previous failed attempt, so
+        // "errorMessage == null" reliably means "the last load succeeded".
+        errorMessage = null
         when (example.kind) {
             ExampleKind.TOYO -> {
                 val mem = parseToyo(example.source)
@@ -154,6 +273,7 @@ class SimViewModel : ViewModel() {
                 listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
                 syms = emptyMap()
                 hasSource = false
+                asmText = null
                 machine = Machine(mem, (0..255).toSet())
                 clearCSource()
                 rebuildAddrMaps()
@@ -164,6 +284,7 @@ class SimViewModel : ViewModel() {
                 listing = res.listing
                 syms = res.syms
                 hasSource = true
+                asmText = example.source
                 machine = Machine(res.mem, res.dataAddrs)
                 clearCSource()
                 rebuildAddrMaps()
@@ -193,6 +314,7 @@ class SimViewModel : ViewModel() {
         listing = p.result.listing
         syms = p.result.syms
         hasSource = true
+        asmText = p.asm
         machine = Machine(p.result.mem, p.result.dataAddrs)
         cText = p.cText
         currentCompiler = p.compiler

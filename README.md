@@ -75,7 +75,9 @@ Machine-local scripts for installing on a device or emulator live in
 ## Documentation
 
 The full specification — what was built and why, and how it maps to pytoy — is in
-[`doc/spec.md`](doc/spec.md).
+[`doc/spec.md`](doc/spec.md). Building and running each platform (Android, desktop,
+web, iOS), the menus, file I/O and version info are in
+[`doc/platforms.md`](doc/platforms.md).
 
 ## Credits & license
 

@@ -72,18 +72,23 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     val (changedCLines, changedRows) = vm.changeSets()
 
     Column(Modifier.fillMaxSize().padding(8.dp)) {
-        // top bar: Load button (opens the example list) + current program title +
-        // an I/O panel toggle (ktoy's equivalent of pytoy's View → I/O panel)
+        // Menu bar (File / View / Help) + the current program title. Replaces the
+        // old inline Load button and I/O toggle (now menu items). pytoy's menus.
         Row(
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         ) {
-            Button(onClick = onLoad) { Text("Load…") }
+            SimMenuBar(vm, onBrowseExamples = onLoad)
             Text(vm.title, style = MonoStyle)
-            OutlinedButton(onClick = { vm.showIo = !vm.showIo }) {
-                Text(if (vm.showIo) "Hide I/O" else "Show I/O")
+        }
+        // a transient "Saved …" status line from the File menu, auto-cleared
+        vm.statusMessage?.let { msg ->
+            LaunchedEffect(msg) {
+                kotlinx.coroutines.delay(3000)
+                vm.clearStatus()
             }
+            Text(msg, style = MonoStyle, color = Color(0xFF1A7F37))
         }
 
         // Adaptive columns, like pytoy: C (only for a C load) | asm (only with
@@ -267,11 +272,17 @@ private fun SourcePanel(
             vScroll.animateScrollTo((firstPcLine * lineHeightPx).coerceIn(0, vScroll.maxValue))
         }
     }
+    // display-only line-number gutter (pytoy's _refresh_source), toggled from
+    // View -> Line numbers. Never part of any saved file; labels, not numbers,
+    // are how asm refers to lines.
+    val gutterWidth = vm.listing.size.toString().length.coerceAtLeast(1)
     ScrollbarBox(vScroll, modifier.fillMaxSize()) {
       Column(Modifier.fillMaxSize().padding(4.dp)
         .verticalScroll(vScroll)
         .horizontalScroll(hScroll)) {
         vm.listing.forEachIndexed { i, line ->
+            val gutter = if (vm.showLineNumbers)
+                "${(i + 1).toString().padStart(gutterWidth)} | " else ""
             val marker = when {
                 i in pcLines -> ">>"
                 i == argLine -> "**"
@@ -303,7 +314,7 @@ private fun SourcePanel(
             val rowMod = if (line.addr != null)
                 Modifier.clickable { vm.select(line.addr) }
             else Modifier
-            HighlightRow(text, colours, rowMod)
+            HighlightRow(gutter + text, colours, rowMod)
         }
       }
     }
@@ -427,7 +438,8 @@ private fun CSourcePanel(
                 val colours = mutableListOf<Color>()
                 if (cLine in selCLines) colours.add(HL_SELECTED)
                 if (cLine in changedCLines) colours.add(HL_CODE)
-                val gutter = "${cLine.toString().padStart(gutterWidth)} | "
+                val gutter = if (vm.showLineNumbers)
+                    "${cLine.toString().padStart(gutterWidth)} | " else ""
                 HighlightRow(
                     gutter + line,
                     colours,
