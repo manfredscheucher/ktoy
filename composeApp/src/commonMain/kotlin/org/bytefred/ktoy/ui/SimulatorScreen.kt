@@ -113,14 +113,19 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             // with source; memory always).
             val cols = (if (vm.hasCSource) 1 else 0) +
                 (if (vm.hasSource) 1 else 0) + 1
-            // Side-by-side when the window is landscape-ish OR simply wide enough
-            // to give each column a usable minimum. Using BOTH an aspect test and
-            // a per-column width floor makes the breakpoint adapt on resize across
-            // web + jvm (a wide-but-short window still goes side-by-side; a narrow
-            // one stacks even if it's tall). ~240.dp/column is the floor pytoy's
-            // panels need before text starts clipping.
-            val minPerCol = 240.dp
-            val wide = maxWidth > maxHeight || maxWidth >= minPerCol * cols
+            // Side-by-side vs stacked. AUTO decides purely by WIDTH so it reacts
+            // to window resize (an aspect test made a tall-narrow window wrongly
+            // go side-by-side and not switch back): side-by-side once the window
+            // is wide enough to give each shown column a usable minimum width,
+            // stacked otherwise. ~300.dp/column is the floor the panels need
+            // before text clips. PORTRAIT / LANDSCAPE override the auto choice
+            // (View -> Layout).
+            val minPerCol = 300.dp
+            val wide = when (vm.layoutMode) {
+                LayoutMode.LANDSCAPE -> true
+                LayoutMode.PORTRAIT -> false
+                LayoutMode.AUTO -> maxWidth >= minPerCol * cols
+            }
             val pcCLine = vm.pcCLine()
             val cCol: @Composable (Modifier) -> Unit = { mod ->
                 CSourcePanel(vm, sel.cLines, changedCLines, pcCLine, { editCOpen = true }, mod)

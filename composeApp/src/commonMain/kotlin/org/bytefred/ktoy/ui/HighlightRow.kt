@@ -1,16 +1,19 @@
 package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.sp
 import androidx.compose.material3.Text
 
-/** Monospace text style shared by both panels, so columns line up. */
+/** Monospace text style shared by every data view, so columns line up. */
 val MonoStyle = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 13.sp)
 
 /**
@@ -23,9 +26,14 @@ const val ROW_WIDTH = 80
 /**
  * One panel row, coloured like pytoy's highlight_row: padded to a fixed width so
  * the colour reaches the edge, and — when several colours apply — its characters
- * alternate through them (character j gets colours[j % n]), giving the same fine
- * per-character stripe pattern. One colour tints the whole row; none leaves it
- * plain. Consecutive same-colour characters are merged into one Text.
+ * alternate through them (character j gets colours[j % n]), the same fine
+ * per-character stripe. One colour tints the whole row; none leaves it plain.
+ *
+ * The whole row is ONE Text over an AnnotatedString (per-character background
+ * SpanStyles), not N per-character Text composables. A single text-layout pass
+ * means every row — plain, one-colour, or striped — has identical monospace
+ * advance widths, so columns stay aligned (N separate Texts drifted sub-pixel
+ * and misaligned the striped rows against the plain ones).
  */
 @Composable
 fun HighlightRow(
@@ -36,26 +44,22 @@ fun HighlightRow(
 ) {
     val style = MonoStyle.copy(color = textColor)
     val padded = if (text.length < ROW_WIDTH) text.padEnd(ROW_WIDTH) else text
-    Row(modifier = modifier) {
-        when {
-            colours.isEmpty() -> Text(padded, style = style, softWrap = false, maxLines = 1)
-            colours.size == 1 ->
-                Text(padded, style = style, softWrap = false, maxLines = 1,
-                    modifier = Modifier.background(colours[0]))
-            else -> {
-                // emit one Text per maximal run of the same colour (with >1
-                // colour that's every character, since neighbours always differ)
-                val n = colours.size
+    when {
+        colours.isEmpty() ->
+            Text(padded, style = style, softWrap = false, maxLines = 1, modifier = modifier)
+        colours.size == 1 ->
+            Text(padded, style = style, softWrap = false, maxLines = 1,
+                modifier = modifier.background(colours[0]))
+        else -> {
+            val n = colours.size
+            val annotated: AnnotatedString = buildAnnotatedString {
                 for (j in padded.indices) {
-                    Text(
-                        padded[j].toString(),
-                        style = style,
-                        softWrap = false,
-                        maxLines = 1,
-                        modifier = Modifier.background(colours[j % n]),
-                    )
+                    withStyle(SpanStyle(background = colours[j % n])) {
+                        append(padded[j])
+                    }
                 }
             }
+            Text(annotated, style = style, softWrap = false, maxLines = 1, modifier = modifier)
         }
     }
 }

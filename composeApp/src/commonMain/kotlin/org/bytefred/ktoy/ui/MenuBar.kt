@@ -12,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -91,6 +92,17 @@ fun SimMenuBar(vm: SimViewModel, onBrowseExamples: () -> Unit) {
                 vm.showLineNumbers = !vm.showLineNumbers
             }
             CheckItem("I/O panel", vm.showIo) { vm.showIo = !vm.showIo }
+            HorizontalDivider()
+            // Layout: AUTO (by window size) / PORTRAIT (stacked) / LANDSCAPE
+            // (side by side). A flat radio group rather than a nested submenu,
+            // since Material3 DropdownMenu has no built-in submenus.
+            Text("Layout", style = MonoStyle,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            for (mode in LayoutMode.entries) {
+                CheckItem("  " + mode.name.lowercase(), vm.layoutMode == mode) {
+                    vm.layoutMode = mode
+                }
+            }
         }
 
         // ── Help ──

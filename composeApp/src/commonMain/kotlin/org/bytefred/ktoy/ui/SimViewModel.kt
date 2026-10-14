@@ -27,6 +27,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
+/** How the C/asm/memory columns are arranged (View -> Layout). */
+enum class LayoutMode { AUTO, PORTRAIT, LANDSCAPE }
+
 /**
  * Holds the running Machine and the derived UI state for the simulator screen.
  * Being a ViewModel, it survives Android configuration changes (rotation), so
@@ -64,6 +67,10 @@ class SimViewModel : ViewModel() {
 
     // View -> Line numbers (the gutter in the source panels). On by default.
     var showLineNumbers by mutableStateOf(true)
+
+    // View -> Layout: AUTO picks side-by-side vs stacked from the window size;
+    // PORTRAIT forces the columns stacked; LANDSCAPE forces them side by side.
+    var layoutMode by mutableStateOf(LayoutMode.AUTO)
 
     // A transient status message for the File menu (e.g. "Saved foo.toyo"), shown
     // briefly in the UI. Cleared by the UI after showing.
