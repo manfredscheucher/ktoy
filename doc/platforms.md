@@ -36,11 +36,11 @@ git submodule update --init --recursive        # kotlin-common (shared logger)
 ## Run
 
 ```bash
-./scripts/runJVM.sh            # JVM desktop window  (:composeApp:run)
-./scripts/runWeb.sh            # web dev-server on http://localhost:8604 + Chrome
-./scripts/runAndroid.sh        # Android emulator (installDebug + launch)
-./scripts/runAndroidDevice.sh  # connected Android device over USB
-./scripts/runIosSimulator.sh   # iOS Simulator (macOS + Xcode only)
+./scripts/runJVM.sh              # JVM desktop window  (:composeApp:run)
+./scripts/runWeb.sh              # web dev-server on http://localhost:8604 + Chrome
+./scripts/runAndroidEmulator.sh  # Android emulator (installDebug + launch)
+./scripts/runAndroidDevice.sh    # connected Android device over USB
+./scripts/runIosSimulator.sh     # iOS Simulator (macOS + Xcode only)
 ```
 
 The Android scripts take `--no-build` (install the existing APK) and `--log`

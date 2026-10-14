@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Build, install and launch ktoy on the Android EMULATOR.
 # Usage:
-#   ./scripts/runAndroid.sh                 # first available AVD
-#   ./scripts/runAndroid.sh Pixel_7         # a specific AVD by name
-#   ./scripts/runAndroid.sh --no-build      # install the existing APK, don't rebuild
-#   ./scripts/runAndroid.sh --log           # stream logcat (filtered) after launch
+#   ./scripts/runAndroidEmulator.sh                 # first available AVD
+#   ./scripts/runAndroidEmulator.sh Pixel_7         # a specific AVD by name
+#   ./scripts/runAndroidEmulator.sh --no-build      # install the existing APK, don't rebuild
+#   ./scripts/runAndroidEmulator.sh --log           # stream logcat (filtered) after launch
 #
 # Needs the Android SDK (platform-tools + emulator). Machine-specific device
 # scripts (per-serial) live in _private/scripts/; this is the generic one.
