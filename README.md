@@ -1,19 +1,43 @@
 # ktoy
 
-An Android app for the [Toy CPU](https://github.com/freedosproject/toycpu): an
-assembler and a simulator you can step through on your phone. A Kotlin
-Multiplatform + Compose port of [pytoy](https://github.com/manfredscheucher/pytoy).
+A cross-platform app for the [Toy CPU](https://github.com/freedosproject/toycpu):
+an assembler and a simulator you can step through — on the **desktop, the web,
+Android and iOS**. A Kotlin Multiplatform + Compose rewrite of
+[pytoy](https://github.com/manfredscheucher/pytoy).
 
 The Toy CPU is a minimal 8-bit processor with 256 bytes of memory, one
 accumulator, and a program counter. It was built as a FreeDOS learning tool with
 a switch-based interface (like an Altair 8800); ktoy keeps the same CPU but lets
 you write readable assembly and watch it run. The point is to *see* how a CPU
-works: the screen highlights the current program counter and the memory address
-each instruction reads or writes, and you step through one instruction at a time.
+works: while a program runs, it highlights the current bytecode in memory next to
+the matching assembly instruction, and you step through one instruction at a time.
 
 You write assembly (`.toys`); ktoy assembles it to a 256-byte image and runs it.
-A handful of example programs are built into the app. The C compiler that pytoy
-ships (`toycc`) is intentionally left out here.
+It also compiles a small C subset (the same `toycc`/`minicc` as pytoy) and shows
+C, assembly and memory side by side. Example programs are built in.
+
+## Try it
+
+- **Web** (live once GitHub Pages is enabled):
+  <https://manfredscheucher.github.io/ktoy/>
+- **Desktop / Android / iOS** — see [Build & run](#build--run) below.
+
+## Videos
+
+Tutorials and demos on the Toy CPU and these tools (basic instruction set,
+programs, the C compiler, and more):
+
+▶ [YouTube playlist](https://www.youtube.com/watch?v=vQxGXtlf5c4&list=PLU1OJ36r4v_c)
+
+## pytoy and ktoy
+
+[**pytoy**](https://github.com/manfredscheucher/pytoy) is the original
+implementation — Python, for the desktop. ktoy is the Kotlin Multiplatform
+rewrite that covers more platforms (desktop plus web, Android, iOS) and is meant
+to become the main front end over time. pytoy stays the reference: it's the
+source of truth for the CPU semantics and the examples, which ktoy is generated
+from, and it keeps working. Python covers Windows/Linux/macOS; Kotlin
+Multiplatform is a superset that adds the browser and the phones on top.
 
 A taste of the syntax:
 
@@ -27,17 +51,20 @@ b:      20
 
 ## The app
 
-Two screens. The simulator starts empty; the "Load…" button lists the built-in
-examples. Once a program is loaded you get two panels:
+A menu bar (File / View / Help) over an adaptive 1–3 column view: memory only for
+bytecode (`.toyo`), assembly + memory for `.toys`, and C + assembly + memory for a
+C program. The columns sit side by side when the window is wide and stack when
+it's narrow (View → Layout to force portrait/landscape).
 
-- **Assembly** (left) — the source, with the current line highlighted.
-- **CPU & memory** (right) — the accumulator, program counter and the current
-  instruction, above a listing of all 256 memory bytes.
+- **C** / **Assembly** — the source, with the current line highlighted.
+- **CPU & memory** — the accumulator, program counter and current instruction,
+  above a listing of all 256 memory bytes.
 
-Controls: Step one instruction, Run at an adjustable speed (steps/sec), Undo a
-step, Reset to the start, and Edit the value at a selected memory cell. Tapping a
-cell or a source line highlights the same address in both panels. Long-press a
-cell, or use the Edit button, to change its value.
+A click in any column highlights the same statement across the others. Controls:
+Step, Run at an adjustable speed (steps/sec), Undo, Reset, and Edit the selected
+cell. Double-tap a cell or line (desktop/web) — or the Edit button — to change its
+value. File → Load/Save a program, Examples browses the built-ins by folder, Help
+shows the instruction set.
 
 ## The code
 
@@ -52,7 +79,7 @@ lives in `commonMain`:
   edit, and `.toyo` parsing.
 - `ui/` — the Compose screens.
 - `core/ExampleSources.kt` — the bundled example programs, **generated** from
-  pytoy's `examples/` by `pytoy/scripts/gen_ktoy_examples.py` (pytoy is the single
+  pytoy's `examples/` by `scripts/gen_example_sources.py` (pytoy is the single
   source of truth for the examples).
 
 ## Build & run
@@ -65,11 +92,21 @@ git submodule update --init --recursive
 ./gradlew :composeApp:testDebugUnitTest    # run the tests
 ```
 
+Run scripts per platform (see [`doc/platforms.md`](doc/platforms.md) for details):
+
+```bash
+./scripts/runJVM.sh               # desktop
+./scripts/runWeb.sh               # web dev-server (http://localhost:8604)
+./scripts/runAndroidEmulator.sh   # Android emulator
+./scripts/runIosSimulator.sh      # iOS Simulator (macOS + Xcode)
+./scripts/deployPages.sh          # build the web bundle -> gh-pages branch
+```
+
 The tests include a snapshot table that asserts ktoy computes the exact same final
 accumulator and step count as pytoy for every bundled example, so the two
 implementations can't drift.
 
-Machine-local scripts for installing on a device or emulator live in
+Machine-local scripts for installing on a specific device live in
 `_private/scripts/` (not committed).
 
 ## Documentation
