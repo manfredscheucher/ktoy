@@ -25,3 +25,4 @@ kotlin-js-store/
 # OS
 .DS_Store
 __pycache__/
+.gh-pages/
