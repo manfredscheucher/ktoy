@@ -16,6 +16,9 @@ You write assembly (`.toys`); ktoy assembles it to a 256-byte image and runs it.
 It also compiles a small C subset (the same `toycc`/`minicc` as pytoy) and shows
 C, assembly and memory side by side. Example programs are built in.
 
+ktoy is in early development. Feedback is very welcome:
+[manfred.scheucher@proton.me](mailto:manfred.scheucher@proton.me?subject=ktoy%20feedback&body=hi%20manfred%2C%0A%0A)
+
 ## Try it
 
 - **Web** (live once GitHub Pages is enabled):

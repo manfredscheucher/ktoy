@@ -39,7 +39,7 @@ class ExampleCatalogTest {
         // All four categories are populated (we embed ASM, C that only toycc
         // takes AND C that both take, and bytecode).
         assertEquals(
-            listOf("Assembly", "C (minicc)", "C (toycc)", "Bytecode"),
+            listOf("Assembly", "Bytecode", "C (minicc)", "C (toycc)"),
             grouped.keys.toList(),
             "unexpected grouping categories / order",
         )
@@ -86,7 +86,7 @@ class ExampleCatalogTest {
         val tree = groupedExamplesTree()
         // Same top-level categories and order as the flat grouping.
         assertEquals(
-            listOf("Assembly", "C (minicc)", "C (toycc)", "Bytecode"),
+            listOf("Assembly", "Bytecode", "C (minicc)", "C (toycc)"),
             tree.keys.toList(),
             "unexpected tree categories / order",
         )
@@ -159,6 +159,12 @@ class ExampleCatalogTest {
                 "'${ex.name}': assembling compiled output failed: " +
                     result.errors.joinToString("\n"),
             )
+
+            // 04-io examples are I/O demos: most wait on `ready` for user input,
+            // so they never halt headless and carry no `// expect:` marker. They
+            // must still compile and assemble (checked above); running them is
+            // covered by pytoy's I/O tests.
+            if (ex.subfolder == "04-io") continue
 
             val expect = EXPECT.find(ex.source)
             assertNotNull(expect, "'${ex.name}': no '// expect: N' marker in C source")

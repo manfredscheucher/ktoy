@@ -538,12 +538,9 @@ private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
     @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose when canUndo/stopped change
     val m = vm.machine
     val loadFromDisk = rememberFileLoader { name, text -> vm.loadFromFile(name, text) }
-    Row(
-        Modifier.fillMaxWidth().padding(top = 6.dp),
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        // ── Load / Examples / Reload (the file group) ──
+
+    // Order like pytoy: Load Examples Reload | Step Run steps/sec Undo Reset | Edit.
+    val fileGroup: @Composable () -> Unit = {
         if (fileLoadSupported) {
             OutlinedButton(onClick = loadFromDisk) { Text("Load") }
         }
@@ -551,25 +548,61 @@ private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
         if (fileReloadSupported) {
             OutlinedButton(onClick = { vm.reload() }, enabled = vm.canReload) { Text("Reload") }
         }
-
-        // the GAP between the file group and the run controls
-        Box(Modifier.weight(1f))
-
-        // ── Step / Run / steps/sec / Undo / Reset ──
+    }
+    val runGroup: @Composable () -> Unit = {
         Button(onClick = { vm.step() }, enabled = m?.stopped == false && !vm.running) { Text("Step") }
         Button(onClick = { vm.toggleRun() }, enabled = m?.stopped == false) { Text(if (vm.running) "Stop" else "Run") }
         StepsPerSecInput(vm.stepsPerSecond) { vm.stepsPerSecond = it }
         OutlinedButton(onClick = { vm.stepBack() }, enabled = m?.canUndo == true) { Text("Undo") }
         OutlinedButton(onClick = { vm.reset() }, enabled = m?.canUndo == true) { Text("Reset") }
-
-        // push Edit to the far right
-        Box(Modifier.weight(1f))
-
-        // Edit the value at the address selected in the CPU & memory panel;
-        // enabled only when such a selection exists.
+    }
+    // Edit the value at the address selected in the CPU & memory panel;
+    // enabled only when such a selection exists. On touch this is THE way to
+    // edit (double-tap is the desktop/web shortcut), so it must never be clipped.
+    val edit: @Composable () -> Unit = {
         OutlinedButton(onClick = onEdit, enabled = vm.memSelectedAddr != null) { Text("Edit") }
     }
+    val center = androidx.compose.ui.Alignment.CenterVertically
+    val gap = Arrangement.spacedBy(6.dp)
+
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        val oneRowMin = if (fileReloadSupported) CONTROLS_ONE_ROW_MIN_RELOAD else CONTROLS_ONE_ROW_MIN
+        if (maxWidth >= oneRowMin) {
+            // wide: one row, gaps pushing the run group to the middle and Edit right
+            Row(Modifier.fillMaxWidth(), verticalAlignment = center, horizontalArrangement = gap) {
+                fileGroup()
+                Box(Modifier.weight(1f))
+                runGroup()
+                Box(Modifier.weight(1f))
+                edit()
+            }
+        } else {
+            // narrow (phones): two rows so nothing is squeezed or cut off. Row 1:
+            // file group + Edit far right; row 2: run controls, scrollable if
+            // they still don't fit.
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = center, horizontalArrangement = gap) {
+                    fileGroup()
+                    Box(Modifier.weight(1f))
+                    edit()
+                }
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    verticalAlignment = center,
+                    horizontalArrangement = gap,
+                ) {
+                    runGroup()
+                }
+            }
+        }
+    }
 }
+
+// Below this width the bottom bar splits into two rows. The one-row bar needs
+// about 950 dp of content (Material3 button min widths + the 96 dp steps/sec
+// field), plus ~100 dp more when Reload is shown (desktop).
+private val CONTROLS_ONE_ROW_MIN = 1000.dp
+private val CONTROLS_ONE_ROW_MIN_RELOAD = 1100.dp
 
 // steps/sec range (float, like pytoy's QDoubleSpinBox).
 private const val SPS_MIN = 0.1

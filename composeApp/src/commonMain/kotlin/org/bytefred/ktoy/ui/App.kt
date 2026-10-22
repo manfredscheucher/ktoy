@@ -41,6 +41,7 @@ import org.bytefred.ktoy.core.groupedExamplesTree
 @Composable
 fun App() {
     MaterialTheme {
+      ProvideMonoStyle {
         // Keep content out of the status bar (top) and the navigation bar /
         // camera cutout (bottom); the activity draws edge-to-edge.
         Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
@@ -67,13 +68,14 @@ fun App() {
                 )
             }
         }
+      }
     }
 }
 
 /**
  * The example browser: a collapsible tree grouped by category then repo
  * subfolder (mirrors pytoy's ExamplesDialog), not a flat list. Top-level nodes
- * are the categories (Assembly / C (minicc) / C (toycc) / Bytecode); their
+ * are the categories (Assembly / Bytecode / C (minicc) / C (toycc)); their
  * children are the subfolders (01-basics, 04-io, ...); leaves are the examples.
  * Bytecode has a single unnamed subfolder, so its leaves sit directly under it.
  *

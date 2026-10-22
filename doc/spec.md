@@ -640,3 +640,47 @@ his request; the pytoy-consistent choice was taken where the ask was open.
     allowed.
 13. **Line numbers default ON.** `showLineNumbers = true` with the View-menu
     toggle kept. Verified, unchanged.
+
+## 12. Round 3: examples, font, welcome, phone layout
+
+What Manfred asked for, and what was decided:
+
+1. **All pytoy examples in the app.** The generator embeds every subfolder: asm
+   01-basics, 02-extended, 03-programs, 04-io (including the input-driven demos
+   like `pin_check`; in the app the user types the input), C 02-extended,
+   03-programs, 04-io, and the bytecode listings. The earlier "deterministic
+   only / programs only" filter was an agent decision, not Manfred's.
+   `everyCExampleCompilesAssemblesAndRunsToExpected` still compiles and
+   assembles the 04-io C examples but does not run them (they wait on `ready`).
+2. **Category order** in the examples tree (ktoy and pytoy): Assembly (the focus),
+   Bytecode, C (minicc), C (toycc).
+3. **Layout menu.** View → Layout: auto / portrait / landscape. Auto decides by
+   width only (side by side once each shown column gets 300 dp), so it reacts to
+   resizing. On a phone auto and portrait both stack, by design.
+4. **Real monospace font.** `FontFamily.Monospace` was not monospaced on the web
+   (no system fonts there), so `>>` and labels shifted columns. ktoy now ships
+   DejaVu Sans Mono (`composeResources/font/dejavu_sans_mono.ttf`, license in
+   `doc/licenses/LICENSE_DEJAVU.txt`), provided once at the app root
+   (`ProvideMonoStyle` / `LocalMonoStyle`) for every data view and the Help text.
+   Striped rows are one Text over an AnnotatedString, so they align too.
+5. **Welcome dialog** at start: early development, feedback by e-mail
+   (`manfred.scheucher@proton.me`, subject "ktoy feedback", body "hi manfred,"),
+   "Don't show again". Ported from PoCoView (`WelcomeDialog`, `FeedbackBox`,
+   `loadPref`/`savePref`); ktoy adds the Android (SharedPreferences,
+   `initPrefs` in MainActivity) and iOS (NSUserDefaults) actuals. Key `welcome`.
+6. **Help.** "C: full C vs mini C" explains the two compilers. About has
+   clickable links (ktoy, pytoy, the playlist, the LICENSE, Jim Hall's Toy CPU),
+   the license note and the feedback box. Links never crash the app when no
+   handler exists (`openUriSafely`).
+7. **Bottom bar on phones.** The one-row bar needs about 950 dp (1050 dp with
+   Reload), so below 1000 dp (1100 dp with Reload) it splits into two rows: Load /
+   Examples / Reload with Edit at the right, then the run controls (scrollable if
+   needed). Before, Edit was clipped off-screen on phones.
+8. **I/O cells per row:** 16, 8 or 4, the most that fit the width for the current
+   format (`ioCellsPerRow`, tested). Binary cells are wider and wrap sooner. A
+   360 dp phone gets 4 per row, a 390 dp phone 8.
+9. **README:** early-development note with the feedback mailto link.
+
+Open: on a phone in Safari the panels show only a few rows. The chrome (menu,
+two-row bar, I/O panel) takes most of the height and the stacked panels share
+the rest. Options are being discussed with Manfred.

@@ -38,6 +38,370 @@ data class Example(
 )
 
 val EXAMPLES: List<Example> = listOf(
+    Example("00_stop", ExampleKind.ASM, """# STOP (00000000) — halt execution
+# The CPU runs until STOP. Everything after it is never executed.
+
+        load  x         # acc = 42
+        stop            # halt here
+        load  y         # never runs (acc stays 42)
+
+x:      42
+y:      99
+""", subfolder = "01-basics"),
+    Example("01_right", ExampleKind.ASM, """# RIGHT (00000001) — shift accumulator right by 1
+# 00000100 (4) becomes 00000010 (2).
+
+        load  x         # acc = 4
+        right           # acc = 2
+        stop
+
+x:      4
+""", subfolder = "01-basics"),
+    Example("02_left", ExampleKind.ASM, """# LEFT (00000010) — shift accumulator left by 1
+# 00000100 (4) becomes 00001000 (8).
+
+        load  x         # acc = 4
+        left            # acc = 8
+        stop
+
+x:      4
+""", subfolder = "01-basics"),
+    Example("03_not", ExampleKind.ASM, """# NOT (00001111) — bitwise NOT of the accumulator
+# 00001111 (15) becomes 11110000 (240).
+
+        load  x         # acc = 00001111
+        not             # acc = 11110000
+        stop
+
+x:      15
+""", subfolder = "01-basics"),
+    Example("04_and", ExampleKind.ASM, """# AND (00010001) — bitwise AND of accumulator with a memory value
+# 11001100 AND 10101010 = 10001000.
+
+        load  x         # acc = 11001100
+        and   y         # acc = 10001000
+        stop
+
+x:      204             # 11001100
+y:      170             # 10101010
+""", subfolder = "01-basics"),
+    Example("05_or", ExampleKind.ASM, """# OR (00010010) — bitwise OR of accumulator with a memory value
+# 11001100 OR 10101010 = 11101110.
+
+        load  x         # acc = 11001100
+        or    y         # acc = 11101110
+        stop
+
+x:      204             # 11001100
+y:      170             # 10101010
+""", subfolder = "01-basics"),
+    Example("06_xor", ExampleKind.ASM, """# XOR (00010011) — bitwise XOR of accumulator with a memory value
+# 11001100 XOR 10101010 = 01100110.
+
+        load  x         # acc = 11001100
+        xor   y         # acc = 01100110
+        stop
+
+x:      204             # 11001100
+y:      170             # 10101010
+""", subfolder = "01-basics"),
+    Example("07_load", ExampleKind.ASM, """# LOAD (00010100) — copy a memory value into the accumulator
+
+        load  x         # acc = 42
+        stop
+
+x:      42
+""", subfolder = "01-basics"),
+    Example("08_store", ExampleKind.ASM, """# STORE (00010101) — copy the accumulator into a memory address
+# Watch address `dst` change from 0 to 42 in the memory panel.
+
+        load  x         # acc = 42
+        store dst       # dst = 42
+        stop
+
+x:      42
+dst:    0
+""", subfolder = "01-basics"),
+    Example("09_add", ExampleKind.ASM, """# ADD (00010110) — add a memory value to the accumulator
+# 40 + 2 = 42.
+
+        load  x         # acc = 40
+        add   y         # acc = 42
+        stop
+
+x:      40
+y:      2
+""", subfolder = "01-basics"),
+    Example("10_sub", ExampleKind.ASM, """# SUB (00010111) — subtract a memory value from the accumulator
+# 50 - 8 = 42.
+
+        load  x         # acc = 50
+        sub   y         # acc = 42
+        stop
+
+x:      50
+y:      8
+""", subfolder = "01-basics"),
+    Example("11_goto", ExampleKind.ASM, """# GOTO (00011000) — unconditional jump to a program address
+# Jumps over the middle LOAD, so acc ends up 42, not 99.
+
+        goto  skip
+        load  y         # skipped
+skip:   load  x         # acc = 42
+        stop
+
+x:      42
+y:      99
+""", subfolder = "01-basics"),
+    Example("12_ifzero", ExampleKind.ASM, """# IFZERO (00011001) — jump to an address only if the accumulator is zero
+# x is 0, so the jump to `done` is taken and `LOAD y` is skipped; acc stays 0.
+
+        load  x         # acc = x
+        ifzero done     # x == 0 -> jump to done
+        load  y         # x != 0: acc = y
+done:   stop
+
+x:      0
+y:      99
+""", subfolder = "01-basics"),
+    Example("13_nop", ExampleKind.ASM, """# NOP (10000000) — do nothing, just advance to the next instruction
+
+        load  x         # acc = 42
+        nop             # no effect
+        stop
+
+x:      42
+""", subfolder = "01-basics"),
+    Example("bit_set_clear_toggle", ExampleKind.ASM, """# set / clear / toggle bit 3 (mask 00001000) of x
+# x=00000001 -> set:00001001 -> toggle:00000001 -> stored in results
+        load  x
+        or    mask        # set bit 3
+        store r_set
+
+        load  r_set
+        xor   mask        # toggle bit 3 (back off)
+        store r_toggle
+
+        load  x
+        and   keep        # clear bit 3 (mask's complement)
+        store r_clear
+        stop
+
+x:        1               # 00000001
+mask:     8               # 00001000
+keep:     247             # 11110111 (NOT mask)
+r_set:    0
+r_toggle: 0
+r_clear:  0
+""", subfolder = "02-extended"),
+    Example("compare_less", ExampleKind.ASM, """# compare a < b: sign bit of (a-b) is set on underflow
+# a=3, b=5 -> a<b -> acc=1  (try a=5,b=3 -> acc=0)
+        load  a
+        sub   b
+        and   sign        # isolate bit 7
+        ifzero ge         # bit 7 clear -> a >= b
+        load  one
+        stop
+ge:     load  zero
+        stop
+
+a:      3
+b:      5
+sign:   128
+one:    1
+zero:   0
+""", subfolder = "02-extended"),
+    Example("divide", ExampleKind.ASM, """# divide: a / b by repeated subtraction  (20 / 6 = 3)
+# count how often b fits in a; stop when a-b goes negative (msb set).
+# valid for a in 0..127 (msb is the sign).
+loop:   load  a
+        sub   b
+        and   sign        # a-b < 0 ?
+        ifzero cont       # no -> subtract for real
+        load  q
+        stop              # q = quotient
+cont:   load  a
+        sub   b
+        store a           # a -= b
+        load  q
+        add   one
+        store q           # q++
+        goto  loop
+
+a:      20
+b:      6
+q:      0
+one:    1
+sign:   128
+""", subfolder = "02-extended"),
+    Example("load_indirect", ExampleKind.ASM, """# load indirect: read data[i] into acc  (i=5 -> pi digit 9)
+        load  base
+        add   i
+        store patch       # patch the LOAD address below
+
+load:   20                # LOAD opcode
+patch:  0                 # address byte -> data+i
+        stop
+
+base:   data
+i:      5
+data:   3
+        1
+        4
+        1
+        5
+        9
+        2
+        6
+        5
+        3
+""", subfolder = "02-extended"),
+    Example("modulo", ExampleKind.ASM, """# modulo: a % b by repeated subtraction  (20 % 6 = 2)
+# subtract b from a until a-b goes negative; a is then the remainder.
+# valid for a in 0..127 (msb is the sign).
+loop:   load  a
+        sub   b
+        and   sign        # a-b < 0 ?
+        ifzero cont       # no -> subtract for real
+        load  a
+        stop              # a = remainder
+cont:   load  a
+        sub   b
+        store a           # a -= b
+        goto  loop
+
+a:      20
+b:      6
+sign:   128
+""", subfolder = "02-extended"),
+    Example("msb_shift_vs_mask", ExampleKind.ASM, """# MSB of x: two ways, same answer.  x=200 -> msb=1
+# shift: 7x RIGHT.  mask: AND 128 then branch (no shifting).
+        load  x
+        right
+        right
+        right
+        right
+        right
+        right
+        right
+        store m1          # m1 = x >> 7
+
+        load  x
+        and   mask        # keep bit 7 -> 0 or 128
+        ifzero zero
+        load  one
+        goto  done
+zero:   load  zero_v
+done:   store m2          # m2 = (x & 128) ? 1 : 0
+
+        load  m1
+        sub   m2
+        stop              # 0 -> both methods agree
+
+x:      200
+mask:   128
+one:    1
+zero_v: 0
+m1:     0
+m2:     0
+""", subfolder = "02-extended"),
+    Example("multiply_doubling", ExampleKind.ASM, """# multiply fast: a * b by double-and-add  (6 * 7 = 42)
+# each step: if lsb(b) add a to res; then a <<= 1, b >>= 1
+        load  b
+loop:   ifzero done       # b == 0 -> done
+        and   one         # test lsb(b)
+        ifzero skip       # lsb 0 -> don't add
+        load  res
+        add   a
+        store res         # res += a
+skip:   load  a
+        left
+        store a           # a <<= 1
+        load  b
+        right
+        store b           # b >>= 1
+        goto  loop
+done:   load  res
+        stop
+
+a:      6
+b:      7
+res:    0
+one:    1
+""", subfolder = "02-extended"),
+    Example("multiply_repeated", ExampleKind.ASM, """# multiply: a * b by adding a to itself b times  (6 * 7 = 42)
+        load  b
+loop:   ifzero done       # b == 0 -> done
+        load  res
+        add   a
+        store res         # res += a
+        load  b
+        sub   one
+        store b           # b--
+        goto  loop
+done:   load  res
+        stop
+
+a:      6
+b:      7
+res:    0
+one:    1
+""", subfolder = "02-extended"),
+    Example("negate", ExampleKind.ASM, """# negate: 0 - x  (two's complement)  x=5 -> 251 (= -5 mod 256)
+        load  zero
+        sub   x
+        stop
+
+zero:   0
+x:      5
+""", subfolder = "02-extended"),
+    Example("store_indirect", ExampleKind.ASM, """# store indirect: write val into data[i]  (watch data[3]: 0 -> 42)
+        load  base
+        add   i
+        store patch       # patch the STORE address below
+
+        load  val
+store:  21                # STORE opcode
+patch:  0                 # address byte -> data+i
+        stop
+
+base:   data
+i:      3
+val:    42
+data:   0
+        0
+        0
+        0
+        0
+""", subfolder = "02-extended"),
+    Example("switch", ExampleKind.ASM, """# switch(x): 0->0, 1->1, 2->2, else->3   (no jump table, just equality tests)
+# equality a==b is (a-b)==0 via SUB + IFZERO.
+        load  x
+        ifzero case0      # x == 0
+
+        load  x
+        sub   one
+        ifzero case1      # x == 1
+
+        load  x
+        sub   two
+        ifzero case2      # x == 2
+
+        load  three       # default
+        stop
+case0:  load  zero
+        stop
+case1:  load  one
+        stop
+case2:  load  two
+        stop
+
+x:      2
+zero:   0
+one:    1
+two:    2
+three:  3
+""", subfolder = "02-extended"),
     Example("fibonacci_iter", ExampleKind.ASM, """# fibonacci.toys
 # Computes the n-th Fibonacci number
 # Result ends up in the accumulator
@@ -753,6 +1117,156 @@ count: 14           # write 14 values: fib(0)..fib(13)
 one:   1
 ival:  0
 """, subfolder = "04-io"),
+    Example("greet_name", ExampleKind.ASM, """# greet_name.toys — read a name via busy-poll, then write a greeting.
+#
+# GUI usage:
+#   1. type the name into io0, io1, io2, ... — one ASCII character per cell.
+#   2. set `ready` (255) to the NUMBER of characters typed, via Edit.
+# The program busy-polls `ready`; once non-zero it reads `ready` as the length
+# N, copies io0..io(N-1) (the name) into a scratch area, then overwrites the io
+# cells with the greeting  "hallo " + NAME + "!"  starting at io0.
+#
+#   output layout:  io0..io5 = 'h','a','l','l','o',' '
+#                   io6..     = the N name characters
+#                   then      = '!'
+#
+# The name is copied to scratch FIRST, because writing "hallo " clobbers
+# io0..io5 (which may still hold name characters when N > 6).
+#
+# (A '.'-terminated variant is possible — read until a '.' appears — but passing
+#  the length in `ready` is cleaner and needs no sentinel, so we use that.)
+#
+# Example: user types "Max" -> io0='M'(77), io1='a'(97), io2='x'(120), ready=3.
+# Result: io0..io9 = h,a,l,l,o,space,M,a,x,!  i.e. "hallo Max!".
+#
+# Self-modifying code (patched LOAD/STORE address bytes) indexes the io cells by
+# the runtime count N, same technique as sort.toys / sum_array.toys.
+#
+# pytoy: output=ascii
+
+# ── 1. busy-poll until ready != 0, then n = ready ─────────────────
+wait:   load  ready
+        ifzero wait
+        load  ready
+        store n              # n = number of name characters
+
+# ── 2. copy io0..io(n-1) into scratch[] ───────────────────────────
+        load  iobase
+        store rdarg          # read pointer over the io cells (starts at io0=240)
+        load  scraddr
+        store wrarg          # write pointer over scratch[]
+        load  n
+        store cnt            # cnt = how many chars still to copy
+
+cploop: load  cnt
+        ifzero cpdone
+
+        20                   # LOAD opcode
+rdarg:  240                  # ← io cell, patched each pass (io0, io1, ...)
+        21                   # STORE opcode
+wrarg:  scratch              # ← scratch slot, patched each pass
+
+        load  rdarg          # advance io read pointer
+        add   one
+        store rdarg
+        load  wrarg          # advance scratch write pointer
+        add   one
+        store wrarg
+        load  cnt
+        sub   one
+        store cnt
+        goto  cploop
+
+cpdone:
+
+# ── 3. write "hallo " to io0..io5 ─────────────────────────────────
+        load  gh
+        store io0
+        load  ga
+        store io1
+        load  gl
+        store io2
+        load  gl2
+        store io3
+        load  go
+        store io4
+        load  gsp
+        store io5
+
+# ── 4. append the name: scratch[0..n-1] -> io6.. ──────────────────
+        load  scraddr
+        store r2arg          # read pointer over scratch[]
+        load  nameout        # io6 = 246 = first name slot in the output
+        store w2arg          # write pointer over the io cells
+        load  n
+        store cnt            # reuse cnt as the remaining-name counter
+
+wrloop: load  cnt
+        ifzero wrdone
+
+        20                   # LOAD opcode
+r2arg:  scratch              # ← scratch slot, patched each pass
+        21                   # STORE opcode
+w2arg:  246                  # ← io cell (io6..), patched each pass
+
+        load  r2arg          # advance scratch read pointer
+        add   one
+        store r2arg
+        load  w2arg          # advance io write pointer
+        add   one
+        store w2arg
+        load  cnt
+        sub   one
+        store cnt
+        goto  wrloop
+
+wrdone:
+
+# ── 5. append "!" right after the name (at io(6+n)) ───────────────
+#   w2arg was advanced once per name char, so it now points one past the last
+#   name cell, i.e. io(6+n) — exactly where '!' goes. Copy it into the STORE.
+        load  w2arg
+        store bangarg        # patch the '!' STORE address
+        load  gbang
+        21                   # STORE opcode
+bangarg: 0                   # ← io(6+n), patched above
+        stop
+
+# data
+zero:    0
+one:     1
+n:       0
+cnt:     0
+iobase:  240          # io0 (numeric init for a self-modifying pointer)
+nameout: 246          # io6
+scraddr: scratch      # address constant: start of scratch[]
+
+# greeting "hallo " codes
+gh:   104             # 'h'
+ga:    97             # 'a'
+gl:   108             # 'l'
+gl2:  108             # 'l'
+go:   111             # 'o'
+gsp:   32             # ' '
+gbang: 33             # '!'
+
+# scratch area for the typed name (up to 15 chars)
+scratch: 0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+""", subfolder = "04-io"),
     Example("hello_world", ExampleKind.ASM, """# hello_world.toys — write "Hello world!" to the output cells as ASCII.
 # Each output cell holds one character code; the I/O widget (ascii mode) shows
 # them as letters.
@@ -969,6 +1483,507 @@ c12: 12
 c13: 13
 c14: 14
 """, subfolder = "04-io"),
+    Example("pin_check", ExampleKind.ASM, """# pin_check.toys — ask for a 4-digit PIN and check it against 1337.
+#
+# GUI usage (input is ASCII):
+#   1. type the four PIN digits into io0, io1, io2, io3 — one character per cell
+#      (e.g. '1','3','3','7'). In ascii mode you type the characters directly.
+#   2. set `ready` (255) to any non-zero value to submit.
+# The program busy-polls `ready`; once non-zero it compares the four entered
+# characters against the PIN "1337" and overwrites io0..io3 with the result:
+#   right PIN -> "succ", acc = 42   (the secret: the Answer to Life, the
+#                                     Universe and Everything — Hitchhiker's)
+#   wrong PIN -> "fail", acc = 0
+#
+# So the PIN guards a secret: enter 1337 and the accumulator reveals 42. This
+# is the running example for the security slides — brute force, reading the
+# bytecode, side channels, fault injection. See doc/design/pin-security.md.
+#
+# The comparison is the classic one: for each digit, LOAD the entered character,
+# SUB the expected character; if the difference is 0 the digit matched, so
+# IFZERO jumps to the next check; otherwise the following GOTO bails to `fail`.
+#
+# Input is ASCII, so io0 holds the *code* of the typed character (e.g. '1' = 49),
+# and the expected values below are the ASCII codes of 1,3,3,7.
+#
+# pytoy: output=ascii
+
+# ── 1. busy-poll until the user submits (ready != 0) ──────────────
+wait:   load  ready
+        ifzero wait
+
+# ── 2. compare io0..io3 against the PIN, one digit at a time ──────
+        load  io0
+        sub   pin0
+        ifzero ok0         # matched -> check next digit
+        goto  fail         # mismatched -> fail
+ok0:    load  io1
+        sub   pin1
+        ifzero ok1
+        goto  fail
+ok1:    load  io2
+        sub   pin2
+        ifzero ok2
+        goto  fail
+ok2:    load  io3
+        sub   pin3
+        ifzero ok3
+        goto  fail
+
+# ── 3a. success: write "succ", reveal the answer (acc = 42), stop ─
+ok3:    load  s_s
+        store io0
+        load  s_u
+        store io1
+        load  s_c1
+        store io2
+        load  s_c2
+        store io3
+        load  answer       # acc = 42, the secret, now revealed
+        stop
+
+# ── 3b. failure: write "fail", acc = 0, stop ──────────────────────
+fail:   load  f_f
+        store io0
+        load  f_a
+        store io1
+        load  f_i
+        store io2
+        load  f_l
+        store io3
+        load  zero         # acc = 0 signals failure
+        stop
+
+# ── data ──────────────────────────────────────────────────────────
+zero:   0
+answer: 42             # the secret behind the PIN
+
+# expected PIN "1337" as ASCII codes
+pin0:  49              # '1'
+pin1:  51              # '3'
+pin2:  51              # '3'
+pin3:  55              # '7'
+
+# "succ" as ASCII codes
+s_s:  115              # 's'
+s_u:  117              # 'u'
+s_c1: 99               # 'c'
+s_c2: 99               # 'c'
+
+# "fail" as ASCII codes
+f_f: 102               # 'f'
+f_a:  97               # 'a'
+f_i: 105               # 'i'
+f_l: 108               # 'l'
+""", subfolder = "04-io"),
+    Example("pin_check_hardened", ExampleKind.ASM, """# pin_check_hardened.toys — the 1337 PIN check, made constant-time.
+#
+# The naive pin_check (see pin_check.toys) bails on the first wrong digit with
+# an IFZERO/GOTO per digit. That early-out leaks timing: a wrong first digit
+# stops sooner than a wrong last digit, so an attacker measuring steps can
+# recover the PIN digit by digit — 4*10 tries instead of 10^4. See the security
+# slides and doc/design/pin-security.md.
+#
+# Fix: never branch on a single digit. For each digit compute
+# (entered XOR expected) — which is 0 exactly when the digit matches — and OR
+# all four together into `diff`. `diff` is 0 iff every digit matched. Only ONE
+# conditional, at the very end. Every run executes the same instructions in the
+# same order regardless of input, so the timing no longer depends on the PIN.
+#
+#   right PIN -> "succ", acc = 42   (the Answer, revealed)
+#   wrong PIN -> "fail", acc = 0
+#
+# Residual weakness (slides): the single final `ifzero` is now the one spot a
+# fault-injection attack targets — before, skipping the check meant beating
+# four separate compares; now there is just one. Constant time kills the timing
+# channel, it does not make the check fault-proof.
+#
+# GUI usage (ASCII input): type the four digits into io0..io3, then set `ready`
+# (255) to any non-zero value to submit.
+#
+# pytoy: output=ascii
+
+# ── 1. busy-poll until the user submits (ready != 0) ──────────────
+wait:   load  ready
+        ifzero wait
+
+# ── 2. constant-time compare: diff = OR over (io[k] XOR pin[k]) ────
+#    No per-digit branch. Every digit is always compared and folded in.
+        load  io0
+        xor   pin0         # 0 iff digit 0 matches
+        store diff         # diff = (io0 ^ pin0)
+
+        load  io1
+        xor   pin1
+        or    diff
+        store diff         # diff |= (io1 ^ pin1)
+
+        load  io2
+        xor   pin2
+        or    diff
+        store diff         # diff |= (io2 ^ pin2)
+
+        load  io3
+        xor   pin3
+        or    diff
+        store diff         # diff |= (io3 ^ pin3)
+
+# ── 3. the ONE conditional: diff == 0 iff all four digits matched ──
+        load  diff
+        ifzero succ
+        goto  fail
+
+# ── 3a. success: write "succ", reveal the answer (acc = 42), stop ─
+succ:   load  s_s
+        store io0
+        load  s_u
+        store io1
+        load  s_c1
+        store io2
+        load  s_c2
+        store io3
+        load  answer       # acc = 42, the secret, now revealed
+        stop
+
+# ── 3b. failure: write "fail", acc = 0, stop ──────────────────────
+fail:   load  f_f
+        store io0
+        load  f_a
+        store io1
+        load  f_i
+        store io2
+        load  f_l
+        store io3
+        load  zero         # acc = 0 signals failure
+        stop
+
+# ── data ──────────────────────────────────────────────────────────
+zero:   0
+answer: 42             # the secret behind the PIN
+diff:   0              # accumulated digit differences (0 iff PIN correct)
+
+# expected PIN "1337" as ASCII codes
+pin0:  49              # '1'
+pin1:  51              # '3'
+pin2:  51              # '3'
+pin3:  55              # '7'
+
+# "succ" as ASCII codes
+s_s:  115              # 's'
+s_u:  117              # 'u'
+s_c1: 99               # 'c'
+s_c2: 99               # 'c'
+
+# "fail" as ASCII codes
+f_f: 102               # 'f'
+f_a:  97               # 'a'
+f_i: 105               # 'i'
+f_l: 108               # 'l'
+""", subfolder = "04-io"),
+    Example("poll_demo", ExampleKind.ASM, """# poll_demo.toys — the canonical BUSY-POLL input demo.
+#
+# The Toy CPU has no interrupts and no blocking read — the only test it has is
+# `ifzero`. So to wait for input the program busy-polls the `ready` register
+# (address 255): it loads `ready` and, while it is 0, jumps back and loads it
+# again. This tight loop is the busy-poll:
+#
+#   wait: load ready; ifzero wait   # spin while ready == 0
+#
+# In the GUI the user drives it: type a value into the io0 cell, then set
+# `ready` (e.g. to 1) via the Edit mechanism. On its next poll the program sees
+# ready != 0, reads io0, echoes it to io1 (just to show the byte moved), clears
+# `ready` back to 0 (so a next round could start), and stops.
+#
+# Note on the NATURE of polling: because the CPU just loops checking a flag, it
+# could equally well do OTHER work between polls, give up after a while (time
+# out), or take a different branch if input never arrives. Here it does none of
+# that — it waits forever. If the user never sets `ready` in the GUI, this
+# program spins indefinitely (and a headless `--run` hits the step cap). That is
+# expected: polling trades CPU cycles for simplicity.
+#
+# pytoy: output=decimal
+
+wait:   load  ready       # poll the ready register (255)
+        ifzero wait        # spin while 0  (GUI: user sets ready to proceed)
+        load  io0          # ready != 0 -> read the input value from io0
+        store io1          # echo it to io1 (just to show it moved)
+        load  zero
+        store ready        # clear ready, ready for next
+        stop
+
+zero:   0
+""", subfolder = "04-io"),
+    Example("sort_array_io", ExampleKind.ASM, """# sort.toys — read up to 15 numbers, sort them ascending, write them back.
+#
+# GUI usage:
+#   1. type the array values into io0, io1, io2, ... — one number per cell.
+#   2. set `ready` (255) to the COUNT N of values typed, via Edit.
+# The program busy-polls `ready`; once non-zero it reads `ready` as N, copies
+# io0..io(N-1) into a scratch array, bubble-sorts it ascending, then writes the
+# sorted values back to io0..io(N-1).
+#
+# Example: user types io0..io3 = 5,3,8,1 and ready=4.
+# Result: io0..io3 = 1,3,5,8.
+#
+# Compare trick (same as 03-programs/sort_array.toys): (b - a) mod 256, bit 7
+# set  =>  b < a  =>  swap. Unambiguous as long as any two values differ by
+# less than 128 (true for the small inputs here).
+#
+# Self-modifying code (patched LOAD/STORE address bytes) indexes the io cells
+# and the scratch array by the runtime count N.
+#
+# pytoy: output=decimal
+
+# ── 1. busy-poll until ready != 0, then n = ready ──────────────────────────
+wait:   load  ready
+        ifzero wait
+        load  ready
+        store n              # n = how many values the user supplied
+
+# ── 2. copy io0..io(n-1) into arr[] ────────────────────────────────────────
+        load  iobase
+        store rdarg          # read pointer over the io cells (io0=240..)
+        load  arrptr
+        store wrarg          # write pointer over arr[]
+        load  n
+        store cnt
+
+cploop: load  cnt
+        ifzero cpdone
+
+        20                   # LOAD opcode
+rdarg:  240                  # ← io cell, patched each pass
+        21                   # STORE opcode
+wrarg:  0                    # ← arr slot, patched each pass
+
+        load  rdarg
+        add   one
+        store rdarg
+        load  wrarg
+        add   one
+        store wrarg
+        load  cnt
+        sub   one
+        store cnt
+        goto  cploop
+
+cpdone:
+
+# ── 3. bubble sort arr[0..n-1] ascending ───────────────────────────────────
+# outer runs n-1 passes; inner compares adjacent pairs, n-1 of them per pass.
+        load  n
+        sub   one
+        store npass          # npass = n - 1 outer passes
+
+outer:  load  npass
+        ifzero sorted        # all passes done
+
+        load  arrptr
+        store jptr           # reset inner pointer j to arr[0]
+
+        load  npass
+        store ninner         # ninner = npass comparisons this pass
+
+inner:  load  ninner
+        ifzero next_pass
+
+        # patch the four indirect instructions from jptr (a[j]) and jptr+1
+        load  jptr
+        store ldj_arg
+        store stj_arg
+        add   one
+        store ldj1_arg
+        store stj1_arg
+
+        20                   # LOAD opcode
+ldj_arg:  0                  # ← arr[j]
+        store a
+
+        20                   # LOAD opcode
+ldj1_arg: 0                  # ← arr[j+1]
+        store b
+
+        sub   a              # acc = b - a
+        and   mask           # isolate bit 7
+        ifzero no_swap       # bit clear -> b >= a -> ordered, skip swap
+
+        load  b              # swap: arr[j] = b
+        21                   # STORE opcode
+stj_arg:  0                  # ← arr[j]
+        load  a              # arr[j+1] = a
+        21                   # STORE opcode
+stj1_arg: 0                  # ← arr[j+1]
+
+no_swap:
+        load  jptr
+        add   one
+        store jptr           # j++
+
+        load  ninner
+        sub   one
+        store ninner
+        goto  inner
+
+next_pass:
+        load  npass
+        sub   one
+        store npass
+        goto  outer
+
+# ── 4. write arr[0..n-1] back to io0.. in order ────────────────────────────
+sorted:
+        load  arrptr
+        store rptr           # read pointer over arr
+        load  outbase
+        store optr           # out pointer, starts at io0 (240)
+        load  n
+        store left           # how many still to write
+
+wloop:  load  left
+        ifzero done
+
+        load  rptr           # patch the LOAD/STORE addresses
+        store rd_arg
+        load  optr
+        store ot_arg
+
+        20                   # LOAD opcode
+rd_arg:  0                   # ← arr[i]
+        21                   # STORE opcode
+ot_arg:  240                 # ← io[i]
+
+        load  rptr
+        add   one
+        store rptr           # i++
+        load  optr
+        add   one
+        store optr           # out pointer++
+        load  left
+        sub   one
+        store left
+        goto  wloop
+
+done:   load  arr            # arr[0] = smallest, left in ACC
+        stop
+
+# data
+zero:     0
+one:      1
+mask:     128
+iobase:   240          # io0 (numeric init for a self-modifying pointer)
+outbase:  240          # io0
+n:        0
+cnt:      0
+npass:    0
+ninner:   0
+jptr:     0
+a:        0
+b:        0
+rptr:     0
+optr:     0
+left:     0
+arrptr:   arr          # address constant: start of the array
+
+# scratch array (contiguous), up to 15 values
+arr:    0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+""", subfolder = "04-io"),
+    Example("fibonacci (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
+#
+# ADDR  BYTES                   SOURCE
+# ────────────────────────────────────────────────────────
+#                                # fibonacci.toys
+#                                # Computes the n-th Fibonacci number
+#                                # Result ends up in the accumulator
+#                                #
+#                                # Algorithm:
+#                                #   a, b = 0, 1
+#                                #   for i in range(n):
+#                                #       b = a + b
+#                                #       a = b - a   (= old b, no temp needed)
+#                                #
+#                                # Note: fib(14) = 377 > 255, so n > 13 causes overflow
+#                                #
+#                                # Set before running:
+#                                #   n   = desired position (e.g. 10 -> fib(10) = 55)
+#                                #   b   = 1
+#                                #   one = 1
+#                                
+     0   00010100  00011011              load  n         # acc = n (loop counter)
+     2   00011001  00011000      loop:   ifzero end      # n == 0 -> done
+#                                
+     4   00010100  00011100              load  a         # acc = a
+     6   00010110  00011101              add   b         # acc = a + b
+     8   00010101  00011101              store b         # b = a + b  (new b)
+#                                
+    10   00010100  00011101              load  b         # acc = new b
+    12   00010111  00011100              sub   a         # acc = (a+b) - a = old b
+    14   00010101  00011100              store a         # a = old b
+#                                
+    16   00010100  00011011              load  n         # acc = n
+    18   00010111  00011110              sub   one       # acc = n - 1
+    20   00010101  00011011              store n         # n--
+#                                
+    22   00011000  00000010              goto  loop
+#                                
+    24   00010100  00011100      end:    load  a         # result: fib(n) in accumulator
+    26   00000000                        stop
+#                                
+#                                # data
+    27   00000111                n:      7
+    28   00000000                a:      0
+    29   00000001                b:      1
+    30   00000001                one:    1
+
+# SYMBOLS
+#   loop            =   2  (00000010)
+#   end             =  24  (00011000)
+#   n               =  27  (00011011)
+#   a               =  28  (00011100)
+#   b               =  29  (00011101)
+#   one             =  30  (00011110)
+"""),
+    Example("sum3 (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
+#
+# ADDR  BYTES                   SOURCE
+# ────────────────────────────────────────────────────────
+#                                # sum3.toys
+#                                # Adds three named values: a + b + c.
+#                                #
+#                                # The three values are the first three digits of pi (a=3, b=1, c=4),
+#                                # so the expected result is 3 + 1 + 4 = 8.
+#                                #
+#                                # No loop needed -- just load the first, add the other two.
+#                                # (For summing a whole array, see sum.toys.)
+#                                
+     0   00010100  00000111              load  a         # acc = a
+     2   00010110  00001000              add   b         # acc = a + b
+     4   00010110  00001001              add   c         # acc = a + b + c
+     6   00000000                        stop            # result 8 in accumulator
+#                                
+#                                # data
+     7   00000011                a:      3
+     8   00000001                b:      1
+     9   00000100                c:      4
+
+# SYMBOLS
+#   a               =   7  (00000111)
+#   b               =   8  (00001000)
+#   c               =   9  (00001001)
+"""),
     Example("bit_operators.toyc", ExampleKind.C, """// expect: 36
 /*
  * bitops.c - showcase the bitwise operators and shifts, which map directly
@@ -1618,89 +2633,132 @@ int main(void) {
     return sum_of_squares(3, 4);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("fibonacci (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
-#
-# ADDR  BYTES                   SOURCE
-# ────────────────────────────────────────────────────────
-#                                # fibonacci.toys
-#                                # Computes the n-th Fibonacci number
-#                                # Result ends up in the accumulator
-#                                #
-#                                # Algorithm:
-#                                #   a, b = 0, 1
-#                                #   for i in range(n):
-#                                #       b = a + b
-#                                #       a = b - a   (= old b, no temp needed)
-#                                #
-#                                # Note: fib(14) = 377 > 255, so n > 13 causes overflow
-#                                #
-#                                # Set before running:
-#                                #   n   = desired position (e.g. 10 -> fib(10) = 55)
-#                                #   b   = 1
-#                                #   one = 1
-#                                
-     0   00010100  00011011              load  n         # acc = n (loop counter)
-     2   00011001  00011000      loop:   ifzero end      # n == 0 -> done
-#                                
-     4   00010100  00011100              load  a         # acc = a
-     6   00010110  00011101              add   b         # acc = a + b
-     8   00010101  00011101              store b         # b = a + b  (new b)
-#                                
-    10   00010100  00011101              load  b         # acc = new b
-    12   00010111  00011100              sub   a         # acc = (a+b) - a = old b
-    14   00010101  00011100              store a         # a = old b
-#                                
-    16   00010100  00011011              load  n         # acc = n
-    18   00010111  00011110              sub   one       # acc = n - 1
-    20   00010101  00011011              store n         # n--
-#                                
-    22   00011000  00000010              goto  loop
-#                                
-    24   00010100  00011100      end:    load  a         # result: fib(n) in accumulator
-    26   00000000                        stop
-#                                
-#                                # data
-    27   00000111                n:      7
-    28   00000000                a:      0
-    29   00000001                b:      1
-    30   00000001                one:    1
+    Example("greet_name.toyc", ExampleKind.C, """// greet_name — read a name, write back "Hallo NAME!".
+//
+// The greeting "Hallo " (6 characters) is placed at the front of the buffer.
+// read(data + 6) busy-polls `ready`, then reads the name into data[6..] and
+// returns its length k. We write k + 6 bytes out, so the greeting and the name
+// (plus whatever trailing character the user supplied) go to the io cells.
+//
+// In the GUI: type one character per cell (io0, io1, ...), set `ready` to the
+// number of characters, and the program greets you. ascii view by default.
+//
+// pytoy: output=ascii
 
-# SYMBOLS
-#   loop            =   2  (00000010)
-#   end             =  24  (00011000)
-#   n               =  27  (00011011)
-#   a               =  28  (00011100)
-#   b               =  29  (00011101)
-#   one             =  30  (00011110)
-"""),
-    Example("sum3 (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
-#
-# ADDR  BYTES                   SOURCE
-# ────────────────────────────────────────────────────────
-#                                # sum3.toys
-#                                # Adds three named values: a + b + c.
-#                                #
-#                                # The three values are the first three digits of pi (a=3, b=1, c=4),
-#                                # so the expected result is 3 + 1 + 4 = 8.
-#                                #
-#                                # No loop needed -- just load the first, add the other two.
-#                                # (For summing a whole array, see sum.toys.)
-#                                
-     0   00010100  00000111              load  a         # acc = a
-     2   00010110  00001000              add   b         # acc = a + b
-     4   00010110  00001001              add   c         # acc = a + b + c
-     6   00000000                        stop            # result 8 in accumulator
-#                                
-#                                # data
-     7   00000011                a:      3
-     8   00000001                b:      1
-     9   00000100                c:      4
+int main(void) {
+    int data[16];
+    data[0] = 'H';
+    data[1] = 'a';
+    data[2] = 'l';
+    data[3] = 'l';
+    data[4] = 'o';
+    data[5] = ' ';
+    int k = read(data + 6);   // name goes into data[6..], k = its length
+    write(data, k + 6);       // "Hallo " + the name, all out to io0..
+    return 0;
+}
+""", compilers = listOf("toycc"), subfolder = "04-io"),
+    Example("hello_world.toyc", ExampleKind.C, """// hello_world — write "Hello world!" out to the io cells.
+//
+// Each character is stored into a buffer, then write(data, 12) sends all 12
+// bytes out to io0..io11. Pick ascii in the GUI (View -> I/O format) to read
+// them as letters; it is the default for compiled I/O programs.
+//
+// pytoy: output=ascii
 
-# SYMBOLS
-#   a               =   7  (00000111)
-#   b               =   8  (00001000)
-#   c               =   9  (00001001)
-"""),
+int main(void) {
+    // A constant initializer list: these become the array's initial data bytes
+    // at compile time, far smaller than twelve runtime stores (which overflow
+    // the 256-byte machine).
+    int data[12] = {'H', 'e', 'l', 'l', 'o', ' ',
+                    'w', 'o', 'r', 'l', 'd', '!'};
+    write(data, 12);
+    return 0;
+}
+""", compilers = listOf("toycc"), subfolder = "04-io"),
+    Example("pin_check.toyc", ExampleKind.C, """// pin_check — read a 4-digit PIN and check it against 1337.
+//
+// The PIN guards a secret: get it right and the program returns 42 — the
+// Answer to Life, the Universe and Everything (Hitchhiker's Guide). Wrong PIN
+// returns 0. This is the running example for the security slides (brute force,
+// reading the bytecode, side channels, fault injection). See
+// doc/design/pin-security.md.
+//
+// GUI usage (ascii input): type the four digits into io0..io3 (e.g. '1','3',
+// '3','7'), then set `ready` to a non-zero value to submit. The program reads
+// the digits, compares them to "1337", and writes back "succ" or "fail" while
+// the return value (the accumulator at STOP) is 42 on success, 0 on failure.
+//
+// The digits are checked one at a time; the first mismatch falls through to
+// "fail". Only when all four match does it reach "succ". (Nested ifs rather
+// than one && chain keep the program inside the 240 usable bytes.)
+//
+// pytoy: output=ascii
+
+int main(void) {
+    int data[4];
+    int succ[4] = {'s', 'u', 'c', 'c'};
+    int fail[4] = {'f', 'a', 'i', 'l'};
+
+    read(data);
+
+    if (data[0] == '1') {
+        if (data[1] == '3') {
+            if (data[2] == '3') {
+                if (data[3] == '7') {
+                    write(succ, 4);
+                    return 42;   // the secret, revealed
+                }
+            }
+        }
+    }
+    write(fail, 4);
+    return 0;
+}
+""", compilers = listOf("toycc"), subfolder = "04-io"),
+    Example("pin_check_hardened.toyc", ExampleKind.C, """// pin_check_hardened — the same 1337 PIN check, but constant-time.
+//
+// The naive pin_check bails on the first wrong digit. That early-out is a
+// timing side channel: a wrong first digit stops sooner than a wrong last
+// digit, so an attacker measuring run time (steps in pytoy) can recover the
+// PIN one digit at a time — 4*10 tries instead of 10^4. See the security
+// slides and doc/design/pin-security.md.
+//
+// Fix: never branch on a single digit. OR the differences together and test
+// once at the end. Every digit is always compared, so the work — and the
+// timing — is the same whatever the input. `diff` is 0 exactly when all four
+// digits match (XOR is 0 iff equal; OR stays 0 only if every XOR was 0).
+//
+// Residual weakness (covered in the slides): the single final `diff == 0` is
+// now the one place a fault-injection attack can target. Constant time closes
+// the timing channel; it does not make the check fault-proof. Security needs
+// both a safe program AND safe hardware.
+//
+// pytoy: output=ascii
+
+int main(void) {
+    int data[4];
+    int succ[4] = {'s', 'u', 'c', 'c'};
+    int fail[4] = {'f', 'a', 'i', 'l'};
+    int diff;
+
+    read(data);
+
+    // Constant-time compare: always touch all four digits, no early-out.
+    // Each (digit ^ expected) is 0 iff that digit matches; OR them together so
+    // diff is 0 exactly when all four match. One expression, no per-digit
+    // branch — the work (and the timing) is the same whatever the input. The
+    // compare is unrolled by hand (no pin[] array, no for) to fit 240 bytes.
+    diff = (data[0] ^ '1') | (data[1] ^ '3') | (data[2] ^ '3') | (data[3] ^ '7');
+
+    if (diff == 0) {
+        write(succ, 4);
+        return 42;   // the secret, revealed
+    }
+    write(fail, 4);
+    return 0;
+}
+""", compilers = listOf("toycc"), subfolder = "04-io"),
 )
 
 /**
@@ -1727,7 +2785,7 @@ fun groupedExamples(): Map<String, List<Example>> {
         }
     }
     // Fixed display order; drop any category with no examples.
-    val order = listOf("Assembly", "C (minicc)", "C (toycc)", "Bytecode")
+    val order = listOf("Assembly", "Bytecode", "C (minicc)", "C (toycc)")
     val out = linkedMapOf<String, List<Example>>()
     for (key in order) groups[key]?.let { out[key] = it }
     return out
@@ -1762,6 +2820,10 @@ fun groupedExamplesTree(): Map<String, Map<String, List<Example>>> {
     val asm = bucket({ it.kind == ExampleKind.ASM }, { it })
     if (asm.isNotEmpty()) out["Assembly"] = asm
 
+    // Bytecode: flat — a single "" subfolder holding every .toyo listing.
+    val toyo = EXAMPLES.filter { it.kind == ExampleKind.TOYO }
+    if (toyo.isNotEmpty()) out["Bytecode"] = linkedMapOf("" to toyo)
+
     // C: one top-level node per compiler, each example narrowed to that
     // compiler and bucketed by subfolder; a compiler node is omitted if it
     // accepts nothing.
@@ -1772,10 +2834,6 @@ fun groupedExamplesTree(): Map<String, Map<String, List<Example>>> {
         )
         if (bySub.isNotEmpty()) out["C ($compiler)"] = bySub
     }
-
-    // Bytecode: flat — a single "" subfolder holding every .toyo listing.
-    val toyo = EXAMPLES.filter { it.kind == ExampleKind.TOYO }
-    if (toyo.isNotEmpty()) out["Bytecode"] = linkedMapOf("" to toyo)
 
     return out
 }
