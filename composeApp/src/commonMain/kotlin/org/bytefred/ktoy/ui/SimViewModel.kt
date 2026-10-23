@@ -14,6 +14,7 @@ import org.bytefred.ktoy.core.ExampleKind
 import org.bytefred.ktoy.core.IoFormat
 import org.bytefred.ktoy.core.ListingLine
 import org.bytefred.ktoy.core.Machine
+import org.bytefred.ktoy.core.decode
 import org.bytefred.ktoy.core.SelectionSets
 import org.bytefred.ktoy.core.addrToCLine
 import org.bytefred.ktoy.core.asmRowsToAddrs
@@ -29,6 +30,9 @@ import kotlinx.coroutines.launch
 
 /** How the C/asm/memory columns are arranged (View -> Layout). */
 enum class LayoutMode { AUTO, PORTRAIT, LANDSCAPE }
+
+/** The panel shown when a narrow screen (phone) shows one panel at a time. */
+enum class PanelTab { C, ASM, MEMORY }
 
 /**
  * Holds the running Machine and the derived UI state for the simulator screen.
@@ -72,6 +76,29 @@ class SimViewModel : ViewModel() {
     // PORTRAIT forces the columns stacked; LANDSCAPE forces them side by side.
     var layoutMode by mutableStateOf(LayoutMode.AUTO)
 
+    // Narrow screens (phones) show one panel at a time as tabs; this is the
+    // chosen one. Kept here so it survives rotation. Falls back to an available
+    // panel when the loaded program has no C / no source (see visibleTab).
+    var phoneTab by mutableStateOf(PanelTab.ASM)
+
+    /** [phoneTab] if the current program has that panel, else the best available one. */
+    fun visibleTab(): PanelTab = when {
+        phoneTab == PanelTab.C && hasCSource -> PanelTab.C
+        phoneTab == PanelTab.ASM && hasSource -> PanelTab.ASM
+        phoneTab == PanelTab.MEMORY -> PanelTab.MEMORY
+        hasSource -> PanelTab.ASM
+        else -> PanelTab.MEMORY
+    }
+
+    /**
+     * True if the loaded program touches the memory-mapped I/O cells (an
+     * instruction operand in 240..255, e.g. `load ready` or `store io0`). Used
+     * to show the I/O panel automatically for I/O programs; it starts hidden.
+     */
+    fun usesIo(): Boolean = listing.any { line ->
+        !line.isData && line.bytes.size == 2 && line.bytes[1] >= 240
+    }
+
     // A transient status message for the File menu (e.g. "Saved foo.toyo"), shown
     // briefly in the UI. Cleared by the UI after showing.
     var statusMessage: String? by mutableStateOf(null); private set
@@ -113,6 +140,28 @@ class SimViewModel : ViewModel() {
     // I/O panel: whether it's shown, and its display format. Both live here (not
     // in the composable) so they survive rotation like the rest of the sim state.
     var showIo by mutableStateOf(false)
+
+    // The I/O panel opens by itself at most once per load: when the running
+    // program first reads/writes an I/O cell (catches self-modifying code, C
+    // write() via a copy loop and bytecode, which the load-time check misses).
+    // Once the user toggles the panel, it stays as they set it.
+    private var ioAutoDone = false
+
+    /** View -> I/O panel. */
+    fun toggleIo() {
+        showIo = !showIo
+        ioAutoDone = true
+    }
+
+    /** Before stepping [m]: open the I/O panel if this instruction accesses 240..255. */
+    private fun autoShowIo(m: Machine) {
+        if (ioAutoDone || m.stopped) return
+        val (instr, arg, _) = decode(m.mem, m.pc)
+        if (instr in 17..23 && arg != null && arg >= 240) {
+            showIo = true
+            ioAutoDone = true
+        }
+    }
     // ASCII by default (the user reads I/O as characters most of the time).
     var ioFormat by mutableStateOf(IoFormat.ASCII)
 
@@ -319,6 +368,10 @@ class SimViewModel : ViewModel() {
                 }
             }
         }
+        // I/O panel starts hidden; show it automatically for programs that use
+        // the I/O cells (the user can still toggle it in View).
+        showIo = usesIo()
+        ioAutoDone = showIo
         bump()
     }
 
@@ -351,7 +404,7 @@ class SimViewModel : ViewModel() {
 
     fun step() {
         stopRun()
-        machine?.step()
+        machine?.let { autoShowIo(it); it.step() }
         // stepping drops the whole cross-column selection so a stale highlight
         // can't linger after execution moves on (pytoy clears both anchors)
         selectedCLine = null
@@ -544,6 +597,7 @@ class SimViewModel : ViewModel() {
         running = true
         runJob = viewModelScope.launch {
             while (isActive) {
+                autoShowIo(m)
                 val advanced = m.step()   // capture m: never step a swapped machine
                 bump()
                 if (!advanced) { running = false; runJob = null; break }

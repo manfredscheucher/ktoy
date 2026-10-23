@@ -109,7 +109,7 @@ fun SimMenuBar(vm: SimViewModel, onBrowseExamples: () -> Unit) {
             CheckItem("Line numbers", vm.showLineNumbers) {
                 vm.showLineNumbers = !vm.showLineNumbers
             }
-            CheckItem("I/O panel", vm.showIo) { vm.showIo = !vm.showIo }
+            CheckItem("I/O panel", vm.showIo) { vm.toggleIo() }
             HorizontalDivider()
             // Layout: AUTO (by window size) / PORTRAIT (stacked) / LANDSCAPE
             // (side by side). A flat radio group rather than a nested submenu,

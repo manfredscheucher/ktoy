@@ -17,7 +17,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -149,11 +153,33 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
                     if (vm.hasSource) src(Modifier.weight(1f).fillMaxSize())
                     mem(Modifier.weight(1f).fillMaxSize())
                 }
+            } else if (maxWidth < TABS_MAX_WIDTH && cols > 1) {
+                // Phones: one panel at a time, chosen by tabs, so it gets the
+                // full height instead of a third of it.
+                val tab = vm.visibleTab()
+                Column(Modifier.fillMaxSize()) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        if (vm.hasCSource) PanelTabChip("C", tab == PanelTab.C) { vm.phoneTab = PanelTab.C }
+                        if (vm.hasSource) PanelTabChip("Assembly", tab == PanelTab.ASM) { vm.phoneTab = PanelTab.ASM }
+                        PanelTabChip("Memory", tab == PanelTab.MEMORY) { vm.phoneTab = PanelTab.MEMORY }
+                    }
+                    val fill = Modifier.weight(1f).fillMaxWidth()
+                    when (tab) {
+                        PanelTab.C -> cCol(fill)
+                        PanelTab.ASM -> src(fill)
+                        PanelTab.MEMORY -> mem(fill)
+                    }
+                }
             } else {
+                // Stacked: memory gets twice the height of C / assembly, since it
+                // carries the status block on top of the 256-byte listing.
                 Column(Modifier.fillMaxSize()) {
                     if (vm.hasCSource) cCol(Modifier.weight(1f).fillMaxWidth())
                     if (vm.hasSource) src(Modifier.weight(1f).fillMaxWidth())
-                    mem(Modifier.weight(1f).fillMaxWidth())
+                    mem(Modifier.weight(2f).fillMaxWidth())
                 }
             }
         }
@@ -539,35 +565,39 @@ private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
     val m = vm.machine
     val loadFromDisk = rememberFileLoader { name, text -> vm.loadFromFile(name, text) }
 
-    // Order like pytoy: Load Examples Reload | Step Run steps/sec Undo Reset | Edit.
-    val fileGroup: @Composable () -> Unit = {
-        if (fileLoadSupported) {
-            OutlinedButton(onClick = loadFromDisk) { Text("Load") }
-        }
-        OutlinedButton(onClick = onLoad) { Text("Examples") }
-        if (fileReloadSupported) {
-            OutlinedButton(onClick = { vm.reload() }, enabled = vm.canReload) { Text("Reload") }
-        }
-    }
-    val runGroup: @Composable () -> Unit = {
-        Button(onClick = { vm.step() }, enabled = m?.stopped == false && !vm.running) { Text("Step") }
-        Button(onClick = { vm.toggleRun() }, enabled = m?.stopped == false) { Text(if (vm.running) "Stop" else "Run") }
-        StepsPerSecInput(vm.stepsPerSecond) { vm.stepsPerSecond = it }
-        OutlinedButton(onClick = { vm.stepBack() }, enabled = m?.canUndo == true) { Text("Undo") }
-        OutlinedButton(onClick = { vm.reset() }, enabled = m?.canUndo == true) { Text("Reset") }
-    }
-    // Edit the value at the address selected in the CPU & memory panel;
-    // enabled only when such a selection exists. On touch this is THE way to
-    // edit (double-tap is the desktop/web shortcut), so it must never be clipped.
-    val edit: @Composable () -> Unit = {
-        OutlinedButton(onClick = onEdit, enabled = vm.memSelectedAddr != null) { Text("Edit") }
-    }
-    val center = androidx.compose.ui.Alignment.CenterVertically
-    val gap = Arrangement.spacedBy(6.dp)
-
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 6.dp)) {
         val oneRowMin = if (fileReloadSupported) CONTROLS_ONE_ROW_MIN_RELOAD else CONTROLS_ONE_ROW_MIN
-        if (maxWidth >= oneRowMin) {
+        // narrow screens (phones) get two rows of compact, low controls so the
+        // panels keep as much height as possible
+        val compact = maxWidth < oneRowMin
+
+        // Order like pytoy: Load Examples Reload | Step Run steps/sec Undo Reset | Edit.
+        val fileGroup: @Composable () -> Unit = {
+            if (fileLoadSupported) CtlButton("Load", compact, onClick = loadFromDisk)
+            CtlButton("Examples", compact, onClick = onLoad)
+            if (fileReloadSupported) {
+                CtlButton("Reload", compact, enabled = vm.canReload) { vm.reload() }
+            }
+        }
+        val runGroup: @Composable () -> Unit = {
+            CtlButton("Step", compact, filled = true, enabled = m?.stopped == false && !vm.running) { vm.step() }
+            CtlButton(if (vm.running) "Stop" else "Run", compact, filled = true, enabled = m?.stopped == false) {
+                vm.toggleRun()
+            }
+            StepsPerSecInput(vm.stepsPerSecond, compact) { vm.stepsPerSecond = it }
+            CtlButton("Undo", compact, enabled = m?.canUndo == true) { vm.stepBack() }
+            CtlButton("Reset", compact, enabled = m?.canUndo == true) { vm.reset() }
+        }
+        // Edit the value at the address selected in the CPU & memory panel;
+        // enabled only when such a selection exists. On touch this is THE way to
+        // edit (double-tap is the desktop/web shortcut), so it must never be clipped.
+        val edit: @Composable () -> Unit = {
+            CtlButton("Edit", compact, enabled = vm.memSelectedAddr != null, onClick = onEdit)
+        }
+        val center = androidx.compose.ui.Alignment.CenterVertically
+        val gap = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
+
+        if (!compact) {
             // wide: one row, gaps pushing the run group to the middle and Edit right
             Row(Modifier.fillMaxWidth(), verticalAlignment = center, horizontalArrangement = gap) {
                 fileGroup()
@@ -577,9 +607,9 @@ private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
                 edit()
             }
         } else {
-            // narrow (phones): two rows so nothing is squeezed or cut off. Row 1:
-            // file group + Edit far right; row 2: run controls, scrollable if
-            // they still don't fit.
+            // narrow: two rows so nothing is squeezed or cut off. Row 1: file
+            // group + Edit far right; row 2: run controls, scrollable if they
+            // still don't fit.
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = center, horizontalArrangement = gap) {
                     fileGroup()
@@ -598,11 +628,45 @@ private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
     }
 }
 
-// Below this width the bottom bar splits into two rows. The one-row bar needs
-// about 950 dp of content (Material3 button min widths + the 96 dp steps/sec
-// field), plus ~100 dp more when Reload is shown (desktop).
+// Below this width a stacked layout shows one panel at a time (tabs), so each
+// gets the full height. Phones are ~360-430 dp wide, small tablets ~600 dp.
+private val TABS_MAX_WIDTH = 600.dp
+
+/** One tab of the phone panel switcher. */
+@Composable
+private fun PanelTabChip(label: String, selected: Boolean, onClick: () -> Unit) {
+    FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
+}
+
+// Below this width the bottom bar splits into two compact rows. The one-row bar
+// needs about 950 dp of content (Material3 button min widths + the 96 dp
+// steps/sec field), plus ~100 dp more when Reload is shown (desktop).
 private val CONTROLS_ONE_ROW_MIN = 1000.dp
 private val CONTROLS_ONE_ROW_MIN_RELOAD = 1100.dp
+
+// Height of a compact (phone) control, instead of Material3's 40 dp buttons and
+// the 56 dp text field.
+private val COMPACT_HEIGHT = 34.dp
+private val COMPACT_PADDING = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+
+/** A bottom-bar button: filled (Step/Run) or outlined; low and tight when [compact]. */
+@Composable
+private fun CtlButton(
+    label: String,
+    compact: Boolean,
+    filled: Boolean = false,
+    enabled: Boolean = true,
+    onClick: () -> Unit,
+) {
+    val mod = if (compact) Modifier.height(COMPACT_HEIGHT) else Modifier
+    if (filled) {
+        if (compact) Button(onClick, mod, enabled, contentPadding = COMPACT_PADDING) { Text(label) }
+        else Button(onClick, mod, enabled) { Text(label) }
+    } else {
+        if (compact) OutlinedButton(onClick, mod, enabled, contentPadding = COMPACT_PADDING) { Text(label) }
+        else OutlinedButton(onClick, mod, enabled) { Text(label) }
+    }
+}
 
 // steps/sec range (float, like pytoy's QDoubleSpinBox).
 private const val SPS_MIN = 0.1
@@ -614,10 +678,11 @@ private const val SPS_STEP = 0.5
  * decimal so the user sees that sub-1 values are allowed (e.g. "0.5"). The field
  * accepts any float in [SPS_MIN, SPS_MAX]; the buttons nudge by [SPS_STEP].
  * Shape copied from kotlin-common's IntegerInput, adapted to Float (no shared
- * dependency, per the house rules). pytoy's spin_speed.
+ * dependency, per the house rules). pytoy's spin_speed. [compact] (phones) uses
+ * a low bordered field instead of the 56 dp Material text field.
  */
 @Composable
-private fun StepsPerSecInput(value: Double, onValueChange: (Double) -> Unit) {
+private fun StepsPerSecInput(value: Double, compact: Boolean, onValueChange: (Double) -> Unit) {
     Text("steps/sec:", style = MonoStyle)
     // Local edit buffer so a half-typed value (e.g. "0.") isn't clobbered while
     // typing. Re-sync it from [value] only when a ± button moved the value away
@@ -627,34 +692,54 @@ private fun StepsPerSecInput(value: Double, onValueChange: (Double) -> Unit) {
     LaunchedEffect(value) {
         if (text.toDoubleOrNull() != value) text = fmt1(value)
     }
-    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+    val onText: (String) -> Unit = {
+        text = it
+        // Only commit a value that's already IN range, so an in-progress
+        // keystroke ("0." → 0.0, below SPS_MIN) isn't coerced up and then
+        // written back over what the user is typing. The field re-clamps on
+        // the ± buttons / resync.
+        it.toDoubleOrNull()?.let { v ->
+            if (v in SPS_MIN..SPS_MAX) onValueChange(v)
+        }
+    }
+    Row(
+        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 0.dp),
+    ) {
         // Text "−"/"+" buttons rather than material-icons, to avoid pulling in the
         // icons dependency (ktoy keeps its deps minimal).
-        OutlinedButton(
-            onClick = { onValueChange((value - SPS_STEP).coerceIn(SPS_MIN, SPS_MAX)) },
-            enabled = value > SPS_MIN,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
-        ) { Text("−") }
-        OutlinedTextField(
-            value = text,
-            onValueChange = {
-                text = it
-                // Only commit a value that's already IN range, so an
-                // in-progress keystroke ("0." → 0.0, below SPS_MIN) isn't
-                // coerced up and then written back over what the user is
-                // typing. The field re-clamps on the ± buttons / resync.
-                it.toDoubleOrNull()?.let { v ->
-                    if (v in SPS_MIN..SPS_MAX) onValueChange(v)
-                }
-            },
-            singleLine = true,
-            modifier = Modifier.width(96.dp),
-        )
-        OutlinedButton(
-            onClick = { onValueChange((value + SPS_STEP).coerceIn(SPS_MIN, SPS_MAX)) },
-            enabled = value < SPS_MAX,
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp),
-        ) { Text("+") }
+        CtlButton("−", compact, enabled = value > SPS_MIN) {
+            onValueChange((value - SPS_STEP).coerceIn(SPS_MIN, SPS_MAX))
+        }
+        if (compact) {
+            BasicTextField(
+                value = text,
+                onValueChange = onText,
+                singleLine = true,
+                textStyle = MonoStyle,
+                modifier = Modifier.width(64.dp).height(COMPACT_HEIGHT),
+                // centre the text vertically instead of fixed padding, so a larger
+                // system font scale doesn't clip it
+                decorationBox = { inner ->
+                    Box(
+                        Modifier.fillMaxSize()
+                            .border(1.dp, Color(0xFF888888), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp),
+                        contentAlignment = androidx.compose.ui.Alignment.CenterStart,
+                    ) { inner() }
+                },
+            )
+        } else {
+            OutlinedTextField(
+                value = text,
+                onValueChange = onText,
+                singleLine = true,
+                modifier = Modifier.width(96.dp),
+            )
+        }
+        CtlButton("+", compact, enabled = value < SPS_MAX) {
+            onValueChange((value + SPS_STEP).coerceIn(SPS_MIN, SPS_MAX))
+        }
     }
 }
 

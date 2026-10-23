@@ -681,6 +681,18 @@ What Manfred asked for, and what was decided:
    360 dp phone gets 4 per row, a 390 dp phone 8.
 9. **README:** early-development note with the feedback mailto link.
 
-Open: on a phone in Safari the panels show only a few rows. The chrome (menu,
-two-row bar, I/O panel) takes most of the height and the stacked panels share
-the rest. Options are being discussed with Manfred.
+10. **Phone layout** (on a phone in Safari the panels showed only a few rows: the
+    menu, the two-row bar and the I/O panel took most of the height and up to
+    three stacked panels shared the rest). Manfred chose all four fixes:
+    - **Tabs below 600 dp** when stacked: one panel at a time (C / Assembly /
+      Memory, FilterChips), full height. The tab lives in the VM (`phoneTab`,
+      survives rotation) and falls back to an available panel (`visibleTab`).
+    - **Compact bottom bar** below the one-row threshold: 34 dp buttons with tight
+      padding and a low steps/sec field instead of Material's 40/56 dp.
+    - **Memory weight 2** when stacked on wider screens (it carries the status
+      block on top of the 256-byte listing).
+    - **I/O panel off by default**, shown automatically when the program uses the
+      I/O cells: at load if an instruction operand is in 240..255 (`usesIo`), else
+      the first time the running program reads/writes 240..255 (covers
+      self-modifying code, C `write()` and bytecode). Once the user toggles it in
+      View, auto-show stops for that load. Test: every 04-io example opens it.
