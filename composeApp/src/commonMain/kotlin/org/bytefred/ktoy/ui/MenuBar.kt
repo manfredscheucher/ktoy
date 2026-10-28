@@ -216,7 +216,6 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         title = { Text("About ktoy") },
         text = {
             Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
-                Text("ktoy ${GeneratedVersionInfo.VERSION}")
                 val sha = GeneratedVersionInfo.COMMIT_SHA
                 if (sha != "unknown") {
                     val tag = if (GeneratedVersionInfo.IS_DIRTY == "dirty") "$sha (modified)" else sha
@@ -225,6 +224,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                 if (GeneratedVersionInfo.COMMIT_DATE != "unknown") {
                     Text("committed ${GeneratedVersionInfo.COMMIT_DATE}")
                 }
+                Text("built ${GeneratedVersionInfo.BUILD_DATE}")
                 Spacer(Modifier.height(8.dp))
                 Text("A Toy CPU toolbox: simulator, assembler, C compiler.")
                 Spacer(Modifier.height(8.dp))
