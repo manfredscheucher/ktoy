@@ -351,7 +351,8 @@ category then repo subfolder (mirrors pytoy's `ExamplesDialog`), not a flat list
 Top-level nodes: Assembly / C (minicc) / C (toycc) / Bytecode. Assembly and C
 nodes expand into their repo subfolders (e.g. `03-programs`, `04-io`,
 `02-extended`); Bytecode is flat. Category nodes start expanded, subfolders start
-collapsed. Picking a leaf assembles/compiles and loads it.
+collapsed. The tree lives in the Examples dialog: leaves are radio buttons, Load
+assembles/compiles and loads the selected one (see section 13).
 
 Each `Example` carries a `subfolder` field (generated from pytoy's folder
 layout); `groupedExamplesTree()` in `ExampleSources.kt` builds the
@@ -696,3 +697,33 @@ What Manfred asked for, and what was decided:
       the first time the running program reads/writes 240..255 (covers
       self-modifying code, C `write()` and bytecode). Once the user toggles it in
       View, auto-show stops for that load. Test: every 04-io example opens it.
+
+## 13. 2026-10-30: About and Examples dialog
+
+Spec (Manfred, same About structure in ktoy, PoCoView and the ksat playground):
+
+- **About**, top to bottom: title "ktoy" only; description "A Toy CPU toolbox:
+  simulator, assembler, C compiler."; the yellow feedback box "ktoy is in early
+  development. Feedback is very welcome:" with the e-mail link; project lines
+  "[name] (MIT): note", only the name is a link: ktoy (this app), pytoy (the
+  Python original ktoy is ported from), toycpu (the Toy CPU instruction set by
+  Jim Hall, FreeDOS Project); last line "[Videos]: YouTube playlist" (no license
+  bracket). At the very bottom one small grey line "sha · committed <date> ·
+  built <date>" (" (modified)" if dirty, unknown parts left out). No font
+  mention, no License block.
+- **Examples as a dialog** in the ksat playground style (was a full-screen
+  overlay where a click loaded at once): an AlertDialog "Examples" with the same
+  collapsible tree (category > subfolder), leaves are radio buttons that only
+  select; buttons Cancel and Load. If the simulator is running (`vm.running`),
+  Load asks "The program is still running. Stop it and load the new example?"
+  with "Stop and load" / "Cancel" (`vm.load` stops the run itself).
+
+Decisions:
+- No example is preselected (the leaves start hidden in collapsed subfolders), so
+  Load is disabled until a leaf is selected.
+- No per-example detail line: the first comment line is not uniform (assembly
+  starts with a description, C with `// expect: N`, bytecode with the generic
+  "Toy CPU – compiled listing" header), so a detail would need a heuristic.
+  Open question for Manfred.
+- System-back still closes the dialog (AppBackHandler + the dialog's own dismiss).
+
