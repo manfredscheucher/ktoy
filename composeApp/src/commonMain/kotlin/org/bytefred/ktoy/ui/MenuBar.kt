@@ -21,6 +21,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -34,7 +35,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import org.bytefred.ktoy.GeneratedVersionInfo
@@ -208,43 +208,50 @@ private fun TextDialog(title: String, body: String, onDismiss: () -> Unit) {
     )
 }
 
-/** About: build identity, links, license, and the feedback box. */
+/** About: description, feedback box, the projects with their licenses, build identity. */
 @Composable
 private fun AboutDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("About ktoy") },
+        title = { Text("ktoy") },
         text = {
             Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
-                val sha = GeneratedVersionInfo.COMMIT_SHA
-                if (sha != "unknown") {
-                    val tag = if (GeneratedVersionInfo.IS_DIRTY == "dirty") "$sha (modified)" else sha
-                    Text("commit $tag")
-                }
-                if (GeneratedVersionInfo.COMMIT_DATE != "unknown") {
-                    Text("committed ${GeneratedVersionInfo.COMMIT_DATE}")
-                }
-                Text("built ${GeneratedVersionInfo.BUILD_DATE}")
-                Spacer(Modifier.height(8.dp))
                 Text("A Toy CPU toolbox: simulator, assembler, C compiler.")
                 Spacer(Modifier.height(8.dp))
-                LinkText("ktoy on GitHub", "https://github.com/manfredscheucher/ktoy")
-                LinkText("pytoy on GitHub", "https://github.com/manfredscheucher/pytoy")
-                LinkText("Videos (YouTube playlist)", PLAYLIST_URL)
-                Spacer(Modifier.height(8.dp))
-                Text("License", fontWeight = FontWeight.Bold)
-                LinkText("ktoy is MIT-licensed (LICENSE)", "https://github.com/manfredscheucher/ktoy/blob/main/LICENSE")
-                Text("The Toy CPU instruction set is by Jim Hall " +
-                    "(FreeDOS Project). Font: DejaVu Sans Mono (Bitstream Vera license, " +
-                    "DejaVu changes public domain).")
-                LinkText("Toy CPU by Jim Hall", "https://github.com/freedosproject/toycpu")
-                Spacer(Modifier.height(10.dp))
                 FeedbackBox("ktoy is in early development. Feedback is very welcome:")
+                Spacer(Modifier.height(8.dp))
+                ProjectLine("ktoy", "https://github.com/manfredscheucher/ktoy", "this app")
+                ProjectLine("pytoy", "https://github.com/manfredscheucher/pytoy", "the Python original ktoy is ported from")
+                ProjectLine("toycpu", "https://github.com/freedosproject/toycpu", "the Toy CPU instruction set by Jim Hall (FreeDOS Project)")
+                ProjectLine("Videos", PLAYLIST_URL, "YouTube playlist", license = null)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    buildLine(),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
     )
 }
+
+/** One About line "[name] (license): note" (no bracket without a license); only the name is a link. */
+@Composable
+private fun ProjectLine(name: String, url: String, note: String, license: String? = "MIT") {
+    Row {
+        LinkText(name, url)
+        Text((license?.let { " ($it)" } ?: "") + ": $note", Modifier.padding(vertical = 2.dp))
+    }
+}
+
+/** "sha · committed <date> · built <date>"; unknown parts are left out. */
+private fun buildLine(): String = buildList {
+    val sha = GeneratedVersionInfo.COMMIT_SHA
+    if (sha != "unknown") add(if (GeneratedVersionInfo.IS_DIRTY == "dirty") "$sha (modified)" else sha)
+    if (GeneratedVersionInfo.COMMIT_DATE != "unknown") add("committed ${GeneratedVersionInfo.COMMIT_DATE}")
+    add("built ${GeneratedVersionInfo.BUILD_DATE}")
+}.joinToString(" · ")
 
 /** Shown at start until "Don't show again" is ticked. Ported from PoCoView. */
 @Composable
