@@ -4,7 +4,10 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 
 // Android: the Storage Access Framework (SAF). OpenDocument picks a file to read;
@@ -15,7 +18,7 @@ actual val fileSaveSupported: Boolean = true
 actual val fileReloadSupported: Boolean = false
 
 @Composable
-actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): () -> Unit {
+actual fun rememberFileLoader(onLoaded: (name: String, text: String, path: String?) -> Unit): () -> Unit {
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -24,7 +27,7 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): (
             val text = context.contentResolver.openInputStream(uri)
                 ?.bufferedReader()?.use { it.readText() } ?: ""
             // full name incl. extension — the VM infers the kind from it
-            onLoaded(displayName(context, uri), text)
+            onLoaded(displayName(context, uri), text, null)
         }
     }
     // Toy programs have no registered MIME type; accept anything and filter by
@@ -34,12 +37,14 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): (
 
 @Composable
 actual fun rememberFileSaver(
-    onSaved: (message: String?) -> Unit,
+    onSaved: (name: String?, path: String?) -> Unit,
 ): (String, String, String) -> Unit {
     val context = LocalContext.current
     // CreateDocument needs the text at launch time; stash it between the call and
     // the result callback.
-    var pending: String? = null
+    // the stash is remembered: the launch lambda below keeps its first closure,
+    // while the result callback is the latest recomposition's
+    var pending by remember { mutableStateOf<String?>(null) }
     val launcher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri: Uri? ->
@@ -49,9 +54,9 @@ actual fun rememberFileSaver(
             context.contentResolver.openOutputStream(uri)?.use {
                 it.write((if (text.endsWith("\n")) text else text + "\n").toByteArray())
             }
-            onSaved(displayName(context, uri))
+            onSaved(displayName(context, uri), null)
         } else {
-            onSaved(null)
+            onSaved(null, null)
         }
     }
     return remember(launcher) {
@@ -61,6 +66,8 @@ actual fun rememberFileSaver(
         }
     }
 }
+
+actual fun readTextFile(path: String): String? = null
 
 /** The human file name behind a content:// Uri (for the "Saved X" / loaded name). */
 private fun displayName(context: android.content.Context, uri: Uri): String {

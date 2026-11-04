@@ -3,6 +3,9 @@ package org.bytefred.ktoy.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -25,6 +29,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,84 +37,176 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.PopupProperties
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 import org.bytefred.ktoy.GeneratedVersionInfo
 import org.bytefred.ktoy.core.referenceText
 
 /**
- * The simulator's menu bar: File (Load/Reload/Save), View (line numbers, I/O),
+ * The simulator's menu bar: File (Load/Reload/Save), one menu per layer of the
+ * build pipeline — C (Edit, Compile, compiler), Assembly (Edit, Assemble),
+ * Bytecode (Edit cell, Disassemble) — then Execution (what an invalid opcode
+ * does), View (line numbers, I/O, layout, auto-scroll) and
  * Help (instruction-set reference + About). The pytoy menu bar, as cross-platform
  * Compose: each menu is a text button that opens a [DropdownMenu]. File I/O goes
  * through the [FileIo] platform shim (Swing / SAF / browser blob). [onBrowseExamples]
- * opens the existing example list.
+ * opens the existing example list; [onEditC] / [onEditAsm] / [onEditCell] open
+ * the same edit dialogs as the panels' right-click / long-press menu.
  */
 @Composable
-fun SimMenuBar(vm: SimViewModel, onBrowseExamples: () -> Unit) {
-    var fileOpen by remember { mutableStateOf(false) }
-    var viewOpen by remember { mutableStateOf(false) }
-    var helpOpen by remember { mutableStateOf(false) }
+fun SimMenuBar(
+    vm: SimViewModel,
+    onBrowseExamples: () -> Unit,
+    onEditC: () -> Unit,
+    onEditAsm: () -> Unit,
+    onEditCell: () -> Unit,
+) {
+    // the enabled states below read plain VM fields; tick tells when they change
+    @Suppress("UNUSED_VARIABLE") val t = vm.tick
+    // the open menu's title, or null; one state for all menus, so a click on
+    // another title switches straight to that menu (see MenuButton)
+    var openMenu by remember { mutableStateOf<String?>(null) }
     var savePickerFor by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
+    // the format chosen in the picker, while "this file lacks your edits" asks
+    var staleSaveFor by remember { mutableStateOf<String?>(null) }
+    // Escape closes an open menu: the popups are not focusable (see MenuButton),
+    // so the bar takes the focus while a menu is open
+    val barFocus = remember { FocusRequester() }
+    LaunchedEffect(openMenu) { if (openMenu != null) barFocus.requestFocus() }
     var showReference by remember { mutableStateOf(false) }
     var showAbout by remember { mutableStateOf(false) }
     var showCHelp by remember { mutableStateOf(false) }
+    var showBuildHelp by remember { mutableStateOf(false) }
     // Welcome / early-development notice at start, until "Don't show again".
     // rememberSaveable so an Android rotation doesn't re-open a dismissed one.
     var showWelcome by rememberSaveable { mutableStateOf(loadPref(WELCOME_PREF) != "off") }
 
-    val loadFromDisk = rememberFileLoader { name, text -> vm.loadFromFile(name, text) }
-    val saveToDisk = rememberFileSaver { msg -> vm.setStatus(msg?.let { "Saved $it" }) }
+    val loadFromDisk = rememberFileLoader { name, text, path -> vm.loadFromFile(name, text, path) }
+    val saveToDisk = rememberFileSaver(vm::fileSaved)
+    // one format saves right away, several ask which (C preselected, else assembly)
+    fun save() {
+        val formats = vm.saveFormats()
+        if (formats.size == 1) saveAs(vm, saveToDisk, formats[0].second)
+        else savePickerFor = formats
+    }
 
+    // scrolls sideways when the seven menus don't fit (phones)
     Row(
-        Modifier.fillMaxWidth(),
+        Modifier.horizontalScroll(rememberScrollState())
+            .testTag("menu-bar")
+            .focusRequester(barFocus)
+            .onKeyEvent {
+                if (it.key == Key.Escape && openMenu != null) { openMenu = null; true } else false
+            }
+            .focusable(),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // ── File ──
-        MenuButton("File", fileOpen, { fileOpen = it }) {
+        MenuButton("File", openMenu, { openMenu = it }) {
             DropdownMenuItem(
                 text = { Text("Examples…") },
-                onClick = { fileOpen = false; onBrowseExamples() },
+                onClick = { openMenu = null; onBrowseExamples() },
             )
             if (fileLoadSupported) {
                 DropdownMenuItem(
                     text = { Text("Load…") },
-                    onClick = { fileOpen = false; loadFromDisk() },
+                    onClick = { openMenu = null; vm.leave(loadFromDisk) },
                 )
             }
             if (fileReloadSupported) {
                 DropdownMenuItem(
                     text = { Text("Reload") },
                     enabled = vm.canReload,
-                    onClick = { fileOpen = false; vm.reload() },
+                    onClick = { openMenu = null; vm.leave { vm.reload() } },
                 )
             }
             if (fileSaveSupported) {
                 DropdownMenuItem(
                     text = { Text("Save…") },
-                    onClick = {
-                        fileOpen = false
-                        val formats = vm.saveFormats()
-                        if (formats.size == 1) {
-                            val (_, ext) = formats[0]
-                            vm.exportText(ext)?.let { saveToDisk(vm.suggestedSaveName(), ext, it) }
-                        } else {
-                            savePickerFor = formats
-                        }
-                    },
+                    onClick = { openMenu = null; save() },
                 )
             }
         }
 
+        // ── C ── (only for a C program)
+        MenuButton("C", openMenu, { openMenu = it }, enabled = vm.hasCSource) {
+            DropdownMenuItem(text = { Text("Edit…") }, onClick = { openMenu = null; onEditC() })
+            DropdownMenuItem(
+                text = { Text("Compile") },
+                onClick = { openMenu = null; vm.request(SimViewModel.BuildAction.Compile()) },
+            )
+            HorizontalDivider()
+            // switching recompiles right away (full C is the default at load)
+            for ((compiler, label) in listOf("toycc" to "Full C (toycc)", "minicc" to "Mini C (minicc)")) {
+                CheckItem(label, vm.currentCompiler == compiler) {
+                    openMenu = null
+                    if (vm.currentCompiler != compiler) vm.request(SimViewModel.BuildAction.Compile(compiler))
+                }
+            }
+        }
+
+        // ── Assembly ── (any program with source; for C it drops the C)
+        MenuButton("Assembly", openMenu, { openMenu = it }, enabled = vm.asmText != null) {
+            DropdownMenuItem(text = { Text("Edit…") }, onClick = { openMenu = null; onEditAsm() })
+            DropdownMenuItem(
+                text = { Text("Assemble") },
+                onClick = { openMenu = null; vm.request(SimViewModel.BuildAction.Assemble) },
+            )
+        }
+
+        // ── Bytecode ──
+        MenuButton("Bytecode", openMenu, { openMenu = it }) {
+            DropdownMenuItem(
+                text = { Text("Edit cell…") },
+                enabled = vm.memSelectedAddr != null,
+                onClick = { openMenu = null; onEditCell() },
+            )
+            DropdownMenuItem(
+                text = { Text("Disassemble") },
+                onClick = { openMenu = null; vm.request(SimViewModel.BuildAction.Disassemble) },
+            )
+        }
+
+        // ── Execution ──
+        MenuButton("Execution", openMenu, { openMenu = it }) {
+            // a flat radio group, like View -> Layout
+            Text("Invalid opcode", style = MonoStyle,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            for ((mode, label) in listOf(
+                InvalidOpcodeMode.NOP to "NOP (like toycpu)",
+                InvalidOpcodeMode.STOP to "Stop with an error",
+                InvalidOpcodeMode.ASK to "Always ask",
+            )) {
+                CheckItem("  $label", vm.invalidOpcodeMode == mode) {
+                    vm.invalidOpcodeMode = mode
+                    openMenu = null
+                }
+            }
+        }
+
         // ── View ──
-        MenuButton("View", viewOpen, { viewOpen = it }) {
+        MenuButton("View", openMenu, { openMenu = it }) {
             CheckItem("Line numbers", vm.showLineNumbers) {
                 vm.showLineNumbers = !vm.showLineNumbers
             }
             CheckItem("I/O panel", vm.showIo) { vm.toggleIo() }
+            CheckItem("Auto-scroll to PC", vm.autoScroll) { vm.autoScroll = !vm.autoScroll }
             HorizontalDivider()
             // Layout: AUTO (by window size) / PORTRAIT (stacked) / LANDSCAPE
             // (side by side). A flat radio group rather than a nested submenu,
@@ -124,64 +221,186 @@ fun SimMenuBar(vm: SimViewModel, onBrowseExamples: () -> Unit) {
         }
 
         // ── Help ──
-        MenuButton("Help", helpOpen, { helpOpen = it }) {
+        MenuButton("Help", openMenu, { openMenu = it }) {
             DropdownMenuItem(
                 text = { Text("Instruction set & shortcuts") },
-                onClick = { helpOpen = false; showReference = true },
+                onClick = { openMenu = null; showReference = true },
+            )
+            DropdownMenuItem(
+                text = { Text("Edit and build") },
+                onClick = { openMenu = null; showBuildHelp = true },
             )
             DropdownMenuItem(
                 text = { Text("C: full C vs mini C") },
-                onClick = { helpOpen = false; showCHelp = true },
+                onClick = { openMenu = null; showCHelp = true },
             )
             DropdownMenuItem(
                 text = { Text("About ktoy") },
-                onClick = { helpOpen = false; showAbout = true },
+                onClick = { openMenu = null; showAbout = true },
             )
         }
     }
 
+    // Load / Examples / Reload / closing the window with unsaved edits
+    if (vm.pendingLeave != null && savePickerFor == null) {
+        UnsavedEditsDialog(
+            vm.unsavedDescription(),
+            onSave = ::save,
+            onDiscard = vm::discardAndLeave,
+            onCancel = vm::cancelLeave,
+        )
+    }
+
     // Save-format picker (shown only when more than one format applies)
-    savePickerFor?.let { formats ->
-        AlertDialog(
-            onDismissRequest = { savePickerFor = null },
-            title = { Text("Save as") },
-            text = {
-                Column {
-                    formats.forEach { (label, ext) ->
-                        TextButton(onClick = {
-                            savePickerFor = null
-                            vm.exportText(ext)?.let {
-                                saveToDisk(vm.suggestedSaveName(), ext, it)
-                            }
-                        }) { Text(label) }
-                    }
-                }
+    if (staleSaveFor == null) savePickerFor?.let { formats ->
+        SaveFormatDialog(
+            formats,
+            onSave = { ext ->
+                if (vm.missingFrom(ext).isNotEmpty()) staleSaveFor = ext
+                else { savePickerFor = null; saveAs(vm, saveToDisk, ext) }
             },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { savePickerFor = null }) { Text("Cancel") } },
+            // also cancels a pending Load / Examples / Reload / close
+            onDismiss = { savePickerFor = null; vm.cancelLeave() },
+        )
+    }
+
+    // the chosen format lacks an edit: ask first
+    staleSaveFor?.let { ext ->
+        StaleSaveDialog(
+            vm.missingFrom(ext),
+            onSaveAnyway = { staleSaveFor = null; savePickerFor = null; saveAs(vm, saveToDisk, ext) },
+            onBack = { staleSaveFor = null },
         )
     }
 
     if (showReference) TextDialog("Instruction set & shortcuts", referenceText()) { showReference = false }
+    if (showBuildHelp) TextDialog("Edit and build", BUILD_HELP) { showBuildHelp = false }
     if (showCHelp) TextDialog("C: full C vs mini C", C_HELP) { showCHelp = false }
     if (showAbout) AboutDialog { showAbout = false }
     if (showWelcome) WelcomeDialog { showWelcome = false }
 }
 
+private fun saveAs(vm: SimViewModel, saveToDisk: (String, String, String) -> Unit, ext: String) {
+    val text = vm.beginSave(ext)
+    if (text != null) saveToDisk(vm.suggestedSaveName(), ext, text) else vm.fileSaved(null)
+}
+
+/** The chosen format does not contain every edit: Save anyway / Back to the picker. */
+@Composable
+private fun StaleSaveDialog(missing: List<String>, onSaveAnyway: () -> Unit, onBack: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onBack,
+        title = { Text("This file lacks your edits") },
+        text = {
+            Column {
+                missing.forEach { Text(it, Modifier.padding(bottom = 4.dp)) }
+                Text("They stay unsaved.", Modifier.padding(top = 4.dp))
+            }
+        },
+        confirmButton = { TextButton(onClick = onSaveAnyway) { Text("Save anyway") } },
+        dismissButton = { TextButton(onClick = onBack) { Text("Back") } },
+    )
+}
+
+/** "Save changes?" before the program is replaced: Save… / Discard / Cancel. */
+@Composable
+private fun UnsavedEditsDialog(unsaved: String, onSave: () -> Unit, onDiscard: () -> Unit, onCancel: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onCancel,
+        title = { Text("Save changes?") },
+        text = { Text("Not saved to a file yet: $unsaved.") },
+        confirmButton = { TextButton(onClick = onSave) { Text("Save…") } },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onDiscard) { Text("Discard") }
+                TextButton(onClick = onCancel) { Text("Cancel") }
+            }
+        },
+    )
+}
+
+/** Which format to save: one radio button each, the first (highest level) preselected. */
+@Composable
+private fun SaveFormatDialog(
+    formats: List<Pair<String, String>>,
+    onSave: (ext: String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var chosen by remember(formats) { mutableStateOf(formats.first().second) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Save as") },
+        text = {
+            Column {
+                formats.forEach { (label, ext) ->
+                    Row(
+                        Modifier.fillMaxWidth()
+                            .selectable(chosen == ext, role = Role.RadioButton) { chosen = ext },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(chosen == ext, onClick = null)
+                        Text(label, Modifier.padding(start = 8.dp))
+                    }
+                }
+            }
+        },
+        confirmButton = { TextButton(onClick = { onSave(chosen) }) { Text("Save") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+    )
+}
+
+/**
+ * A menu title that opens a [DropdownMenu]. Plain clickable text rather than a
+ * TextButton: Material's 58 dp minimum button width would push six menus past
+ * a 360 dp phone screen. The popup is not focusable, so a click outside it
+ * still reaches what is underneath: clicking another menu title closes this
+ * menu and opens that one in one click. A click on the open menu's own title
+ * closes it: the popup's outside-click dismissal fires first (on press), so the
+ * title click right after it must not reopen the menu.
+ */
 @Composable
 private fun MenuButton(
     label: String,
-    expanded: Boolean,
-    setExpanded: (Boolean) -> Unit,
+    openMenu: String?,
+    setOpenMenu: (String?) -> Unit,
+    enabled: Boolean = true,
     items: @Composable () -> Unit,
 ) {
+    var dismissedAt by remember { mutableStateOf<TimeMark?>(null) }
     Box {
-        TextButton(onClick = { setExpanded(true) }) { Text(label) }
-        DropdownMenu(expanded = expanded, onDismissRequest = { setExpanded(false) }) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary.copy(alpha = if (enabled) 1f else 0.38f),
+            modifier = Modifier
+                .testTag("menu-$label")
+                .clip(RoundedCornerShape(4.dp))
+                .clickable(enabled = enabled) {
+                    val justClosed = dismissedAt?.let { it.elapsedNow() < REOPEN_GUARD } == true
+                    setOpenMenu(if (openMenu == label || justClosed) null else label)
+                }
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+        )
+        DropdownMenu(
+            expanded = openMenu == label,
+            // only close if this menu is still the open one: the outside click
+            // may have just opened another menu
+            onDismissRequest = {
+                if (openMenu == label) {
+                    dismissedAt = TimeSource.Monotonic.markNow()
+                    setOpenMenu(null)
+                }
+            },
+            properties = PopupProperties(focusable = false),
+        ) {
             items()
         }
     }
 }
+
+// a title click this soon after its menu's outside-click dismissal belongs to
+// the same click (press dismissed, release clicked)
+private val REOPEN_GUARD = 500.milliseconds
 
 @Composable
 private fun CheckItem(label: String, checked: Boolean, onToggle: () -> Unit) {
@@ -218,7 +437,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
             Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
                 Text("A Toy CPU toolbox: simulator, assembler, C compiler.")
                 Spacer(Modifier.height(8.dp))
-                FeedbackBox("ktoy is in early development. Feedback is very welcome:")
+                FeedbackBox(FEEDBACK_TEXT)
                 Spacer(Modifier.height(8.dp))
                 ProjectLine("ktoy", "https://github.com/manfredscheucher/ktoy", "this app")
                 ProjectLine("pytoy", "https://github.com/manfredscheucher/pytoy", "the Python original ktoy is ported from")
@@ -266,7 +485,7 @@ private fun WelcomeDialog(close: () -> Unit) {
             Column {
                 Text("Step through a tiny 8-bit CPU: assembly, bytecode and a small C compiler.")
                 Spacer(Modifier.height(10.dp))
-                FeedbackBox("ktoy is in early development. Bugs, ideas or general feedback? Please send them:")
+                FeedbackBox(FEEDBACK_TEXT)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(dontShow, { dontShow = it })
                     Text("Don't show again")
@@ -275,6 +494,9 @@ private fun WelcomeDialog(close: () -> Unit) {
         },
     )
 }
+
+// the feedback note, the same in About and the welcome dialog
+private const val FEEDBACK_TEXT = "ktoy is in early development. Feedback is very welcome:"
 
 /** Yellow box with a clickable e-mail address that opens a prepared mail. Ported from PoCoView. */
 @Composable
@@ -322,11 +544,69 @@ private const val PLAYLIST_URL = "https://www.youtube.com/watch?v=vQxGXtlf5c4&li
 private const val FEEDBACK_MAILTO =
     "mailto:$EMAIL?subject=ktoy%20feedback&body=hi%20manfred%2C%0A%0A"
 
+private const val BUILD_HELP = """EDIT AND BUILD
+
+A program goes down three layers:
+  C  --Compile-->  assembly  --Assemble-->  bytecode
+and back up one:
+  bytecode  --Disassemble-->  assembly
+
+Edit
+  Right-click a column (long-press on a touch screen) and
+  choose Edit…, or use Edit… in the C / Assembly /
+  Bytecode menu.
+  - C and assembly: Save only stores the text. The column
+    shows "(modified)" and the program keeps running the
+    old version until you Compile / Assemble.
+  - Bytecode: edits one memory cell, at once.
+
+Compile (C menu)
+  C -> assembly -> bytecode. The compiler choice in the
+  same menu (full C / mini C) recompiles right away.
+
+Assemble (Assembly menu)
+  Assembly -> bytecode. For a C program the C column goes
+  away: the program is plain assembly from then on.
+
+Disassemble (Bytecode menu)
+  The current memory (with your cell edits and what the
+  program stored) -> assembly. Code and data are told
+  apart by following the jumps from address 0; every byte
+  that is never executed comes out as data. Labels are
+  generated: L12 for code, D40 for data.
+
+Reset vs. Compile / Assemble
+  Reset (bottom bar) goes back to the start of the last
+  build: PC 0, ACC 0, the bytes as built. Compile and
+  Assemble build again from the source text.
+
+Before a step throws something away (the C column, a
+run in progress, memory edits, unassembled edits) ktoy
+asks first and lists what would be lost.
+
+Saving
+  File -> Save… asks for the format: C, assembly or
+  bytecode (whichever the program has; the highest level
+  is preselected). Compile and Assemble never run by
+  themselves, so if the chosen format lacks an edit (say
+  assembly while the C edit is not compiled) ktoy asks
+  first. An edit counts as saved only in the format it
+  was made in: C edits as C, assembly as assembly, memory
+  cells as bytecode. Until then Load, Examples, Reload and
+  closing the window ask "Save changes?". Running a program
+  is no edit, and a bytecode file holds the program as
+  built plus your cell edits, nothing a run stored.
+  Reload reads the file from disk again; saving at the
+  program's highest level makes that file the one Reload
+  opens, a lower level is only an export.
+"""
+
 private const val C_HELP = """C COMPILERS
 
 ktoy compiles a small subset of C to Toy CPU assembly and
 shows C, assembly and memory side by side. There are two
-compilers; switch with the button above the C column.
+compilers; switch with the button above the C column
+(or in the C menu).
 
 full C (toycc)
   - functions, including recursion (a software stack

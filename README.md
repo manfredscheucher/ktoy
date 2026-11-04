@@ -64,10 +64,9 @@ it's narrow (View → Layout to force portrait/landscape).
   above a listing of all 256 memory bytes.
 
 A click in any column highlights the same statement across the others. Controls:
-Step, Run at an adjustable speed (steps/sec), Undo, Reset, and Edit the selected
-cell. Double-tap a cell or line (desktop/web) — or the Edit button — to change its
-value. File → Load/Save a program, Examples browses the built-ins by folder, Help
-shows the instruction set.
+Reset, Undo, Step, and Run at an adjustable speed (steps/sec). Right-click a cell or
+line (long-press on touch) and choose Edit… to change it. File → Load/Save a program,
+Examples browses the built-ins by folder, Help shows the instruction set.
 
 ## The code
 

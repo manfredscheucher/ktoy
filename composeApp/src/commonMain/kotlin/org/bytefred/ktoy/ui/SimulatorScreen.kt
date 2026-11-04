@@ -1,8 +1,6 @@
 package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,13 +15,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -33,7 +30,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,6 +40,7 @@ import org.bytefred.ktoy.core.decode
 import org.bytefred.ktoy.core.describe
 import org.bytefred.ktoy.core.formatByte
 import org.bytefred.ktoy.core.IoFormat
+import org.bytefred.ktoy.core.VALID_OPCODES
 
 /**
  * The simulator/debugger screen with an adaptive 1/2/3-column layout driven by
@@ -59,8 +59,10 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     val m = vm.machine ?: return
 
     var editTarget by remember { mutableStateOf<Int?>(null) }
-    // true while the C-edit dialog is open (double-tap the C column on desktop/web)
+    // true while the C / asm edit dialog is open (the column's right-click /
+    // long-press menu, or C / Assembly -> Edit…)
     var editCOpen by remember { mutableStateOf(false) }
+    var editAsmOpen by remember { mutableStateOf(false) }
 
     // current instruction (for PC / argument highlighting)
     val dec = decode(m.mem, m.pc)
@@ -81,12 +83,21 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     Column(Modifier.fillMaxSize().padding(8.dp)) {
         // Menu bar (File / View / Help) + the current program title. Replaces the
         // old inline Load button and I/O toggle (now menu items). pytoy's menus.
+        // A grey bar, so it reads as a menu bar.
         Row(
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth()
+                .background(MENU_BAR_COLOR, RoundedCornerShape(6.dp))
+                .padding(end = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         ) {
-            SimMenuBar(vm, onBrowseExamples = onLoad)
+            SimMenuBar(
+                vm,
+                onBrowseExamples = onLoad,
+                onEditC = { editCOpen = true },
+                onEditAsm = { editAsmOpen = true },
+                onEditCell = { vm.memSelectedAddr?.let { editTarget = it } },
+            )
             // The title must never push the menu off-screen or wrap the bar: cap
             // it to one line + ellipsis and let it shrink (weight) so a long
             // program name is truncated, not overflowed. General layout fix
@@ -135,8 +146,8 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
                 CSourcePanel(vm, sel.cLines, changedCLines, pcCLine, { editCOpen = true }, mod)
             }
             val src: @Composable (Modifier) -> Unit = { mod ->
-                LabeledPanel("Assembly", mod) {
-                    SourcePanel(vm, pcBytes, dec.argAddr, sel.asmRows, changedRows, Modifier.fillMaxSize())
+                LabeledPanel(if (vm.asmDraft != null) "Assembly (modified)" else "Assembly", mod) {
+                    SourcePanel(vm, pcBytes, dec.argAddr, sel.asmRows, changedRows, { editAsmOpen = true }, Modifier.fillMaxSize())
                 }
             }
             val mem: @Composable (Modifier) -> Unit = { mod ->
@@ -147,40 +158,17 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
                     }
                 }
             }
+            val panels = buildList {
+                if (vm.hasCSource) add(SplitPanel(Panel.C, cCol))
+                if (vm.hasSource) add(SplitPanel(Panel.ASM, src))
+                add(SplitPanel(Panel.MEMORY, mem))
+            }
             if (wide) {
-                Row(Modifier.fillMaxSize()) {
-                    if (vm.hasCSource) cCol(Modifier.weight(1f).fillMaxSize())
-                    if (vm.hasSource) src(Modifier.weight(1f).fillMaxSize())
-                    mem(Modifier.weight(1f).fillMaxSize())
-                }
-            } else if (maxWidth < TABS_MAX_WIDTH && cols > 1) {
-                // Phones: one panel at a time, chosen by tabs, so it gets the
-                // full height instead of a third of it.
-                val tab = vm.visibleTab()
-                Column(Modifier.fillMaxSize()) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(bottom = 2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        if (vm.hasCSource) PanelTabChip("C", tab == PanelTab.C) { vm.phoneTab = PanelTab.C }
-                        if (vm.hasSource) PanelTabChip("Assembly", tab == PanelTab.ASM) { vm.phoneTab = PanelTab.ASM }
-                        PanelTabChip("Memory", tab == PanelTab.MEMORY) { vm.phoneTab = PanelTab.MEMORY }
-                    }
-                    val fill = Modifier.weight(1f).fillMaxWidth()
-                    when (tab) {
-                        PanelTab.C -> cCol(fill)
-                        PanelTab.ASM -> src(fill)
-                        PanelTab.MEMORY -> mem(fill)
-                    }
-                }
+                SplitPane(panels, vm.wideWeights, { vm.wideWeights = it }, horizontal = true, modifier = Modifier.fillMaxSize())
             } else {
-                // Stacked: memory gets twice the height of C / assembly, since it
-                // carries the status block on top of the 256-byte listing.
-                Column(Modifier.fillMaxSize()) {
-                    if (vm.hasCSource) cCol(Modifier.weight(1f).fillMaxWidth())
-                    if (vm.hasSource) src(Modifier.weight(1f).fillMaxWidth())
-                    mem(Modifier.weight(2f).fillMaxWidth())
-                }
+                // Stacked (portrait, phones too), with draggable dividers (see
+                // stackedWeights).
+                SplitPane(panels, vm.stackedWeights, { vm.stackedWeights = it }, horizontal = false, modifier = Modifier.fillMaxSize())
             }
         }
 
@@ -215,11 +203,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             }
         }
 
-        Controls(
-            vm,
-            onLoad = onLoad,
-            onEdit = { vm.memSelectedAddr?.let { editTarget = it } },
-        )
+        Controls(vm, onLoad = onLoad)
     }
 
     editTarget?.let { addr ->
@@ -231,15 +215,32 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
         )
     }
 
-    // C-edit dialog: double-tap the C column to edit + recompile (works on both
-    // desktop/web and touch). applyEditedC returns null on success (dialog
-    // closes) or the error message (dialog stays open).
+    // Edit dialogs (the column's context menu, or C / Assembly -> Edit…). Save only
+    // stores the text as a draft; C -> Compile / Assembly -> Assemble builds it.
     if (editCOpen) {
-        EditCDialog(
-            initial = vm.cText ?: "",
-            onSave = { newC -> vm.applyEditedC(newC) },
+        EditSourceDialog(
+            title = "Edit C source",
+            label = "C source (C → Compile builds it)",
+            initial = vm.cDraft ?: vm.cText ?: "",
+            onSave = vm::saveCDraft,
             onDismiss = { editCOpen = false },
         )
+    }
+    if (editAsmOpen) {
+        EditSourceDialog(
+            title = "Edit assembly",
+            label = if (vm.hasCSource) "Assembly (Assemble builds it; the C column then goes away)"
+            else "Assembly (Assembly → Assemble builds it)",
+            initial = vm.asmDraft ?: vm.asmText ?: "",
+            onSave = vm::saveAsmDraft,
+            onDismiss = { editAsmOpen = false },
+        )
+    }
+
+    // Compile / Assemble / Disassemble that would lose something: list it and
+    // ask first (SimViewModel.request).
+    vm.pendingAction?.let { action ->
+        ConfirmLossDialog(action.label, vm.lossesFor(action), vm::confirmPending, vm::cancelPending)
     }
 
     // Error dialog for failed compiler-switch / C-edit / C-load (pytoy's
@@ -247,25 +248,43 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     vm.errorMessage?.let { msg ->
         ErrorDialog(message = msg, onDismiss = { vm.clearError() })
     }
+
+    // Execution -> Invalid opcode: the Stop halt as a dialog, and the question
+    // in "Always ask" mode
+    vm.runError?.let { msg ->
+        ErrorDialog(message = msg, onDismiss = { vm.clearRunError() }, title = "Invalid opcode")
+    }
+    vm.invalidOpcodeQuestion?.let { addr ->
+        InvalidOpcodeDialog(addr, m.mem[addr], vm::answerInvalidOpcode)
+    }
 }
 
 /** A bordered box with a small title label, used to visually separate and name
  *  the ASM and memory panels. */
 @Composable
-private fun LabeledPanel(title: String, modifier: Modifier, content: @Composable () -> Unit) {
+private fun LabeledPanel(
+    title: String,
+    modifier: Modifier,
+    action: (@Composable () -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
     Column(
         modifier
             .padding(3.dp)
             .border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(6.dp))
+            .testTag("panel-" + title.substringBefore(" ("))
     ) {
-        Text(
-            title,
-            style = MonoStyle,
-            modifier = Modifier
+        Row(
+            Modifier
                 .fillMaxWidth()
                 .background(Color(0xFFEEEEEE))
                 .padding(horizontal = 6.dp, vertical = 3.dp),
-        )
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Text(title, style = MonoStyle)
+            action?.invoke()
+        }
         Box(Modifier.fillMaxSize()) { content() }
     }
 }
@@ -275,8 +294,17 @@ private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
     @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose on every machine change
     val m = vm.machine ?: return
     val dec = decode(m.mem, m.pc)
-    val desc = describe(dec.instr, dec.argAddr, symOf, m.mem)
-    val header = if (m.stopped) "Stopped after ${m.stepCount} steps." else "Step #${m.stepCount}:"
+    // describe() calls an unknown byte "treated as NOP"; with Execution ->
+    // Invalid opcode on Stop / Always ask that is not what happens
+    val desc = if (dec.instr !in VALID_OPCODES && vm.invalidOpcodeMode != InvalidOpcodeMode.NOP)
+        "?? (opcode=${dec.instr}, invalid: " +
+            (if (vm.invalidOpcodeMode == InvalidOpcodeMode.STOP) "stops" else "asks") + ")"
+    else describe(dec.instr, dec.argAddr, symOf, m.mem)
+    val header = when {
+        m.error != null -> "Error in step ${m.stepCount}: ${m.error}."
+        m.stopped -> "Stopped after ${m.stepCount} steps."
+        else -> "Step #${m.stepCount}:"
+    }
     // the raw bytes of the current instruction: opcode, plus the operand byte
     // for a two-byte instruction — like pytoy's "OP{n}=b.. b..".
     val bytes = if (dec.argAddr != null) "b${bin8(dec.instr)} b${bin8(m.mem[(m.pc + 1) % 256])}"
@@ -304,9 +332,16 @@ private fun SourcePanel(
     argAddr: Int?,
     selAsmRows: Set<Int>,
     changedRows: Set<Int>,
+    onEdit: () -> Unit,
     modifier: Modifier,
 ) {
     val m = vm.machine ?: return
+    val menu = rememberEditMenu()
+    val gestures = LocalEditGestures.current
+    vm.asmDraft?.let { draft ->
+        AsmDraftPanel(draft, vm.showLineNumbers, menu, gestures, onEdit, modifier)
+        return
+    }
     // addr -> listing line index, for PC/arg line highlighting
     val lineForAddr = remember(vm.tick, vm.listing) {
         val map = mutableMapOf<Int, Int>()
@@ -325,15 +360,16 @@ private fun SourcePanel(
     val hScroll = rememberScrollState()
     // keep the focused asm line centred: a selected row (a click elsewhere
     // resolved here) wins, else the current PC line while stepping / running
-    // (like pytoy's ensureCursorVisible). Fires only when the line changes, so
-    // tapping doesn't fight the view.
-    val focusLine = selAsmRows.minOrNull() ?: pcLines.minOrNull()
+    // (like pytoy's ensureCursorVisible; View -> Auto-scroll to PC). Fires only
+    // when the line changes, so tapping doesn't fight the view.
+    val focusLine = selAsmRows.minOrNull() ?: pcLines.minOrNull()?.takeIf { vm.autoScroll }
     scrollToLine(vScroll, focusLine)
     // display-only line-number gutter (pytoy's _refresh_source), toggled from
     // View -> Line numbers. Never part of any saved file; labels, not numbers,
     // are how asm refers to lines.
     val gutterWidth = vm.listing.size.toString().length.coerceAtLeast(1)
-    ScrollbarBox(vScroll, modifier.fillMaxSize()) {
+    EditMenuBox(menu, modifier.fillMaxSize()) {
+    ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
       Column(Modifier.fillMaxSize().padding(4.dp)
         .verticalScroll(vScroll)
         .horizontalScroll(hScroll)) {
@@ -367,13 +403,49 @@ private fun SourcePanel(
                 }
             }
             // tapping a source line selects its address (resolves across all
-            // columns via the VM's shared selection), like pytoy's _source_clicked
-            val rowMod = if (line.addr != null)
-                Modifier.clickable { vm.select(line.addr) }
-            else Modifier
+            // columns via the VM's shared selection), like pytoy's _source_clicked;
+            // right-click / long-press opens the Edit… menu
+            val rowMod = Modifier.editableRow(menu, gestures, line.addr, { line.addr?.let { vm.select(it) } }, onEdit)
             HighlightRow(gutter + text, colours, rowMod)
         }
       }
+    }
+    }
+}
+
+/**
+ * Unassembled asm edits as plain text: no listing yet, so no highlighting or
+ * selection until Assembly -> Assemble. The Edit… menu edits again.
+ */
+@Composable
+private fun AsmDraftPanel(
+    draft: String,
+    showLineNumbers: Boolean,
+    menu: EditMenuState,
+    gestures: EditGestures,
+    onEdit: () -> Unit,
+    modifier: Modifier,
+) {
+    val lines = draft.split("\n")
+    val gutterWidth = lines.size.toString().length
+    val vScroll = rememberScrollState()
+    val hScroll = rememberScrollState()
+    EditMenuBox(menu, modifier.fillMaxSize()) {
+    ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
+      Column(Modifier.fillMaxSize().padding(4.dp)
+        .verticalScroll(vScroll)
+        .horizontalScroll(hScroll)) {
+        lines.forEachIndexed { i, line ->
+            val gutter = if (showLineNumbers) "${(i + 1).toString().padStart(gutterWidth)} | " else ""
+            // "   " lines the text up with the listing's ">> " marker column
+            HighlightRow(
+                gutter + "   " + line,
+                emptyList(),
+                Modifier.editableRow(menu, gestures, i, onTap = null, onEdit),
+            )
+        }
+      }
+    }
     }
 }
 
@@ -403,25 +475,29 @@ private fun MemoryPanel(
         addrs
     }
     val visible = (0..255).toList()
-    // header aligned to the same columns as the rows: 5-char lead ("  >> "),
-    // then each label right-justified to width 19, matching the addr/val cells.
-    val header = "     " + "address (binary)".padStart(19) + "  ->  " + "value (binary)".padStart(19)
+    // header aligned to the same columns as the rows: 3-char lead (">> "), then
+    // the two 14-char cells ("  3 (00000011)")
+    val header = "   " + "addr (binary)".padStart(14) + " -> " + "value (binary)"
     val vScroll = rememberScrollState()
-    // scroll so a selected cell (or, failing that, the PC) is visible+centred
-    // when a click elsewhere resolves here. +1 for the header row above address 0.
-    val focusAddr = selAddrs.minOrNull() ?: m.pc
-    scrollToLine(vScroll, focusAddr + 1)
-    ScrollbarBox(vScroll, modifier.fillMaxSize()) {
+    // scroll so a selected cell (or, failing that, the PC if View -> Auto-scroll
+    // to PC is on) is centred. +1 for the header row above address 0.
+    val focusAddr = selAddrs.minOrNull() ?: m.pc.takeIf { vm.autoScroll }
+    scrollToLine(vScroll, focusAddr?.plus(1))
+    val hScroll = rememberScrollState()
+    val menu = rememberEditMenu()
+    val gestures = LocalEditGestures.current
+    EditMenuBox(menu, modifier.fillMaxSize()) {
+    ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
       Column(Modifier.fillMaxSize().padding(4.dp)
         .verticalScroll(vScroll)
-        .horizontalScroll(rememberScrollState())) {
+        .horizontalScroll(hScroll)) {
         Text(header, style = MonoStyle, softWrap = false, maxLines = 1)
         visible.forEach { a ->
             val v = m.mem[a]
             val marker = if (a == m.pc) ">>" else "  "
             val addrCell = "${a.toString().padStart(3)} (${bin8(a)})"
             val valCell = "${v.toString().padStart(3)} (${bin8(v)})"
-            var text = "  $marker ${addrCell.padStart(19)}  ->  ${valCell.padStart(19)}"
+            var text = "$marker $addrCell -> $valCell"
             // the cell a STORE just overwrote: show its previous value as a
             // comment, for this one step only (changed/prev clear next step).
             if (!m.stopped && a == m.changedCell && m.changedCellPrev != null) {
@@ -433,20 +509,18 @@ private fun MemoryPanel(
             val colours = memoryCellColours(a, selAddrs, pcBytes, argAddr, m.changedCell, m.stopped)
             // untouched, non-program bytes are shown greyed out
             val textColor = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)
-            // single-tap selects the cell; double-tap (desktop/web) edits it.
-            // mobile edits via the bottom-bar Edit button, not a long-press.
+            // tap selects the cell; right-click / long-press opens the Edit… menu
             Box(
-                Modifier.fillMaxWidth().pointerInput(a) {
-                    detectTapGestures(
-                        onTap = { vm.select(a, fromMemory = true) },
-                        onDoubleTap = { onEdit(a) },
-                    )
+                Modifier.fillMaxWidth().editableRow(menu, gestures, a, { vm.select(a, fromMemory = true) }) {
+                    vm.select(a, fromMemory = true)
+                    onEdit(a)
                 }
             ) {
                 HighlightRow(text, colours, textColor = textColor)
             }
         }
       }
+    }
     }
 }
 
@@ -455,9 +529,9 @@ private fun MemoryPanel(
  * compiler-switch button (full C toycc ↔ mini C minicc), and transitive
  * highlighting — the selected statement in orange (HL_SELECTED), the current
  * instruction's C line in yellow (HL_PC, mapped up from the PC's asm row) and a
- * STORE-changed statement in red (HL_CODE). Single-tap a line to select it across
- * all columns (vm.selectCLine); DOUBLE-TAP opens the C-edit dialog (works on
- * desktop/web and touch — no long-press). Mirrors pytoy's c_box + _refresh_c.
+ * STORE-changed statement in red (HL_CODE). Tap a line to select it across all
+ * columns (vm.selectCLine); right-click / long-press opens the Edit… menu.
+ * Mirrors pytoy's c_box + _refresh_c.
  * Shown only when a C program is loaded.
  */
 @Composable
@@ -469,101 +543,91 @@ private fun CSourcePanel(
     onEditC: () -> Unit,
     modifier: Modifier,
 ) {
-    val cText = vm.cText ?: return
+    // an uncompiled draft is shown as plain text: the C <-> asm maps belong to
+    // the last compiled C, so no highlighting or selection until C -> Compile
+    val draft = vm.cDraft
+    val cText = draft ?: vm.cText ?: return
     val lines = cText.split("\n")
     val gutterWidth = (lines.size.toString().length).coerceAtLeast(1)
-    // the button offers the OTHER compiler, read as the action to take
+    // the button offers the OTHER compiler, read as the action to take (pytoy's
+    // btn_switch_compiler); same action as the compiler choice in the C menu
     val other = if (vm.currentCompiler == "toycc") "minicc" else "toycc"
     val switchLabel = if (other == "minicc") "Switch to mini C" else "Switch to full C"
+    val switch: @Composable () -> Unit = {
+        OutlinedButton(onClick = { vm.request(SimViewModel.BuildAction.Compile(other)) }) { Text(switchLabel) }
+    }
 
-    Column(
-        modifier
-            .padding(3.dp)
-            .border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(6.dp))
-    ) {
-        // header: title + the compiler-switch button (pytoy's btn_switch_compiler)
-        Row(
-            Modifier.fillMaxWidth()
-                .background(Color(0xFFEEEEEE))
-                .padding(horizontal = 6.dp, vertical = 3.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-        ) {
-            Text("C source", style = MonoStyle)
-            OutlinedButton(onClick = { vm.switchCompiler() }) { Text(switchLabel) }
-        }
+    LabeledPanel(if (draft != null) "C source (modified)" else "C source", modifier, switch) {
         val vScroll = rememberScrollState()
         // keep the selected C line visible (centred) when a click in another
         // column resolves to a C statement here; falls back to the PC's C line.
-        scrollToLine(vScroll, selCLines.minOrNull()?.minus(1) ?: pcCLine?.minus(1))
-        ScrollbarBox(vScroll, Modifier.fillMaxSize()) {
+        val pcLine = pcCLine?.takeIf { vm.autoScroll }
+        scrollToLine(vScroll, if (draft != null) null else selCLines.minOrNull()?.minus(1) ?: pcLine?.minus(1))
+        val hScroll = rememberScrollState()
+        val menu = rememberEditMenu()
+        val gestures = LocalEditGestures.current
+        EditMenuBox(menu, Modifier.fillMaxSize()) {
+        ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
           Column(
               Modifier.fillMaxSize().padding(4.dp)
                   .verticalScroll(vScroll)
-                  .horizontalScroll(rememberScrollState())
+                  .horizontalScroll(hScroll)
           ) {
             lines.forEachIndexed { i, line ->
                 val cLine = i + 1   // 1-based, matching the markers
                 val colours = mutableListOf<Color>()
-                if (cLine in selCLines) colours.add(HL_SELECTED)
-                if (cLine == pcCLine) colours.add(HL_PC)
-                if (cLine in changedCLines) colours.add(HL_CODE)
+                if (draft == null) {
+                    if (cLine in selCLines) colours.add(HL_SELECTED)
+                    if (cLine == pcCLine) colours.add(HL_PC)
+                    if (cLine in changedCLines) colours.add(HL_CODE)
+                }
                 val gutter = if (vm.showLineNumbers)
                     "${cLine.toString().padStart(gutterWidth)} | " else ""
-                // single-tap selects the C line; double-tap (desktop/web) opens
-                // the C edit dialog. Per-line gesture (not on the container) so a
-                // child tap handler can't swallow the double-tap. Mobile edits via
-                // the bottom-bar Edit button (memory cell), same as pytoy.
+                // tap selects the C line; right-click / long-press opens the
+                // Edit… menu
                 HighlightRow(
                     gutter + line,
                     colours,
-                    Modifier.pointerInput(cLine) {
-                        detectTapGestures(
-                            onTap = { vm.selectCLine(cLine) },
-                            onDoubleTap = { onEditC() },
-                        )
-                    },
+                    Modifier.editableRow(menu, gestures, cLine to draft, { if (draft == null) vm.selectCLine(cLine) }, onEditC),
                 )
             }
           }
+        }
         }
     }
 }
 
 /**
- * Scroll [state] so the row at [lineIndex] (0-based) is roughly centred in the
+ * Scroll [state] so the row at [lineIndex] (0-based) is centred in the
  * viewport, whenever [lineIndex] changes. Used so a click in one column scrolls
- * the others to the matching line. Approximates row height (mono ~34px); null
- * leaves the scroll untouched.
+ * the others to the matching line, and to follow the PC. The row height is
+ * measured from [MonoStyle] (every row is one line of it) and the column's 4 dp
+ * top padding is added; null leaves the scroll untouched.
  */
 @Composable
 private fun scrollToLine(state: androidx.compose.foundation.ScrollState, lineIndex: Int?) {
+    val rowPx = rememberTextMeasurer().measure("0", MonoStyle).size.height
+    val topPx = with(LocalDensity.current) { 4.dp.roundToPx() }
     LaunchedEffect(lineIndex) {
         if (lineIndex != null) {
-            val lineHeightPx = 34
-            // centre the line: subtract half the viewport so it lands mid-screen,
-            // not at the very top.
-            val target = (lineIndex * lineHeightPx) -
-                (state.viewportSize / 2) + (lineHeightPx / 2)
+            val target = topPx + lineIndex * rowPx + rowPx / 2 - state.viewportSize / 2
             state.animateScrollTo(target.coerceIn(0, state.maxValue))
         }
     }
 }
 
 /**
- * The bottom controls bar, in pytoy's order:
- *   Load · Examples · Reload — GAP — Step · Run · steps/sec · Undo · Reset — Edit
- * (Edit pushed all the way to the right). Load opens the platform file picker,
- * Examples opens the bundled example list ([onLoad]), Reload re-runs the last
- * file. Two weight spacers hold the gap after the file group and keep Edit at
- * the far right. Edit is the mobile entry point for editing a selected cell
- * (desktop/web also double-tap the cell).
+ * The bottom controls bar:
+ *   Load · Examples · Reload — GAP — Reset · Undo · Step · Run · steps/sec
+ * Load opens the platform file picker, Examples opens the bundled example list
+ * ([onLoad]), Reload re-runs the last file (both ask first about unsaved edits).
+ * A cell is edited via its right-click / long-press menu or Bytecode -> Edit cell….
  */
 @Composable
-private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
+private fun Controls(vm: SimViewModel, onLoad: () -> Unit) {
     @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose when canUndo/stopped change
     val m = vm.machine
-    val loadFromDisk = rememberFileLoader { name, text -> vm.loadFromFile(name, text) }
+    val loadFromDisk = rememberFileLoader { name, text, path -> vm.loadFromFile(name, text, path) }
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 6.dp)) {
         val oneRowMin = if (fileReloadSupported) CONTROLS_ONE_ROW_MIN_RELOAD else CONTROLS_ONE_ROW_MIN
@@ -571,50 +635,40 @@ private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
         // panels keep as much height as possible
         val compact = maxWidth < oneRowMin
 
-        // Order like pytoy: Load Examples Reload | Step Run steps/sec Undo Reset | Edit.
+        // Load Examples Reload | Reset Undo Step Run steps/sec
         val fileGroup: @Composable () -> Unit = {
-            if (fileLoadSupported) CtlButton("Load", compact, onClick = loadFromDisk)
+            if (fileLoadSupported) CtlButton("Load", compact) { vm.leave(loadFromDisk) }
             CtlButton("Examples", compact, onClick = onLoad)
             if (fileReloadSupported) {
-                CtlButton("Reload", compact, enabled = vm.canReload) { vm.reload() }
+                CtlButton("Reload", compact, enabled = vm.canReload) { vm.leave { vm.reload() } }
             }
         }
         val runGroup: @Composable () -> Unit = {
+            CtlButton("Reset", compact, enabled = m?.canUndo == true) { vm.reset() }
+            CtlButton("Undo", compact, enabled = m?.canUndo == true) { vm.stepBack() }
             CtlButton("Step", compact, filled = true, enabled = m?.stopped == false && !vm.running) { vm.step() }
             CtlButton(if (vm.running) "Stop" else "Run", compact, filled = true, enabled = m?.stopped == false) {
                 vm.toggleRun()
             }
             StepsPerSecInput(vm.stepsPerSecond, compact) { vm.stepsPerSecond = it }
-            CtlButton("Undo", compact, enabled = m?.canUndo == true) { vm.stepBack() }
-            CtlButton("Reset", compact, enabled = m?.canUndo == true) { vm.reset() }
-        }
-        // Edit the value at the address selected in the CPU & memory panel;
-        // enabled only when such a selection exists. On touch this is THE way to
-        // edit (double-tap is the desktop/web shortcut), so it must never be clipped.
-        val edit: @Composable () -> Unit = {
-            CtlButton("Edit", compact, enabled = vm.memSelectedAddr != null, onClick = onEdit)
         }
         val center = androidx.compose.ui.Alignment.CenterVertically
         val gap = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
 
         if (!compact) {
-            // wide: one row, gaps pushing the run group to the middle and Edit right
+            // wide: one row, the run group in the middle
             Row(Modifier.fillMaxWidth(), verticalAlignment = center, horizontalArrangement = gap) {
                 fileGroup()
                 Box(Modifier.weight(1f))
                 runGroup()
                 Box(Modifier.weight(1f))
-                edit()
             }
         } else {
             // narrow: two rows so nothing is squeezed or cut off. Row 1: file
-            // group + Edit far right; row 2: run controls, scrollable if they
-            // still don't fit.
+            // group; row 2: run controls, scrollable if they still don't fit.
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = center, horizontalArrangement = gap) {
                     fileGroup()
-                    Box(Modifier.weight(1f))
-                    edit()
                 }
                 Row(
                     Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
@@ -628,16 +682,6 @@ private fun Controls(vm: SimViewModel, onLoad: () -> Unit, onEdit: () -> Unit) {
     }
 }
 
-// Below this width a stacked layout shows one panel at a time (tabs), so each
-// gets the full height. Phones are ~360-430 dp wide, small tablets ~600 dp.
-private val TABS_MAX_WIDTH = 600.dp
-
-/** One tab of the phone panel switcher. */
-@Composable
-private fun PanelTabChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(selected = selected, onClick = onClick, label = { Text(label) })
-}
-
 // Below this width the bottom bar splits into two compact rows. The one-row bar
 // needs about 950 dp of content (Material3 button min widths + the 96 dp
 // steps/sec field), plus ~100 dp more when Reload is shown (desktop).
@@ -647,6 +691,8 @@ private val CONTROLS_ONE_ROW_MIN_RELOAD = 1100.dp
 // Height of a compact (phone) control, instead of Material3's 40 dp buttons and
 // the 56 dp text field.
 private val COMPACT_HEIGHT = 34.dp
+
+private val MENU_BAR_COLOR = Color(0xFFE6E8EB)
 private val COMPACT_PADDING = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
 
 /** A bottom-bar button: filled (Step/Run) or outlined; low and tight when [compact]. */
@@ -711,32 +757,28 @@ private fun StepsPerSecInput(value: Double, compact: Boolean, onValueChange: (Do
         CtlButton("−", compact, enabled = value > SPS_MIN) {
             onValueChange((value - SPS_STEP).coerceIn(SPS_MIN, SPS_MAX))
         }
-        if (compact) {
-            BasicTextField(
-                value = text,
-                onValueChange = onText,
-                singleLine = true,
-                textStyle = MonoStyle,
-                modifier = Modifier.width(64.dp).height(COMPACT_HEIGHT),
-                // centre the text vertically instead of fixed padding, so a larger
-                // system font scale doesn't clip it
-                decorationBox = { inner ->
-                    Box(
-                        Modifier.fillMaxSize()
-                            .border(1.dp, Color(0xFF888888), RoundedCornerShape(4.dp))
-                            .padding(horizontal = 6.dp),
-                        contentAlignment = androidx.compose.ui.Alignment.CenterStart,
-                    ) { inner() }
-                },
-            )
-        } else {
-            OutlinedTextField(
-                value = text,
-                onValueChange = onText,
-                singleLine = true,
-                modifier = Modifier.width(96.dp),
-            )
-        }
+        // as high as the buttons next to it (Material's OutlinedTextField is
+        // 56 dp, far taller than the number in it)
+        BasicTextField(
+            value = text,
+            onValueChange = onText,
+            singleLine = true,
+            textStyle = MonoStyle,
+            modifier = Modifier
+                .width(if (compact) 64.dp else 80.dp)
+                .height(if (compact) COMPACT_HEIGHT else ButtonDefaults.MinHeight)
+                .testTag("steps-per-sec"),
+            // centre the text vertically instead of fixed padding, so a larger
+            // system font scale doesn't clip it
+            decorationBox = { inner ->
+                Box(
+                    Modifier.fillMaxSize()
+                        .border(1.dp, Color(0xFF888888), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp),
+                    contentAlignment = androidx.compose.ui.Alignment.CenterStart,
+                ) { inner() }
+            },
+        )
         CtlButton("+", compact, enabled = value < SPS_MAX) {
             onValueChange((value + SPS_STEP).coerceIn(SPS_MIN, SPS_MAX))
         }

@@ -24,6 +24,13 @@ const val FETCH = 0x10
 
 fun hasOperand(op: Int): Boolean = (op and FETCH) != 0
 
+/**
+ * The 14 real opcodes. Any other byte is an invalid opcode, which the CPU runs
+ * as a NOP (like Jim Hall's toycpu); ktoy can stop or ask instead (Execution ->
+ * Invalid opcode).
+ */
+val VALID_OPCODES: Set<Int> = OPCODES.values.toSet()
+
 // ── Value parser ────────────────────────────────────────────────────────────
 
 /**
@@ -170,7 +177,8 @@ fun referenceText(): String {
     }
     lines += listOf(
         "",
-        "Any opcode not listed behaves like nop.",
+        "Any opcode not listed behaves like nop (like toycpu); Execution ->",
+        "Invalid opcode can make it stop or ask instead.",
         "Arithmetic wraps modulo 256. ifzero is the only conditional.",
         "",
         "KEYBOARD SHORTCUTS",

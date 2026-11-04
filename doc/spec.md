@@ -727,3 +727,257 @@ Decisions:
   Open question for Manfred.
 - System-back still closes the dialog (AppBackHandler + the dialog's own dismiss).
 
+
+## 14. 2026-11-03: Split dividers, edit and build menus, disassembler
+
+What Manfred asked for, and what was decided (via AskUserQuestion, after two
+fresh-reviewer passes):
+
+1. **Draggable dividers** between the panels, side by side and stacked, so the
+   split is not fixed at equal shares. `SplitPane` / `dragSplit` (tested): a drag
+   moves only the two neighbours, each keeps at least 80 dp. The shares live in
+   the VM (`wideWeights`, `stackedWeights`, per panel), not persisted. Stacked
+   memory still starts at weight 2. Resize cursor on desktop and web.
+2. **Edit in all three layers.** Double-click / double-tap a column, or Edit… in
+   its menu. C and assembly open `EditSourceDialog`; **Save only stores the
+   text** as a draft (`cDraft` / `asmDraft`): the column title shows
+   "(modified)", the draft is shown as plain text without highlighting, and the
+   machine keeps running the old build. Bytecode edits a single cell (the
+   existing value dialog).
+3. **Build steps are menu items, no buttons in the panel headers.** Menus:
+   File | C | Assembly | Bytecode | View | Help.
+   - C: Edit…, Compile (C -> asm -> bytes), compiler choice Full C (toycc,
+     default) / Mini C (minicc). Switching recompiles right away; on an error
+     the old compiler stays. Disabled without C.
+   - Assembly: Edit…, Assemble (asm -> bytes). For a C program this drops the
+     C (it becomes a plain asm program); an asm draft alone keeps the C until
+     Assemble. Disabled without asm.
+   - Bytecode: Edit cell…, Disassemble (live memory -> a new asm program).
+   - Compile / Assemble are not Reset: Reset goes back to the start of the last
+     build; Compile / Assemble build again from the (edited) source.
+4. **Confirm before a loss** (`lossesFor` / `request`, tested). One dialog lists
+   every loss, nothing is shown when nothing is lost: the C column goes away
+   (incl. uncompiled C edits), a run in progress (`stepCount > 0`), memory
+   edits (`hasLiveEdits`), unassembled asm edits (Compile / Disassemble), the
+   asm's labels and comments (Disassemble of an asm program). Disassemble keeps
+   the memory, so there it says the run starts over at PC 0. A running program
+   is stopped when the dialog opens.
+5. **Disassembler** (`core/Decompiler.kt`, tested on every example): code vs
+   data by following the control flow from address 0 (goto, both ifzero
+   branches, stop ends a path). Unreachable bytes come out as data. Labels `L12`
+   (code) / `D40` (data); an operand pointing into a 2-byte instruction becomes
+   `L12+1`; I/O cells keep io0..ready. Re-assembling gives the same bytes in
+   0..239.
+   After Assemble / Disassemble the program no longer matches the loaded file,
+   so Reload is disabled (it would silently bring the old file back). File ->
+   Save writes the draft text if there is one.
+6. **Examples dialog starts collapsed**: only the category groups at first.
+7. Help -> "Edit and build" explains the pipeline.
+
+Agent decisions to check: menu titles are plain clickable text instead of
+TextButtons (six TextButtons with Material's 58 dp minimum width don't fit a
+360 dp phone); the compiler items are called "Full C" / "Mini C" like the
+existing Help text (Manfred said "simple"); Load / Reload / Examples do not use
+the loss dialog yet.
+
+UI tests (`jvmTest/.../SimulatorScreenUiTest.kt`, `compose.uiTest`, run with
+`jvmTest`) drive the real screen on desktop: divider drag, Assembly -> Edit… /
+Save / Assemble, double-click edit, the confirm dialog (Cancel and OK) when
+Assemble drops the C, C -> Edit… / Compile, the compiler choice, Bytecode ->
+Disassemble, and the C / Assembly menus being disabled for plain bytecode.
+
+Follow-up (Manfred): the compiler switch stays in the C panel as well, as the
+old button ("Switch to mini C" / "Switch to full C", naming the other compiler).
+It does the same as the C menu's compiler choice (incl. the confirm dialog).
+
+## 15. 2026-11-03: STOP counts as a step
+
+Manfred: the step count after a stop was always one too small; STOP itself is a
+step. A program that is just `stop` shows "Stopped after 1 steps." (not 0). The
+PC stays on the STOP (it is not advanced), and Undo takes the STOP back like any
+step. Same change in pytoy (CLI, GUI undo, `scripts/gen_snapshot.py`), the
+snapshot step counts went up by 1 in both repos. Tests: `StopStepTest`, the UI
+test `aSingleStopShowsStoppedAfterOneStep`, pytoy `tests/test_stop_step.py`.
+
+## 16. 2026-11-04: Horizontal scrollbar, no phone tabs
+
+- **Horizontal scrollbar** (Manfred: lines too wide for the panel). The C,
+  assembly and memory panels already scrolled sideways (Shift + wheel,
+  trackpad, touch) but showed nothing. `ScrollbarBox` now draws a bar at the
+  bottom when a line is wider than the panel. Both thumbs (right and bottom)
+  can be dragged with the mouse or a finger (Manfred chose "vertical too"),
+  6 dp thick.
+- **No tabs in portrait** (Manfred: "im portrait mode keine tabs sondern die
+  widgets übereinander"). Replaces §12.10's tabs below 600 dp: a narrow screen
+  stacks the panels like any portrait layout, with the draggable dividers.
+- **Welcome dialog feedback text** (Manfred: the Help/About text reads better):
+  the welcome dialog now uses the About text "ktoy is in early development.
+  Feedback is very welcome:" (one shared constant, `FEEDBACK_TEXT`).
+- **steps/sec field as high as the buttons**: the one-row bottom bar used
+  Material's OutlinedTextField (56 dp, much taller than the number in it, odd in
+  the browser); now both bars use the low bordered field, 40 dp (button height)
+  or 34 dp compact. UI test compares the field with the Step button.
+
+## 17. 2026-11-04: Neutral colours, menu bar
+
+- **No pink tint** (Manfred: "warum verpasst du der ganzen app nen leichten
+  rotstich?"). It came from Material 3's default scheme (background #FFFBFE,
+  dialogs/menus #ECE6F0), not from a recent change. `KtoyTheme` (App.kt) keeps
+  the defaults but sets the background and all surface colours to white / plain
+  greys.
+- **Menu bar looks like one**: the top row (menus + title) sits on a grey bar.
+- **One click switches menus**: with File open, a click on View closes File and
+  opens View (before, the first click only closed File). One `openMenu` state
+  for all menus; the popups are not focusable, so the outside click reaches
+  the other title. A click on the open menu's own title closes it.
+
+## 18. 2026-11-04: Bottom bar order, auto-scroll to PC
+
+- **Bottom bar**: Load · Examples · Reload — Reset · Undo · Step · Run ·
+  steps/sec. The Edit button is gone (a cell is edited by double-tap or
+  Bytecode -> Edit cell…).
+- **Auto-scroll to PC** (View menu, on by default): on Step / Run the C,
+  assembly and memory panels scroll so the PC's line (">>") is in the middle.
+  This existed before but assumed a fixed 34 px row, so the line ended up
+  elsewhere; the row height is now measured from the mono font. A selected line
+  still wins over the PC. The last lines of a program can't be centred (the
+  scroll stops at the end). UI tests check the centring in all three panels,
+  the toggle, and the button order.
+
+## 19. 2026-11-04: Fibonacci fib(7), step counts in every example
+
+- Manfred: fibonacci_iter and fibonacci_rec (C, and the asm rec) compute
+  fib(7) = 13, with the sequence fib(0)=0 … fib(7)=13 in the header comment
+  (asm iter already did). The C versions take 117 / 2121 steps with toycc.
+- Every example (pytoy is the source, ktoy bundles it) has machine-checked
+  header lines: asm `# result: N` and `# steps: N`, C `// expect: N` and
+  `// steps: toycc N, minicc M` (only the compilers that build it); a .toyo
+  carries its source's lines in the listing's SOURCE column. STOP counts. The
+  I/O examples wait for input and have none.
+- Checked twice, headless: pytoy `scripts/example_steps.py` (`--table`,
+  `--write`; test `tests/test_example_steps.py`) and ktoy `ExampleStepsTest`
+  (ktoy's own CPU and compilers). Both must agree with the headers.
+- A fresh reviewer went through all example comments in pytoy and fixed stale
+  ones (wrong file names, "see X" links, wrong claims); open points were
+  reported to Manfred.
+
+## 20. 2026-11-04: Examples dialog remembers its state
+
+Reopening the Examples dialog shows it as it was left: the same groups open,
+the last selected example still selected, the same scroll position
+(`ExamplesTreeState`, kept by `App`). The first opening shows only the groups.
+
+## 21. 2026-11-04: Invalid opcodes
+
+- Manfred: keep Jim Hall's toycpu behaviour, an invalid opcode is a NOP. Valid
+  are the 14 opcodes (0, 1, 2, 15, 17..25, 128); every other byte is invalid.
+- New menu **Execution -> Invalid opcode**: NOP (like toycpu, default) / Stop
+  with an error / Always ask.
+  - Stop: the bad byte counts as step N (like STOP), the PC stays on it, Undo
+    takes it back. Status line and a dialog: "Error in step N: invalid opcode X
+    at address A." (a normal halt stays "Stopped after N steps.").
+  - Always ask: the run (or Step) pauses and asks "NOP" or "Stop", with
+    "Remember this decision" (makes the answer the setting). NOP continues an
+    interrupted run.
+- Only ktoy has the menu; pytoy keeps the toycpu NOP without asking.
+- New bytecode example `invalid_opcode.toyo` (pytoy examples/toyo): load x,
+  the byte 3, add x, stop -> ACC 42 as a NOP.
+- The disassembler treats an invalid byte on the path as a NOP (the trace goes
+  on) and writes it as a data byte with a comment.
+- The menu bar scrolls sideways when the seven menus don't fit (phones).
+- Review fixes: choosing Stop in the question shows no second error dialog
+  (only Stop mode's own halt does); the status block's EXPLAIN line says
+  "invalid: stops / asks" instead of "treated as NOP" in those modes; after a
+  NOP answer the run waits one step period before going on; a 2-byte invalid
+  opcode (operand bit set, e.g. 26) is a 2-byte NOP, also in the disassembler.
+  "Invalid opcode" in the Execution menu is a heading over three radio items
+  (Material 3 menus have no submenus; same as View -> Layout).
+
+## 22. 2026-11-04: Start with 00_stop
+
+The app opens with the example 00_stop (Assembly / 01-basics) loaded instead
+of an empty machine (`loadStartExample`, falls back to empty if missing).
+
+## 23. 2026-11-04: Save changes?, Save as, context menu, Escape
+
+Spec (Manfred): if something was edited, ask whether to save; a save offers
+C / asm / bytecode, depending on what is visible; a run alone is no change, only
+an edit in one of the widgets. Escape closes a menu. Instead of a double-click:
+right-click on JVM + web, long-press on Android and also web, opening a menu
+with "Edit" as the only option.
+
+Decisions (asked first):
+- The question comes before Load, Examples (at the dialog's Load), Reload and
+  closing the desktop window. Not on the web or Android: there is no window
+  close to intercept. Not before Compile / Assemble (those have the loss dialog).
+- A change = any edit since the last load or save, built or not: C / asm text, a
+  memory cell. It stays a change after Compile / Assemble, until saved to a file.
+- "Save changes?": Save… / Discard / Cancel. Save… opens the "Save as" picker;
+  the highest level is preselected (C, else assembly, else bytecode). With only
+  bytecode there is nothing to pick, so it saves right away.
+
+Interpretations (not asked, tell Manfred):
+- Typing into an I/O cell (240..255) is no edit: it is the program's input.
+- Any successful save clears the change, whichever format was chosen (saving
+  only the bytecode of an edited C program also counts as saved).
+- Cancel in the file dialog or the picker also cancels the pending Load / Reload
+  / close.
+- A compiler switch and Disassemble are no edits by themselves.
+
+Context menu: `EditMenu.kt`. Right-click on JVM + web, long-press on Android, iOS
+and web (`platformEditGestures`). The double-click is gone. On a memory row Edit…
+edits that cell. A right-click does not select the row.
+
+Escape closes an open menu: the popups are not focusable (for the one-click
+switch), so the bar takes the focus while a menu is open. Android Back was not
+part of the request and still does not close a menu.
+
+Code-review fixes: the menu bar reads `tick` (C / Assembly enabled state could go
+stale); Compile of an edited C turns Reload off, like Assemble and Disassemble;
+loading a C program clears the memory selection; Disassemble over an asm draft
+lists the "labels and comments" loss too; a wrong comment and a German one fixed.
+
+Fresh-reviewer fixes: Android Save wrote nothing (the text stash was not
+remembered across recompositions); Cmd+Q / the macOS Quit menu now asks too; a
+`.toys` with assemble errors shows the error and leaves the program and edits
+alone (it used to replace the program); setting a cell to its current value is
+no edit; a failed file write on the desktop shows a message instead of crashing
+and keeps the edits.
+
+## 24. 2026-11-04: Compact bytecode view
+
+Spec (Manfred): the bytecode view has too much whitespace; address and value can
+be much more compact, too many leading spaces. Rows are now
+`>>   3 (00000011) ->  42 (00101010)`, no extra padding; the header says
+`addr (binary)` so it fits the column.
+
+## 25. 2026-11-04: What counts as saved
+
+Spec (Manfred): Reload reads the file from disk again; an edit counts as saved
+only when the chosen format contains it; ask if the user saves something that
+isn't the most current. Compile and Assemble stay manual (no auto-compile: it can
+fail and discards memory edits and the run). Clarified with a reviewer; these
+were decided by Manfred:
+- A compiled C edit saved only as asm or bytecode stays unsaved: the C text is not
+  in that file. Same rule for each layer: C edit -> .toyc, asm edit -> .toys,
+  memory edit -> .toyo.
+- A bytecode save writes the program as built plus hand edits, nothing a run
+  stored. Disassemble still takes the live memory (Manfred's earlier choice).
+- Saving the program's highest level makes that file the current one (Reload,
+  title). A lower level is only an export; Reload stays on the old file.
+
+Decided by Claude with the reviewer:
+- Unsaved state is derived per format from what the last load or save held, so a
+  reverted edit (text back to the original, cell back to its value, Undo, Reset)
+  leaves nothing unsaved.
+- If the chosen format lacks an edit, "This file lacks your edits" asks first:
+  Save anyway / Back. Such an edit stays unsaved.
+- In the "Save changes?" flow the pending action goes on only when nothing is
+  unsaved; otherwise the dialog returns and names what is left. Discard is the
+  only way to lose an edit there.
+- A build that drops an unbuilt draft after its confirm dialog leaves no edit. A
+  compiled C edit moves to the asm when Assemble drops the C; a built edit moves
+  to the asm when Disassemble replaces the program.
+- The picker keeps preselecting the highest level (Manfred's rule) even when only
+  bytecode is left unsaved.
+- A reloaded file that can't be read shows an error and keeps the program.

@@ -18,7 +18,7 @@ actual val fileSaveSupported: Boolean = true
 actual val fileReloadSupported: Boolean = false
 
 @Composable
-actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): () -> Unit = {
+actual fun rememberFileLoader(onLoaded: (name: String, text: String, path: String?) -> Unit): () -> Unit = {
     val input = document.createElement("input") as HTMLInputElement
     input.type = "file"
     input.accept = ".toys,.toyo,.toyc"
@@ -29,7 +29,7 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): (
             reader.onload = {
                 val text = reader.result as? String ?: ""
                 // full name incl. extension — the VM infers the kind from it
-                onLoaded(file.name, text)
+                onLoaded(file.name, text, null)
             }
             reader.readAsText(file)
         }
@@ -39,7 +39,7 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): (
 
 @Composable
 actual fun rememberFileSaver(
-    onSaved: (message: String?) -> Unit,
+    onSaved: (name: String?, path: String?) -> Unit,
 ): (String, String, String) -> Unit = { suggestedName, extension, text ->
     val body = if (text.endsWith("\n")) text else text + "\n"
     val blob = Blob(arrayOf(body), BlobPropertyBag(type = "text/plain"))
@@ -49,5 +49,7 @@ actual fun rememberFileSaver(
     a.download = suggestedName + extension
     a.click()
     URL.revokeObjectURL(url)
-    onSaved(suggestedName + extension)
+    onSaved(suggestedName + extension, null)
 }
+
+actual fun readTextFile(path: String): String? = null

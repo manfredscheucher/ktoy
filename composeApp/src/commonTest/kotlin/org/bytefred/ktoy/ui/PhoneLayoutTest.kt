@@ -1,42 +1,15 @@
 package org.bytefred.ktoy.ui
 
 import org.bytefred.ktoy.core.EXAMPLES
-import org.bytefred.ktoy.core.assemble
-import org.bytefred.ktoy.core.exportToyo
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Phone layout logic: the tab fallback when the chosen panel doesn't exist for
- * the loaded program, and the I/O panel being shown automatically only for
+ * Phone layout logic: the I/O panel being shown automatically only for
  * programs that touch the I/O cells.
  */
 class PhoneLayoutTest {
-
-    @Test
-    fun tabFallsBackWhenPanelIsMissing() {
-        val vm = SimViewModel()
-        vm.loadFromFile("prog.toys", "load x\nstop\nx: 42\n")
-        vm.phoneTab = PanelTab.C            // no C for an asm program
-        assertEquals(PanelTab.ASM, vm.visibleTab())
-
-        val res = assemble("load x\nstop\nx: 42\n")
-        vm.loadFromFile("prog.toyo", exportToyo(res.listing, res.syms))
-        vm.phoneTab = PanelTab.ASM          // no source for bytecode
-        assertEquals(PanelTab.MEMORY, vm.visibleTab())
-    }
-
-    @Test
-    fun chosenTabIsKeptWhenAvailable() {
-        val vm = SimViewModel()
-        vm.loadFromFile("prog.toyc", "int main(void){return 42;}\n")
-        vm.phoneTab = PanelTab.C
-        assertEquals(PanelTab.C, vm.visibleTab())
-        vm.phoneTab = PanelTab.MEMORY
-        assertEquals(PanelTab.MEMORY, vm.visibleTab())
-    }
 
     @Test
     fun ioPanelShownOnlyForIoPrograms() {

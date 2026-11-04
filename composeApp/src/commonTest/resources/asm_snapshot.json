@@ -9,22 +9,22 @@
       "n": 0,
       "one": 1
     },
-    "steps": 80
+    "steps": 81
   },
   "fibonacci_rec": {
     "assembled": true,
-    "final_acc": 3,
+    "final_acc": 13,
     "hit_cap": false,
     "memory": {
       "198": 2,
-      "199": 2,
-      "200": 1,
+      "199": 5,
+      "200": 3,
       "201": 2,
-      "202": 0,
-      "203": 0,
-      "204": 0,
-      "205": 0,
-      "206": 0,
+      "202": 3,
+      "203": 1,
+      "204": 2,
+      "205": 1,
+      "206": 2,
       "207": 0,
       "208": 0,
       "209": 0,
@@ -37,40 +37,40 @@
       "216": 0,
       "217": 0,
       "fret1": 1,
-      "fscr": 1,
-      "input": 4,
+      "fscr": 5,
+      "input": 7,
       "lo6": 20,
       "lo7": 20,
       "lop": 20,
       "lop2": 20,
       "mk": 0,
-      "nloc": 0,
+      "nloc": 1,
       "nm1": 1,
-      "nm2": 0,
+      "nm2": 1,
       "one": 1,
-      "pa1": 200,
-      "pa2": 201,
-      "pa3": 200,
-      "pa4": 201,
-      "pa5": 202,
+      "pa1": 205,
+      "pa2": 206,
+      "pa3": 203,
+      "pa4": 204,
+      "pa5": 205,
       "pa6": 197,
       "pa7": 195,
-      "pka": 202,
-      "pka2": 199,
-      "result": 3,
+      "pka": 205,
+      "pka2": 202,
+      "result": 13,
       "seedm": 0,
-      "seedn": 4,
+      "seedn": 7,
       "so1": 21,
       "so2": 21,
       "so3": 21,
       "so4": 21,
       "so5": 21,
       "sp": 195,
-      "stackbase": 2,
+      "stackbase": 8,
       "two": 2,
       "zero": 0
     },
-    "steps": 446
+    "steps": 2145
   },
   "max3": {
     "assembled": true,
@@ -83,7 +83,7 @@
       "c": 4,
       "mask": 128
     },
-    "steps": 14
+    "steps": 15
   },
   "max_array": {
     "assembled": true,
@@ -106,7 +106,7 @@
       "one": 1,
       "ptr": 47
     },
-    "steps": 114
+    "steps": 115
   },
   "multiply": {
     "assembled": true,
@@ -118,7 +118,7 @@
       "one": 1,
       "sum": 42
     },
-    "steps": 59
+    "steps": 60
   },
   "sevenfold": {
     "assembled": true,
@@ -129,7 +129,7 @@
       "b": 8,
       "c": 16
     },
-    "steps": 9
+    "steps": 10
   },
   "sort3": {
     "assembled": true,
@@ -142,7 +142,7 @@
       "mask": 128,
       "t": 3
     },
-    "steps": 19
+    "steps": 20
   },
   "sort_array": {
     "assembled": true,
@@ -178,7 +178,7 @@
       "stj1_arg": 98,
       "stj_arg": 97
     },
-    "steps": 1955
+    "steps": 1956
   },
   "sum3": {
     "assembled": true,
@@ -189,7 +189,7 @@
       "b": 1,
       "c": 4
     },
-    "steps": 3
+    "steps": 4
   },
   "sum_array": {
     "assembled": true,
@@ -210,6 +210,6 @@
       "ptr": 35,
       "result": 25
     },
-    "steps": 89
+    "steps": 90
   }
 }

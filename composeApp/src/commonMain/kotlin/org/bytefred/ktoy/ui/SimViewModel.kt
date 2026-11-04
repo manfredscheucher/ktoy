@@ -9,8 +9,10 @@ import androidx.lifecycle.viewModelScope
 import org.bytefred.ktoy.core.AssemblyResult
 import org.bytefred.ktoy.core.BuildOutcome
 import org.bytefred.ktoy.core.CProgram
+import org.bytefred.ktoy.core.EXAMPLES
 import org.bytefred.ktoy.core.Example
 import org.bytefred.ktoy.core.ExampleKind
+import org.bytefred.ktoy.core.IO_BASE
 import org.bytefred.ktoy.core.IoFormat
 import org.bytefred.ktoy.core.ListingLine
 import org.bytefred.ktoy.core.Machine
@@ -19,6 +21,7 @@ import org.bytefred.ktoy.core.SelectionSets
 import org.bytefred.ktoy.core.addrToCLine
 import org.bytefred.ktoy.core.asmRowsToAddrs
 import org.bytefred.ktoy.core.assemble
+import org.bytefred.ktoy.core.decompile
 import org.bytefred.ktoy.core.detectCompilers
 import org.bytefred.ktoy.core.exportToyo
 import org.bytefred.ktoy.core.parseToyo
@@ -31,8 +34,11 @@ import kotlinx.coroutines.launch
 /** How the C/asm/memory columns are arranged (View -> Layout). */
 enum class LayoutMode { AUTO, PORTRAIT, LANDSCAPE }
 
-/** The panel shown when a narrow screen (phone) shows one panel at a time. */
-enum class PanelTab { C, ASM, MEMORY }
+/** Execution -> Invalid opcode: what a byte that is no opcode does. */
+enum class InvalidOpcodeMode { NOP, STOP, ASK }
+
+/** The simulator's panels (C / assembly / CPU & memory), e.g. as divider-share keys. */
+enum class Panel { C, ASM, MEMORY }
 
 /**
  * Holds the running Machine and the derived UI state for the simulator screen.
@@ -68,6 +74,8 @@ class SimViewModel : ViewModel() {
     var currentFileName: String? = null; private set
     private var currentFileText: String? = null
     private var currentFileKind: ExampleKind? = null
+    // where it is on disk (desktop only), so Reload reads the file again
+    private var currentFilePath: String? = null
 
     // View -> Line numbers (the gutter in the source panels). On by default.
     var showLineNumbers by mutableStateOf(true)
@@ -76,19 +84,69 @@ class SimViewModel : ViewModel() {
     // PORTRAIT forces the columns stacked; LANDSCAPE forces them side by side.
     var layoutMode by mutableStateOf(LayoutMode.AUTO)
 
-    // Narrow screens (phones) show one panel at a time as tabs; this is the
-    // chosen one. Kept here so it survives rotation. Falls back to an available
-    // panel when the loaded program has no C / no source (see visibleTab).
-    var phoneTab by mutableStateOf(PanelTab.ASM)
+    // View -> Auto-scroll to PC: on Step / Run every panel scrolls so the PC's
+    // line (">>") is centred.
+    var autoScroll by mutableStateOf(true)
 
-    /** [phoneTab] if the current program has that panel, else the best available one. */
-    fun visibleTab(): PanelTab = when {
-        phoneTab == PanelTab.C && hasCSource -> PanelTab.C
-        phoneTab == PanelTab.ASM && hasSource -> PanelTab.ASM
-        phoneTab == PanelTab.MEMORY -> PanelTab.MEMORY
-        hasSource -> PanelTab.ASM
-        else -> PanelTab.MEMORY
+    // Execution -> Invalid opcode. NOP (default) runs it as a NOP like Jim
+    // Hall's toycpu; STOP halts with "Error in step N"; ASK pauses and asks
+    // (invalidOpcodeQuestion). See stepOrAsk.
+    var invalidOpcodeMode by mutableStateOf(InvalidOpcodeMode.NOP)
+
+    /** The PC address while the "invalid opcode" question is open, else null. */
+    var invalidOpcodeQuestion by mutableStateOf<Int?>(null); private set
+
+    // the run was going when the question came up: NOP continues it
+    private var resumeAfterQuestion = false
+
+    /** Set when a STOP-mode halt should be shown as a dialog; cleared by the UI. */
+    var runError by mutableStateOf<String?>(null); private set
+    fun clearRunError() { runError = null }
+
+    /**
+     * One step that honours [invalidOpcodeMode]: false if the program did not
+     * go on (STOP, an error halt, or waiting for the user's answer).
+     */
+    private fun stepOrAsk(m: Machine): Boolean {
+        if (m.atInvalidOpcode) when (invalidOpcodeMode) {
+            InvalidOpcodeMode.NOP -> {}
+            InvalidOpcodeMode.STOP -> { haltOnInvalid(m); return false }
+            InvalidOpcodeMode.ASK -> { invalidOpcodeQuestion = m.pc; return false }
+        }
+        return m.step()
     }
+
+    // [tell]: show the error as a dialog (not when the user just chose Stop)
+    private fun haltOnInvalid(m: Machine, tell: Boolean = true) {
+        m.haltOnInvalidOpcode()
+        if (tell) runError = "Error in step ${m.stepCount}: ${m.error}."
+    }
+
+    /**
+     * The answer to the invalid-opcode question: run it as a NOP (and go on
+     * running if a run was interrupted) or stop with an error. [remember] makes
+     * the answer the Execution -> Invalid opcode setting.
+     */
+    fun answerInvalidOpcode(asNop: Boolean, remember: Boolean) {
+        val m = machine ?: return
+        invalidOpcodeQuestion = null
+        if (remember) invalidOpcodeMode = if (asNop) InvalidOpcodeMode.NOP else InvalidOpcodeMode.STOP
+        if (asNop) {
+            m.step()
+            bump()
+            if (resumeAfterQuestion && !m.stopped) startRun(waitFirst = true)
+        } else {
+            haltOnInvalid(m, tell = false)
+            bump()
+        }
+        resumeAfterQuestion = false
+    }
+
+    // Panel shares set by dragging the dividers, one map for side by side and
+    // one for stacked. Equal by default; stacked memory gets 2 (it carries the
+    // status block on top of the 256-byte listing).
+    var wideWeights by mutableStateOf(mapOf(Panel.C to 1f, Panel.ASM to 1f, Panel.MEMORY to 1f))
+    var stackedWeights by mutableStateOf(mapOf(Panel.C to 1f, Panel.ASM to 1f, Panel.MEMORY to 2f))
 
     /**
      * True if the loaded program touches the memory-mapped I/O cells (an
@@ -177,6 +235,10 @@ class SimViewModel : ViewModel() {
         runJob?.cancel()
         runJob = null
         running = false
+        // any user action (step, undo, reset, load, ...) drops an open
+        // invalid-opcode question; it comes back when the PC reaches the byte
+        invalidOpcodeQuestion = null
+        resumeAfterQuestion = false
     }
 
     /** True once any program (or the empty image) has been loaded. */
@@ -201,6 +263,12 @@ class SimViewModel : ViewModel() {
         addrToLine = a2l
     }
 
+    /** The program shown at app start: the 00_stop example (empty if it's missing). */
+    fun loadStartExample() {
+        val ex = EXAMPLES.firstOrNull { it.name == START_EXAMPLE && it.kind == ExampleKind.ASM }
+        if (ex != null) load(ex) else loadEmpty()
+    }
+
     /**
      * Start with an empty, zeroed 256-byte memory and no source — like pytoy's
      * empty_gui(). The user then loads an example via the Load button.
@@ -213,10 +281,12 @@ class SimViewModel : ViewModel() {
         syms = emptyMap()
         hasSource = false
         asmText = null
+        asmDraft = null
         machine = Machine(mem, (0..255).toSet())
         clearCSource()
         clearCurrentFile()
         rebuildAddrMaps()
+        markLoadedAsSaved()
         bump()
     }
 
@@ -226,6 +296,7 @@ class SimViewModel : ViewModel() {
         currentFileName = null
         currentFileText = null
         currentFileKind = null
+        currentFilePath = null
     }
 
     /** Infer a program's kind from its file name extension (default: ASM). */
@@ -239,9 +310,10 @@ class SimViewModel : ViewModel() {
      * Load a program the user picked from disk (name + raw text). The kind is
      * inferred from the extension. On a compile/assemble failure the previous
      * program is left intact and an error is surfaced (same as example loading).
-     * Records the file so Reload can re-run it.
+     * Records the file so Reload can re-run it ([path]: where it is, if the
+     * platform has paths).
      */
-    fun loadFromFile(fileName: String, text: String) {
+    fun loadFromFile(fileName: String, text: String, path: String? = null) {
         val kind = kindOf(fileName)
         val compilers = if (kind == ExampleKind.C) detectCompilers(text) else emptyList()
         if (kind == ExampleKind.C && compilers.isEmpty()) {
@@ -255,6 +327,7 @@ class SimViewModel : ViewModel() {
             currentFileName = fileName
             currentFileText = text
             currentFileKind = kind
+            currentFilePath = path
             title = fileName
             bump()
         }
@@ -263,11 +336,16 @@ class SimViewModel : ViewModel() {
     /** True if there is a disk file to reload (not just an example). */
     val canReload: Boolean get() = currentFileText != null
 
-    /** Re-run the last file loaded from disk. No-op if none. */
-    fun reload() {
-        val text = currentFileText ?: return
+    /** Run the last file again, read anew from disk where there is a path. No-op if none. */
+    fun reload(read: (String) -> String? = ::readTextFile) {
         val name = currentFileName ?: return
-        loadFromFile(name, text)
+        val path = currentFilePath
+        val text = if (path == null) currentFileText ?: return else read(path)
+        if (text == null) {
+            errorMessage = "Could not read $path."
+            return
+        }
+        loadFromFile(name, text, path)
     }
 
     // ── saving the current program ────────────────────────────────────────────
@@ -278,11 +356,11 @@ class SimViewModel : ViewModel() {
      * with assembly source; .toyc only for a C program. Mirrors pytoy's
      * _save_formats().
      */
-    fun saveFormats(): List<Pair<String, String>> {
-        val out = mutableListOf("Bytecode (.toyo)" to ".toyo")
-        if (asmText != null) out.add("Assembly (.toys)" to ".toys")
-        if (cText != null) out.add("C source (.toyc)" to ".toyc")
-        return out
+    fun saveFormats(): List<Pair<String, String>> = buildList {
+        // highest level first: the save dialog preselects the first one
+        if (cText != null) add("C source (.toyc)" to ".toyc")
+        if (asmText != null) add("Assembly (.toys)" to ".toys")
+        add("Bytecode (.toyo)" to ".toyo")
     }
 
     /** A suggested base file name for Save (the current file's stem, or title). */
@@ -293,8 +371,8 @@ class SimViewModel : ViewModel() {
 
     /**
      * The text to write for a given export extension:
-     *  - .toyo : the LIVE byte image (listing rebuilt from current memory, so
-     *            hand edits and runtime stores are saved), via exportToyo().
+     *  - .toyo : the program as built plus the hand edits, without what a run
+     *            stored (also edited cells outside the listing), via exportToyo().
      *  - .toys : the current assembly source.
      *  - .toyc : the current C source.
      * Returns null if the format doesn't apply to the loaded program.
@@ -302,15 +380,133 @@ class SimViewModel : ViewModel() {
     fun exportText(extension: String): String? = when (extension) {
         ".toyo" -> {
             val m = machine ?: return null
-            val live = listing.map { line ->
+            val image = m.programImage()
+            val lines = listing.map { line ->
                 val a = line.addr ?: return@map line
-                line.copy(bytes = line.bytes.indices.map { m.mem[(a + it) % 256] })
+                line.copy(bytes = line.bytes.indices.map { image[(a + it) % 256] })
             }
-            exportToyo(live, syms)
+            val listed = addrToLine.keys
+            val extra = m.handEdits.filterKeys { it !in listed }.toList().sortedBy { it.first }
+                .map { (a, v) -> ListingLine(a, listOf(v), "", true) }
+            exportToyo(lines + extra, syms)
         }
-        ".toys" -> asmText
-        ".toyc" -> cText
+        ".toys" -> asmDraft ?: asmText
+        ".toyc" -> cDraft ?: cText
         else -> null
+    }
+
+    // ── unsaved edits ─────────────────────────────────────────────────────────
+    // Per format, derived from what the last load or save held: the C text, the
+    // assembly text, the hand-edited program bytes. Only that format holds such
+    // an edit (a compiled C edit is still unsaved after saving only the assembly:
+    // the C text is not in there). A run is no edit, and neither is typing into
+    // the I/O cells (that is the program's input).
+    private var savedC: String? = null
+    private var savedAsm: String? = null
+    private var savedHandEdits: Map<Int, Int> = emptyMap()
+
+    private fun markLoadedAsSaved() {
+        savedC = cText
+        savedAsm = asmText
+        savedHandEdits = emptyMap()
+    }
+
+    private fun handEditsUnsaved(): Boolean {
+        val edits = machine?.handEdits ?: return false
+        return edits.isNotEmpty() && edits != savedHandEdits
+    }
+
+    private fun builtEditsUnsaved() = cText != savedC || asmText != savedAsm || handEditsUnsaved()
+
+    /** The formats holding an unsaved edit, highest level first. */
+    fun unsavedFormats(): List<String> = buildList {
+        if ((cDraft ?: cText) != savedC) add(".toyc")
+        if ((asmDraft ?: asmText) != savedAsm) add(".toys")
+        if (handEditsUnsaved()) add(".toyo")
+    }
+
+    val unsavedEdits: Boolean get() = unsavedFormats().isNotEmpty()
+
+    /** For "Save changes?": what is not saved, e.g. "C source, memory edits". */
+    fun unsavedDescription(): String = unsavedFormats().joinToString(", ") {
+        when (it) {
+            ".toyc" -> "C source"
+            ".toys" -> "assembly"
+            else -> "memory edits"
+        }
+    }
+
+    /** The edits a save as [extension] would not contain, one line each (asks first). */
+    fun missingFrom(extension: String): List<String> = buildList {
+        if (extension != ".toyc" && cDraft != null)
+            add("Your C edits are not compiled yet (C -> Compile).")
+        if (extension == ".toyo" && asmDraft != null)
+            add("Your assembly edits are not assembled yet (Assembly -> Assemble).")
+        if (extension == ".toyc" && asmDraft != null)
+            add("Your assembly edits are not in the C source.")
+        if (extension != ".toyo" && machine?.handEdits?.isNotEmpty() == true)
+            add("Your memory edits are only in the bytecode.")
+    }
+
+    /** What Load / Examples / Reload / closing the window wants to do once the
+     *  user has answered "Save changes?"; the dialog shows while it is set. */
+    var pendingLeave by mutableStateOf<(() -> Unit)?>(null); private set
+
+    /** Run [action] (which replaces the program), asking first if there are unsaved edits. */
+    fun leave(action: () -> Unit) {
+        if (unsavedEdits) pendingLeave = action else action()
+    }
+
+    /** "Discard": drop the edits and go on with the pending action. */
+    fun discardAndLeave() {
+        val action = pendingLeave ?: return
+        pendingLeave = null
+        action()
+    }
+
+    fun cancelLeave() { pendingLeave = null }
+
+    private var savingExt: String? = null
+    private var savingText: String? = null
+
+    /** The text to write as [extension], remembered for [fileSaved]. */
+    fun beginSave(extension: String): String? {
+        savingExt = extension
+        savingText = exportText(extension)
+        return savingText
+    }
+
+    /**
+     * A file save finished ([name], at [path] if the platform has paths) or was
+     * cancelled (null). Saving the program's highest level makes that file the
+     * current one (Reload, title); a lower level is only an export. A pending
+     * action goes on once nothing is unsaved; else "Save changes?" stays and
+     * names what is left.
+     */
+    fun fileSaved(name: String?, path: String? = null) {
+        val ext = savingExt
+        val text = savingText
+        savingExt = null
+        savingText = null
+        if (name == null) {
+            cancelLeave()
+            return
+        }
+        if (ext == saveFormats().first().second && text != null) {
+            currentFileName = name
+            currentFileText = text
+            currentFileKind = kindOf(name)
+            currentFilePath = path
+            title = name
+        }
+        when (ext) {
+            ".toyc" -> savedC = cDraft ?: cText
+            ".toys" -> savedAsm = asmDraft ?: asmText
+            ".toyo" -> savedHandEdits = machine?.handEdits ?: emptyMap()
+        }
+        setStatus("Saved $name")
+        if (!unsavedEdits) discardAndLeave()
+        bump()
     }
 
     /**
@@ -324,6 +520,11 @@ class SimViewModel : ViewModel() {
      *   - TOYO — parse the source as a byte image.
      */
     fun load(example: Example) {
+        if (loadProgram(example)) markLoadedAsSaved()
+    }
+
+    /** [load] without resetting the unsaved state (a build keeps it); false on failure. */
+    private fun loadProgram(example: Example): Boolean {
         stopRun()
         // a fresh load clears any stale error from a previous failed attempt, so
         // "errorMessage == null" reliably means "the last load succeeded".
@@ -342,6 +543,10 @@ class SimViewModel : ViewModel() {
             }
             ExampleKind.ASM -> {
                 val res: AssemblyResult = assemble(example.source)
+                if (res.errors.isNotEmpty()) {
+                    errorMessage = res.errors.joinToString("\n")
+                    return false  // leave the current program untouched
+                }
                 title = example.name
                 listing = res.listing
                 syms = res.syms
@@ -363,16 +568,19 @@ class SimViewModel : ViewModel() {
                     }
                     is BuildOutcome.Failure -> {
                         errorMessage = outcome.error
-                        return  // leave the current program untouched
+                        return false  // leave the current program untouched
                     }
                 }
             }
         }
+        cDraft = null
+        asmDraft = null
         // I/O panel starts hidden; show it automatically for programs that use
         // the I/O cells (the user can still toggle it in View).
         showIo = usesIo()
         ioAutoDone = showIo
         bump()
+        return true
     }
 
     /** Point the simulator at a built C program: new machine + listing + C maps. */
@@ -389,12 +597,15 @@ class SimViewModel : ViewModel() {
         hasCSource = true
         selectedCLine = null
         selectedAddr = null
+        memSelectedAddr = null
         rebuildAddrMaps()
     }
 
     /** Drop any C context (an ASM / TOYO / empty load). */
     private fun clearCSource() {
         cText = null
+        savedC = null
+        cDraft = null
         currentCompiler = null
         cToAsm = emptyMap()
         asmToC = emptyMap()
@@ -404,7 +615,7 @@ class SimViewModel : ViewModel() {
 
     fun step() {
         stopRun()
-        machine?.let { autoShowIo(it); it.step() }
+        machine?.let { autoShowIo(it); stepOrAsk(it) }
         // stepping drops the whole cross-column selection so a stale highlight
         // can't linger after execution moves on (pytoy clears both anchors)
         selectedCLine = null
@@ -535,54 +746,133 @@ class SimViewModel : ViewModel() {
 
     // ── Part 3: compiler switch + C edit ─────────────────────────────────────
 
+    // ── editing and building (C / Assembly / Bytecode menus) ─────────────────
+    // Edit -> Save only stores the text as a draft; the panel shows it marked
+    // "(modified)" and the machine keeps running the old build until C ->
+    // Compile / Assembly -> Assemble carries it down (C -> asm -> bytes).
+
+    /** Edited C not compiled yet (null = the C panel shows [cText]). */
+    var cDraft: String? by mutableStateOf(null); private set
+
+    /** Edited assembly not assembled yet (null = the asm panel shows the listing). */
+    var asmDraft: String? by mutableStateOf(null); private set
+
+    fun saveCDraft(text: String) { cDraft = text.takeIf { it != cText } }
+
+    fun saveAsmDraft(text: String) { asmDraft = text.takeIf { it != asmText } }
+
+    /** A build step from the menus; [request] confirms it first if it loses something. */
+    sealed interface BuildAction {
+        val label: String
+        /** C -> asm -> bytes, with [compiler] (null = the current one). */
+        data class Compile(val compiler: String? = null) : BuildAction {
+            override val label = if (compiler == null) "Compile" else "Compile with $compiler"
+        }
+        /** asm -> bytes; for a C program this drops the C. */
+        data object Assemble : BuildAction { override val label = "Assemble" }
+        /** live bytes -> asm, loaded as a new asm program. */
+        data object Disassemble : BuildAction { override val label = "Disassemble" }
+    }
+
+    /** The action waiting for the user's OK in the confirm dialog, or null. */
+    var pendingAction: BuildAction? by mutableStateOf(null); private set
+
+    /** What [action] would throw away, one line each; empty = nothing is lost. */
+    fun lossesFor(action: BuildAction): List<String> = buildList {
+        val m = machine
+        if (action !is BuildAction.Compile && hasCSource)
+            add("The C column is removed: the program becomes plain assembly" +
+                if (cDraft != null) " (your C edits are lost)." else ".")
+        if (action == BuildAction.Disassemble && hasSource && !hasCSource)
+            add("The assembly is replaced by the disassembled code (labels and comments are lost).")
+        if (action != BuildAction.Assemble && asmDraft != null)
+            add("Your assembly edits that are not assembled yet are lost.")
+        if (m != null && action == BuildAction.Disassemble) {
+            if (m.stepCount > 0) add("The run starts over at PC 0 (the program bytes 0..239 are kept as they are now).")
+        } else if (m != null) {
+            if (m.stepCount > 0) add("The current run is discarded.")
+            if (m.hasLiveEdits) add("Your memory edits are discarded.")
+        }
+    }
+
+    /** Run [action], or park it in [pendingAction] if [lossesFor] is not empty. */
+    fun request(action: BuildAction) {
+        if (lossesFor(action).isEmpty()) perform(action)
+        else { stopRun(); pendingAction = action }
+    }
+
+    fun confirmPending() { pendingAction?.let(::perform); pendingAction = null }
+
+    fun cancelPending() { pendingAction = null }
+
+    private fun perform(action: BuildAction) = when (action) {
+        is BuildAction.Compile -> compileC(action.compiler)
+        BuildAction.Assemble -> assembleAsm()
+        BuildAction.Disassemble -> disassemble()
+    }
+
     /**
-     * Recompile the loaded C with the OTHER compiler (full C toycc ↔ mini C
-     * minicc), in place. The target must both compile AND assemble within 240
-     * bytes before anything changes: minicc can reject recursion (a compile
-     * error) or overflow (an assemble error). On either failure an error is
-     * surfaced and the simulator stays exactly on the current compiler/program —
-     * no half-load. On success the program reloads at step 0 with fresh maps.
-     * Mirrors pytoy's _switch_compiler.
+     * Compile the C (the draft if there is one) with [compiler] (null = the
+     * current one; a C program always has one). All or nothing: the result
+     * must compile AND assemble within 240 bytes, else an error is shown and
+     * nothing changes (the draft is kept). Mirrors pytoy's EditCDialog save and
+     * _switch_compiler.
      */
-    fun switchCompiler() {
-        val c = cText ?: return
-        val cur = currentCompiler ?: return
+    private fun compileC(compiler: String?) {
+        val c = cDraft ?: cText ?: return
         stopRun()
-        val target = if (cur == "toycc") "minicc" else "toycc"
-        // CProgram.build is all-or-nothing: on failure nothing here changes.
+        val target = compiler ?: currentCompiler ?: return
         when (val outcome = CProgram.build(c, target)) {
             is BuildOutcome.Success -> {
                 loadCProgram(outcome.program)
+                if (cDraft != null) clearCurrentFile()   // Reload would bring back the old file
+                cDraft = null
+                asmDraft = null
+                // the generated asm is no edit; replaced asm / memory edits were confirmed
+                savedAsm = asmText
+                savedHandEdits = emptyMap()
                 bump()
             }
-            is BuildOutcome.Failure -> {
-                errorMessage = outcome.error
-            }
+            is BuildOutcome.Failure -> errorMessage = outcome.error
         }
     }
 
     /**
-     * Recompile edited C with the current compiler (falling back to detection,
-     * preferring toycc, if none is pinned), annotating C lines. On a compile or
-     * assemble error returns the message and changes NOTHING (the UI keeps its
-     * edit dialog open); on success swaps in the new program + maps + cText and
-     * returns null. Mirrors pytoy's EditCDialog save.
+     * Assemble the asm (the draft if there is one) and load it as a plain asm
+     * program, dropping any C. On an assemble error the error is shown and
+     * nothing changes.
      */
-    fun applyEditedC(newC: String): String? {
-        stopRun()
-        val compiler = currentCompiler ?: run {
-            val accepted = detectCompilers(newC)
-            if ("toycc" in accepted) "toycc" else accepted.firstOrNull() ?: "toycc"
+    private fun assembleAsm() {
+        val asm = asmDraft ?: asmText ?: return
+        val errors = assemble(asm).errors
+        if (errors.isNotEmpty()) {
+            errorMessage = errors.joinToString("\n")
+            return
         }
-        return when (val outcome = CProgram.build(newC, compiler)) {
-            is BuildOutcome.Success -> {
-                loadCProgram(outcome.program)
-                bump()
-                null
-            }
-            is BuildOutcome.Failure -> outcome.error
-        }
+        // a compiled C edit now lives on only in this assembly
+        val cEdited = cText != savedC
+        loadProgram(Example(asmTitle(), ExampleKind.ASM, asm))
+        if (cEdited) savedAsm = null
+        savedHandEdits = emptyMap()
+        clearCurrentFile()   // Reload would bring back the old file
     }
+
+    /**
+     * Disassemble the live memory (incl. hand edits and runtime stores) and load
+     * it as a new asm program: PC and ACC start at 0, the bytes stay the same.
+     */
+    private fun disassemble() {
+        val m = machine ?: return
+        // built edits now live on only in the new assembly; else it is no edit
+        val edited = builtEditsUnsaved()
+        loadProgram(Example(asmTitle(), ExampleKind.ASM, decompile(m.mem)))
+        savedAsm = if (edited) null else asmText
+        savedHandEdits = emptyMap()
+        clearCurrentFile()   // Reload would bring back the old file
+    }
+
+    /** The current title as an asm program name (foo.toyo / foo.toyc -> foo.toys). */
+    private fun asmTitle(): String = title.substringBeforeLast('.').ifBlank { "program" } + ".toys"
 
     /** Dismiss the current error dialog. */
     fun clearError() { errorMessage = null }
@@ -592,18 +882,31 @@ class SimViewModel : ViewModel() {
             stopRun()
             return
         }
+        startRun(waitFirst = false)
+    }
+
+    /** Start the run loop; [waitFirst] waits one step period before the first step. */
+    private fun startRun(waitFirst: Boolean) {
         val m = machine ?: return
         if (m.stopped) return
         running = true
         runJob = viewModelScope.launch {
+            if (waitFirst) delay(stepDelayMs())
             while (isActive) {
                 autoShowIo(m)
-                val advanced = m.step()   // capture m: never step a swapped machine
+                val advanced = stepOrAsk(m)   // capture m: never step a swapped machine
                 bump()
-                if (!advanced) { running = false; runJob = null; break }
-                val sps = stepsPerSecond.coerceIn(0.1, 1000.0)
-                delay((1000.0 / sps).toLong())
+                if (!advanced) {
+                    resumeAfterQuestion = invalidOpcodeQuestion != null
+                    running = false; runJob = null; break
+                }
+                delay(stepDelayMs())
             }
         }
     }
+
+    private fun stepDelayMs(): Long = (1000.0 / stepsPerSecond.coerceIn(0.1, 1000.0)).toLong()
 }
+
+/** The example opened at app start. */
+const val START_EXAMPLE = "00_stop"

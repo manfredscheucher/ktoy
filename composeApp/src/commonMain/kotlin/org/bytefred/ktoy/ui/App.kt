@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.AlertDialog
@@ -19,7 +20,9 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -28,6 +31,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,33 +43,40 @@ import org.bytefred.ktoy.core.groupedExamplesTree
 /**
  * The app root: the simulator, with the Examples dialog on top while it is open.
  * The simulator's state lives in a ViewModel that survives rotation.
+ * [closeRequests] counts the desktop window's close requests: each one asks
+ * "Save changes?" if there are unsaved edits, then calls [onClose].
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-fun App() {
-    MaterialTheme {
+fun App(closeRequests: Int = 0, onClose: () -> Unit = {}) {
+    KtoyTheme {
       ProvideMonoStyle {
         // Keep content out of the status bar (top) and the navigation bar /
         // camera cutout (bottom); the activity draws edge-to-edge.
         Surface(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             val vm: SimViewModel = viewModel { SimViewModel() }
-            // Start on the simulator with an empty machine (like pytoy's
-            // empty_gui); the Load button opens the Examples dialog.
-            if (!vm.hasProgram) vm.loadEmpty()
+            // Start with the first example (00_stop) open, so there is
+            // something to step through right away.
+            if (!vm.hasProgram) vm.loadStartExample()
             var showList by remember { mutableStateOf(false) }
+            // outlives the dialog, so it reopens as it was left
+            val examplesState = remember { ExamplesTreeState() }
 
             // System-back closes the Examples dialog if it's open. Wrapped in a
             // platform shim: Android maps it to the real system-back handler;
             // JVM/web have no system back, so it's a no-op there.
             AppBackHandler(enabled = showList) { showList = false }
 
+            LaunchedEffect(closeRequests) { if (closeRequests > 0) vm.leave(onClose) }
+
             SimulatorScreen(vm = vm, onLoad = { showList = true })
 
             if (showList) {
                 ExamplesDialog(
+                    state = examplesState,
                     running = vm.running,
                     onLoad = { example ->
-                        vm.load(example)
+                        vm.leave { vm.load(example) }
                         showList = false
                     },
                     onDismiss = { showList = false },
@@ -90,14 +102,17 @@ fun App() {
  * compiler is a different, separately selectable leaf).
  */
 @Composable
-private fun ExamplesDialog(running: Boolean, onLoad: (Example) -> Unit, onDismiss: () -> Unit) {
+internal fun ExamplesDialog(
+    state: ExamplesTreeState,
+    running: Boolean,
+    onLoad: (Example) -> Unit,
+    onDismiss: () -> Unit,
+) {
     val tree = remember { groupedExamplesTree() }
-    // Expanded nodes, keyed by a stable path string. Category nodes start open
-    // so the structure is visible at a glance; subfolders start collapsed.
-    val expanded = remember { mutableStateMapOf<String, Boolean>() }
+    val expanded = state.expanded
     fun isOpen(key: String, default: Boolean) = expanded[key] ?: default
     fun toggle(key: String, default: Boolean) { expanded[key] = !isOpen(key, default) }
-    var selected by remember { mutableStateOf<Example?>(null) }
+    var selected by state::selected
     var confirmStop by remember { mutableStateOf(false) }
 
     if (confirmStop) {
@@ -117,11 +132,11 @@ private fun ExamplesDialog(running: Boolean, onLoad: (Example) -> Unit, onDismis
         onDismissRequest = onDismiss,
         title = { Text("Examples") },
         text = {
-            LazyColumn(Modifier.heightIn(max = 560.dp)) {
+            LazyColumn(Modifier.heightIn(max = 560.dp).testTag("examples-tree"), state = state.list) {
                 for ((category, bySub) in tree) {
-                    val catOpen = isOpen(category, default = true)
+                    val catOpen = isOpen(category, default = false)
                     item(key = "cat:$category") {
-                        TreeHeader(category, catOpen, depth = 0) { toggle(category, true) }
+                        TreeHeader(category, catOpen, depth = 0) { toggle(category, false) }
                         HorizontalDivider()
                     }
                     if (!catOpen) continue
@@ -160,6 +175,18 @@ private fun ExamplesDialog(running: Boolean, onLoad: (Example) -> Unit, onDismis
     )
 }
 
+/**
+ * What the Examples dialog remembers between openings: the expanded nodes
+ * (keyed by a stable path string; everything starts collapsed, so the first
+ * opening shows just the category groups), the selected example and the
+ * scroll position. Reopening shows the tree exactly as it was left.
+ */
+class ExamplesTreeState {
+    val expanded = mutableStateMapOf<String, Boolean>()
+    var selected by mutableStateOf<Example?>(null)
+    val list = LazyListState()
+}
+
 /** A clickable, expand/collapse tree node (category or subfolder). */
 @Composable
 private fun TreeHeader(label: String, open: Boolean, depth: Int, onToggle: () -> Unit) {
@@ -193,4 +220,26 @@ private fun TreeLeaf(name: String, depth: Int, selected: Boolean, onSelect: () -
         RadioButton(selected = selected, onClick = null)
         Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.padding(start = 8.dp))
     }
+}
+
+/**
+ * Material 3 with neutral backgrounds: the default scheme tints the background,
+ * dialogs and menus slightly pink (#FFFBFE, #ECE6F0, ...). White and plain greys
+ * instead; the accent colours stay as they are.
+ */
+@Composable
+fun KtoyTheme(content: @Composable () -> Unit) {
+    val neutral = lightColorScheme(
+        background = Color.White,
+        surface = Color.White,
+        surfaceBright = Color.White,
+        surfaceContainerLowest = Color.White,
+        surfaceContainerLow = Color(0xFFF7F7F7),
+        surfaceContainer = Color(0xFFF2F2F2),
+        surfaceContainerHigh = Color(0xFFEDEDED),
+        surfaceContainerHighest = Color(0xFFE6E6E6),
+        surfaceVariant = Color(0xFFE6E6E6),
+        surfaceDim = Color(0xFFDDDDDD),
+    )
+    MaterialTheme(colorScheme = neutral, content = content)
 }

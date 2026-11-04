@@ -28,7 +28,7 @@ actual val fileReloadSupported: Boolean = false
 
 @OptIn(ExperimentalForeignApi::class)
 @Composable
-actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): () -> Unit {
+actual fun rememberFileLoader(onLoaded: (name: String, text: String, path: String?) -> Unit): () -> Unit {
     val viewController = LocalUIViewController.current
     val delegate = remember {
         object : NSObject(), UIDocumentPickerDelegateProtocol {
@@ -44,7 +44,7 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): (
                         val text = NSString.stringWithContentsOfURL(
                             url, NSUTF8StringEncoding, null) ?: ""
                         // full name incl. extension — the VM infers the kind from it
-                        onLoaded(url.lastPathComponent ?: "program", text)
+                        onLoaded(url.lastPathComponent ?: "program", text, null)
                     } finally {
                         url.stopAccessingSecurityScopedResource()
                     }
@@ -70,7 +70,7 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): (
 @OptIn(ExperimentalForeignApi::class, kotlinx.cinterop.BetaInteropApi::class)
 @Composable
 actual fun rememberFileSaver(
-    onSaved: (message: String?) -> Unit,
+    onSaved: (name: String?, path: String?) -> Unit,
 ): (suggestedName: String, extension: String, text: String) -> Unit {
     val viewController = LocalUIViewController.current
     return { suggestedName, extension, text ->
@@ -85,9 +85,11 @@ actual fun rememberFileSaver(
             val share = UIActivityViewController(
                 activityItems = listOf(url), applicationActivities = null)
             viewController.presentViewController(share, animated = true, completion = null)
-            onSaved(fileName)
+            onSaved(fileName, null)
         } else {
-            onSaved(null)
+            onSaved(null, null)
         }
     }
 }
+
+actual fun readTextFile(path: String): String? = null

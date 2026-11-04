@@ -2,7 +2,9 @@ package org.bytefred.ktoy.ui
 
 import androidx.compose.runtime.Composable
 import java.io.File
+import java.io.IOException
 import javax.swing.JFileChooser
+import javax.swing.JOptionPane
 import javax.swing.filechooser.FileNameExtensionFilter
 
 // Desktop: a Swing file chooser + plain java.io read/write. A real path exists,
@@ -12,7 +14,7 @@ actual val fileSaveSupported: Boolean = true
 actual val fileReloadSupported: Boolean = true
 
 @Composable
-actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): () -> Unit = {
+actual fun rememberFileLoader(onLoaded: (name: String, text: String, path: String?) -> Unit): () -> Unit = {
     val chooser = JFileChooser().apply {
         dialogTitle = "Load program"
         fileFilter = FileNameExtensionFilter(
@@ -21,13 +23,13 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String) -> Unit): (
     if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
         val f = chooser.selectedFile
         // full name incl. extension — the VM infers the program kind from it
-        onLoaded(f.name, f.readText())
+        onLoaded(f.name, f.readText(), f.path)
     }
 }
 
 @Composable
 actual fun rememberFileSaver(
-    onSaved: (message: String?) -> Unit,
+    onSaved: (name: String?, path: String?) -> Unit,
 ): (String, String, String) -> Unit = { suggestedName, extension, text ->
     val chooser = JFileChooser().apply {
         dialogTitle = "Save program"
@@ -38,9 +40,17 @@ actual fun rememberFileSaver(
     if (chooser.showSaveDialog(null) == JFileChooser.APPROVE_OPTION) {
         var f = chooser.selectedFile
         if (!f.name.lowercase().endsWith(extension)) f = File(f.path + extension)
-        f.writeText(if (text.endsWith("\n")) text else text + "\n")
-        onSaved(f.name)
+        try {
+            f.writeText(if (text.endsWith("\n")) text else text + "\n")
+            onSaved(f.name, f.path)
+        } catch (e: IOException) {
+            JOptionPane.showMessageDialog(null, "Could not save ${f.name}: ${e.message}", "Save", JOptionPane.ERROR_MESSAGE)
+            onSaved(null, null)
+        }
     } else {
-        onSaved(null)
+        onSaved(null, null)
     }
 }
+
+actual fun readTextFile(path: String): String? =
+    try { File(path).readText() } catch (e: IOException) { null }

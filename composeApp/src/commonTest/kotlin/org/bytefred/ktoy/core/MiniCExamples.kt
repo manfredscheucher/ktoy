@@ -23,14 +23,14 @@ val MINICC_EXAMPLES: List<CExample> = listOf(
     CExample(
         name = """bit_operators.toyc""",
         cSource = """// expect: 36
+// steps: toycc 27, minicc 30
 /*
- * bitops.c - showcase the bitwise operators and shifts, which map directly
+ * bit_operators.toyc - showcase the bitwise operators and shifts, which map directly
  * to Toy CPU opcodes (and, or, xor, not, left, right).
  *
  *   x    = 0xF0            = 11110000
  *   y    = 0x3C            = 00111100
  *   a = x & y             = 00110000 = 0x30 = 48
- *   b = x | y             = 11111100 = 0xFC = 252
  *   c = x ^ y             = 11001100 = 0xCC = 204
  *   a = a >> 2            = 00001100 = 12
  *   a = a << 1            = 00011000 = 24
@@ -103,8 +103,9 @@ c_240: 240
     CExample(
         name = """if_then_else.toyc""",
         cSource = """// expect: 5
+// steps: toycc 15, minicc 24
 /*
- * ifelse.c - simple if/else demonstration.
+ * if_then_else.toyc - simple if/else demonstration.
  *
  * a = 7, b = 12. Since a < b, the result is b - a = 5.
  *
@@ -178,6 +179,7 @@ c_128: 128
     CExample(
         name = """msb_shift_vs_mask.toyc""",
         cSource = """// expect: 0
+// steps: toycc 24, minicc 27
 /*
  * msb_shift_vs_mask.toyc - two ways to read the top bit (bit 7) of a byte.
  *
@@ -252,8 +254,9 @@ c_200: 200
     CExample(
         name = """multiply_doubling.toyc""",
         cSource = """// expect: 42
+// steps: toycc 76, minicc 98
 /*
- * multiply_doubling.c - a * b by double-and-add, using +, shifts and a bit test.
+ * multiply_doubling.toyc - a * b by double-and-add, using +, shifts and a bit test.
  *
  * One step per BIT of b instead of per unit: add a when b's low bit is set,
  * then double a and halve b. b has at most 8 bits, so at most 8 steps -- so
@@ -261,7 +264,7 @@ c_200: 200
  *
  * b = 110 binary = 4 + 2, so 7*6 = 7*4 + 7*2 = 28 + 14 = 42.
  *
- * This is the method the '*' operator compiles to. C analogue of
+ * This is the method toycc compiles '*' to (minicc uses repeated addition). C analogue of
  * examples/asm/02-extended/multiply_doubling.toys.
  */
 int main(void) {
@@ -341,11 +344,13 @@ c_7: 7
     CExample(
         name = """multiply_operator.toyc""",
         cSource = """// expect: 42
+// steps: toycc 56, minicc 69
 /*
- * multiply_operator.c - compute a * b with the '*' operator.
+ * multiply_operator.toyc - compute a * b with the '*' operator.
  *
- * The Toy CPU has no multiply instruction, so the compiler expands '*' to a
- * double-and-add loop (one step per bit of b). See multiply_repeated.toyc and
+ * The Toy CPU has no multiply instruction, so toycc expands '*' to a
+ * double-and-add loop (one step per bit of b); minicc to a repeated-addition
+ * loop (one step per unit of b). See multiply_repeated.toyc and
  * multiply_doubling.toyc for the same two methods written out by hand with only
  * +, -, and shifts.
  *
@@ -402,13 +407,14 @@ c_7: 7
     CExample(
         name = """multiply_repeated.toyc""",
         cSource = """// expect: 42
+// steps: toycc 79, minicc 145
 /*
- * multiply_repeated.c - a * b by repeated addition, using only '+'.
+ * multiply_repeated.toyc - a * b by repeated addition, using only '+'.
  *
  * Add a to the result b times. Simple, but slow: the loop runs b times, so
  * 255 * 255 would do 255 additions. multiply_doubling.toyc does the same in
- * about 8 steps. (The '*' operator itself compiles to the doubling method;
- * this file spells out the naive one by hand.)
+ * at most 8 loop passes. (toycc compiles '*' to the doubling method, minicc to
+ * this naive one; this file spells it out by hand.)
  *
  * C analogue of examples/asm/02-extended/multiply_repeated.toys.
  * With a = 7, b = 6: result = 42.
@@ -480,8 +486,9 @@ c_7: 7
     CExample(
         name = """popcount.toyc""",
         cSource = """// expect: 3
+// steps: toycc 120, minicc 163
 /*
- * popcount.c - count the set bits (1-bits) of a number.
+ * popcount.toyc - count the set bits (1-bits) of a number.
  *
  * Look at the lowest bit, add it to the count, then shift right; repeat until
  * the number is zero. The lowest bit is x & 1 (the Toy CPU has no `%`, but
@@ -579,10 +586,12 @@ c_37: 37
     CExample(
         name = """times7_operator.toyc""",
         cSource = """// expect: 28
+// steps: toycc 51, minicc 49
 /*
- * sevenfold.c - compute 7 * a.
+ * times7_operator.toyc - compute 7 * a.
  *
- * Port of examples/asm/03-programs/sevenfold.toys. Uses the '*' operator (repeated addition).
+ * C counterpart of examples/asm/03-programs/times7_doubling.toys, but with the
+ * '*' operator (toycc: double-and-add, minicc: repeated addition).
  * With a = 4: result = 28.
  *
  * Expected result: ACC = 28
@@ -634,8 +643,9 @@ c_7: 7
     CExample(
         name = """count_iter.toyc""",
         cSource = """// expect: 10
+// steps: toycc 91, minicc 169
 /*
- * count_iter.c - count up to 10 ITERATIVELY.
+ * count_iter.toyc - count up to 10 ITERATIVELY.
  *
  * Start at 1 and increment while x < 10, so x ends at 10.
  * The recursive version is in count_rec.toyc; both return 10.
@@ -696,8 +706,9 @@ c_128: 128
     CExample(
         name = """fibonacci_array.toyc""",
         cSource = """// expect: 34
+// steps: toycc 278, minicc 392
 /*
- * fibonacci_array.c - fill an array with the first 10 Fibonacci numbers.
+ * fibonacci_array.toyc - fill an array with the first 10 Fibonacci numbers.
  *
  * a[0]=0, a[1]=1, then a[i] = a[i-1] + a[i-2]. The array ends up holding
  * 0 1 1 2 3 5 8 13 21 34, and main returns the last one, a[9] = 34.
@@ -836,14 +847,19 @@ adata_main__a: 0
     ),
     CExample(
         name = """fibonacci_iter.toyc""",
-        cSource = """// expect: 55
+        cSource = """// expect: 13
+// steps: toycc 117, minicc 215
 /*
- * fibonacci_iter.c - the n-th Fibonacci number, ITERATIVE.
+ * fibonacci_iter.toyc - the n-th Fibonacci number, ITERATIVE.
  *
- * The recursive version is in fibonacci_rec.toyc; both compute fib(10) = 55.
+ * fib(0) = 0, fib(1) = 1, fib(n) = fib(n-1) + fib(n-2).
+ * The sequence: fib(0)=0, fib(1)=1, fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5,
+ * fib(6)=8, fib(7)=13.
+ *
+ * The recursive version is in fibonacci_rec.toyc; both compute fib(7) = 13.
  * (8-bit values wrap mod 256, so fib(14) = 377 would overflow.)
  *
- * Expected result: ACC = 55
+ * Expected result: ACC = 13
  */
 
 int fibonacci_iter(int n) {
@@ -858,7 +874,7 @@ int fibonacci_iter(int n) {
 }
 
 int main(void) {
-    return fibonacci_iter(10);
+    return fibonacci_iter(7);
 }
 """,
         expectedToys = """# Generated by minicc from fibonacci_iter.toyc
@@ -868,7 +884,7 @@ int main(void) {
 
 # function main(...) — single body, marker-dispatch return
 main__body: nop
-        load  c_10
+        load  c_7
         store t1
         load  t1
         store fibonacci_iter__p_n
@@ -937,18 +953,19 @@ t4: 0
 t5: 0
 c_0: 0
 c_1: 1
-c_10: 10
+c_7: 7
 """,
     ),
     CExample(
         name = """gcd_iter.toyc""",
         cSource = """// expect: 12
+// steps: toycc 69, minicc 115
 /*
- * gcd_iter.c - greatest common divisor, ITERATIVE (subtraction algorithm).
+ * gcd_iter.toyc - greatest common divisor, ITERATIVE (subtraction algorithm).
  *
  * The recursive version is in gcd_rec.toyc; both compute the same result.
  *
- * gcd(48, 36): 48-36=12, 36-12=24, 24-12=12, 12-12=0 -> gcd = 12.
+ * gcd(48, 36): 48-36=12, 36-12=24, 24-12=12, now a == b -> gcd = 12.
  *
  * Expected result: ACC = 12
  */
@@ -1061,8 +1078,9 @@ c_128: 128
     CExample(
         name = """max3.toyc""",
         cSource = """// expect: 4
+// steps: toycc 39, minicc 52
 /*
- * max3.c - the largest of three values a, b, c.
+ * max3.toyc - the largest of three values a, b, c.
  *
  * A helper function max3(a, b, c) using only the `>` comparison. The three
  * values are the first three digits of pi (3, 1, 4). For the maximum of a whole
@@ -1175,8 +1193,9 @@ c_128: 128
     CExample(
         name = """max_array.toyc""",
         cSource = """// expect: 9
+// steps: toycc 222, minicc 332
 /*
- * max_array.c - the largest element of an array.
+ * max_array.toyc - the largest element of an array.
  *
  * The array holds the 10 digits of pi (3 1 4 1 5 9 2 6 5 3). A loop walks it,
  * keeping the largest seen so far, using the `>` comparison. This is the C
@@ -1293,8 +1312,9 @@ adata_main__a: 3
     CExample(
         name = """sort3.toyc""",
         cSource = """// expect: 1
+// steps: toycc 47, minicc 64
 /*
- * sort3.c - sort three values and return the smallest.
+ * sort3.toyc - sort three values and return the smallest.
  *
  * sort3(a, b, c) orders a <= b <= c with a few compare-and-swap steps (the same
  * idea as bubble sort, but on three named variables instead of an array), then
@@ -1434,8 +1454,9 @@ c_128: 128
     CExample(
         name = """sum3.toyc""",
         cSource = """// expect: 8
+// steps: toycc 28, minicc 33
 /*
- * sum3.c - add three values a + b + c.
+ * sum3.toyc - add three values a + b + c.
  *
  * The simplest possible use of a helper function: sum3(a, b, c) returns their
  * sum. The three values are the first three digits of pi (3, 1, 4). For summing
@@ -1519,8 +1540,9 @@ c_4: 4
     CExample(
         name = """sum_array.toyc""",
         cSource = """// expect: 39
+// steps: toycc 202, minicc 288
 /*
- * sum_array.c - sum the elements of an array.
+ * sum_array.toyc - sum the elements of an array.
  *
  * The array holds the 10 digits of pi (3 1 4 1 5 9 2 6 5 3). A loop walks it
  * with a running index, adding each element. This is the C version of
@@ -1617,8 +1639,9 @@ adata_main__a: 3
     CExample(
         name = """sum_of_squares.toyc""",
         cSource = """// expect: 25
+// steps: toycc 143, minicc 140
 /*
- * functions.c - small helper functions that call each other.
+ * sum_of_squares.toyc - small helper functions that call each other.
  *
  * Demonstrates toycc's function support: functions with parameters, called
  * from main and from one another. The Toy CPU has no call/return instruction,

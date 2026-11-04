@@ -16,6 +16,8 @@ data class MachineState(
     val accWritten: Boolean,
     val selectedAddr: Int?,
     val hasLiveEdits: Boolean,
+    val handEdits: Map<Int, Int>,
+    val error: String?,
 )
 
 /**
@@ -46,6 +48,15 @@ class Machine(
     var accWritten: Boolean = false; private set
     var selectedAddr: Int? = null; private set
     var hasLiveEdits: Boolean = false; private set
+    // program bytes (0..239) changed by hand and now differing from the original;
+    // unlike [mem], nothing the running program stored
+    var handEdits: Map<Int, Int> = emptyMap(); private set
+    // why the run halted with an error ("invalid opcode 3 at address 2"), or
+    // null for a normal STOP / a machine that is still running
+    var error: String? = null; private set
+
+    /** True if the PC is on a byte that is no opcode (and the machine runs). */
+    val atInvalidOpcode: Boolean get() = !stopped && mem[pc] !in VALID_OPCODES
 
     private val history = ArrayDeque<MachineState>()
 
@@ -65,6 +76,8 @@ class Machine(
         accWritten = false
         selectedAddr = null
         hasLiveEdits = false
+        handEdits = emptyMap()
+        error = null
         history.clear()
     }
 
@@ -72,7 +85,7 @@ class Machine(
         mem = mem.copyOf(), acc = acc, pc = pc, stopped = stopped,
         stepCount = stepCount, touched = touched.toSet(), changedCell = changedCell,
         changedCellPrev = changedCellPrev, accWritten = accWritten,
-        selectedAddr = selectedAddr, hasLiveEdits = hasLiveEdits,
+        selectedAddr = selectedAddr, hasLiveEdits = hasLiveEdits, handEdits = handEdits, error = error,
     )
 
     private fun restore(s: MachineState) {
@@ -87,22 +100,31 @@ class Machine(
         accWritten = s.accWritten
         selectedAddr = s.selectedAddr
         hasLiveEdits = s.hasLiveEdits
+        handEdits = s.handEdits
+        error = s.error
     }
 
     /**
-     * Execute one instruction. No-op once stopped. On STOP, halts. Records what
-     * changed (for highlighting) and pushes an undo snapshot for a real step.
-     * Returns false if nothing ran (already stopped, or hit STOP this call).
+     * Execute one instruction. No-op once stopped. STOP counts as a step (a
+     * program that is just `stop` stops after 1 step) and is undoable like any
+     * other; it halts with the PC left on the STOP. Records what changed (for
+     * highlighting). Returns false if the program did not go on (already
+     * stopped, or hit STOP this call).
      */
     fun step(): Boolean {
         if (stopped) return false
         val (instr, argAddr, _) = decode(mem, pc)
-        if (instr == 0) {           // STOP
-            stopped = true
-            return false
-        }
         // snapshot before executing so this step can be fully undone
         history.addLast(snapshot())
+        if (instr == 0) {           // STOP
+            stopped = true
+            stepCount += 1
+            changedCell = null
+            changedCellPrev = null
+            accWritten = false
+            selectedAddr = null
+            return false
+        }
 
         // remember the cell's value before a STORE overwrites it, so the memory
         // panel can show "# old: N" for this one step only (decode above already
@@ -119,6 +141,23 @@ class Machine(
         stepCount += 1
         selectedAddr = null
         return true
+    }
+
+    /**
+     * Halt on the invalid opcode at the PC instead of running it (as a NOP, the
+     * toycpu default that [step] does). Counts as a step like STOP and is
+     * undoable; the PC stays on the byte and [error] says what happened.
+     */
+    fun haltOnInvalidOpcode() {
+        if (!atInvalidOpcode) return
+        history.addLast(snapshot())
+        stopped = true
+        stepCount += 1
+        error = "invalid opcode ${mem[pc]} at address $pc"
+        changedCell = null
+        changedCellPrev = null
+        accWritten = false
+        selectedAddr = null
     }
 
     /** Undo the last step or edit. No-op if there's nothing to undo. */
@@ -145,7 +184,12 @@ class Machine(
         accWritten = false
         selectedAddr = addr
         hasLiveEdits = true
+        if (addr < IO_BASE) handEdits =
+            if (mem[addr] == memOriginal[addr]) handEdits - addr else handEdits + (addr to mem[addr])
     }
+
+    /** The program as built plus the hand edits, without what a run stored. */
+    fun programImage(): IntArray = memOriginal.copyOf().also { for ((a, v) in handEdits) it[a] = v }
 
     /** Has the byte(s) this listing line owns changed from the assembled original? */
     fun lineChanged(addr: Int?, byteCount: Int): Boolean {
