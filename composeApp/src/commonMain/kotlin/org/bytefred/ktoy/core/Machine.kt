@@ -17,7 +17,6 @@ data class MachineState(
     val selectedAddr: Int?,
     val hasLiveEdits: Boolean,
     val handEdits: Map<Int, Int>,
-    val error: String?,
 )
 
 /**
@@ -51,12 +50,6 @@ class Machine(
     // program bytes (0..239) changed by hand and now differing from the original;
     // unlike [mem], nothing the running program stored
     var handEdits: Map<Int, Int> = emptyMap(); private set
-    // why the run halted with an error ("invalid opcode 3 at address 2"), or
-    // null for a normal STOP / a machine that is still running
-    var error: String? = null; private set
-
-    /** True if the PC is on a byte that is no opcode (and the machine runs). */
-    val atInvalidOpcode: Boolean get() = !stopped && mem[pc] !in VALID_OPCODES
 
     private val history = ArrayDeque<MachineState>()
 
@@ -77,7 +70,6 @@ class Machine(
         selectedAddr = null
         hasLiveEdits = false
         handEdits = emptyMap()
-        error = null
         history.clear()
     }
 
@@ -85,7 +77,7 @@ class Machine(
         mem = mem.copyOf(), acc = acc, pc = pc, stopped = stopped,
         stepCount = stepCount, touched = touched.toSet(), changedCell = changedCell,
         changedCellPrev = changedCellPrev, accWritten = accWritten,
-        selectedAddr = selectedAddr, hasLiveEdits = hasLiveEdits, handEdits = handEdits, error = error,
+        selectedAddr = selectedAddr, hasLiveEdits = hasLiveEdits, handEdits = handEdits,
     )
 
     private fun restore(s: MachineState) {
@@ -101,7 +93,6 @@ class Machine(
         selectedAddr = s.selectedAddr
         hasLiveEdits = s.hasLiveEdits
         handEdits = s.handEdits
-        error = s.error
     }
 
     /**
@@ -143,23 +134,6 @@ class Machine(
         return true
     }
 
-    /**
-     * Halt on the invalid opcode at the PC instead of running it (as a NOP, the
-     * toycpu default that [step] does). Counts as a step like STOP and is
-     * undoable; the PC stays on the byte and [error] says what happened.
-     */
-    fun haltOnInvalidOpcode() {
-        if (!atInvalidOpcode) return
-        history.addLast(snapshot())
-        stopped = true
-        stepCount += 1
-        error = "invalid opcode ${mem[pc]} at address $pc"
-        changedCell = null
-        changedCellPrev = null
-        accWritten = false
-        selectedAddr = null
-    }
-
     /** Undo the last step or edit. No-op if there's nothing to undo. */
     fun stepBack(): Boolean {
         val s = history.removeLastOrNull() ?: return false
@@ -184,6 +158,27 @@ class Machine(
         accWritten = false
         selectedAddr = addr
         hasLiveEdits = true
+        recordHandEdit(addr)
+    }
+
+    /** Live-edit the whole memory as one undoable edit. No-op if nothing changes. */
+    fun editCells(values: IntArray) {
+        val changed = mem.indices.filter { mem[it] != values[it] }
+        if (changed.isEmpty()) return
+        history.addLast(snapshot())
+        for (a in changed) {
+            mem[a] = values[a]
+            recordHandEdit(a)
+        }
+        touched = touched + changed
+        changedCell = changed.singleOrNull()
+        changedCellPrev = null
+        accWritten = false
+        selectedAddr = null
+        hasLiveEdits = true
+    }
+
+    private fun recordHandEdit(addr: Int) {
         if (addr < IO_BASE) handEdits =
             if (mem[addr] == memOriginal[addr]) handEdits - addr else handEdits + (addr to mem[addr])
     }
@@ -202,6 +197,23 @@ class Machine(
     }
 }
 
+/** A value typed into a bytecode edit: what [parseVal] takes, plus binary as b1010. */
+fun parseCellValue(s: String): Int = parseVal(if (s.trim().startsWith("b")) "0" + s.trim() else s)
+
+/**
+ * The text of the whole-bytecode edit: one value per line ([parseCellValue], not
+ * wrapped), at most 256, cells after the last line are 0, # starts a comment.
+ */
+fun parseBytecodeEdit(text: String): IntArray {
+    val rows = text.lines().map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }
+    require(rows.size <= 256) { "expected at most 256 lines, got ${rows.size}" }
+    val values = rows.map { r ->
+        runCatching { parseCellValue(r) }.getOrNull()?.takeIf { it in 0..255 }
+            ?: throw IllegalArgumentException("not a value 0..255: '$r'")
+    }
+    return values.toIntArray() + IntArray(256 - values.size)
+}
+
 /**
  * The bytecode file for a memory image: one integer per line, up to the last
  * non-zero cell (cells after that are 0). What Save writes; mirrors pytoy
@@ -216,7 +228,8 @@ fun bytecodeText(mem: IntArray): String =
  * 256, cells after the last line are 0, # starts a comment; a value out of range
  * or too many lines throws IllegalArgumentException. Byte listing: lines whose
  * first token is a decimal address followed by one or two 8-bit binary
- * byte-strings; ignores comments and the SYMBOLS section.
+ * byte-strings; ignores comments and the SYMBOLS section. Text that is neither
+ * throws too; an empty or comment-only file is an all-zero program.
  */
 fun parseToyo(text: String): IntArray {
     val rows = text.split("\n").map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }
@@ -228,6 +241,7 @@ fun parseToyo(text: String): IntArray {
         return values.toIntArray() + IntArray(256 - values.size)
     }
     val mem = IntArray(256)
+    var found = false
     for (rawLine in text.split("\n")) {
         val s = rawLine.trim()
         if (s.isEmpty() || s.startsWith("#")) continue
@@ -239,8 +253,10 @@ fun parseToyo(text: String): IntArray {
             if (t.length == 8 && t.all { it == '0' || it == '1' }) {
                 if (addr + offset in 0..255) mem[addr + offset] = t.toInt(2)
                 offset += 1
+                found = true
             } else break   // first non-byte token starts the source text
         }
     }
+    require(found || rows.isEmpty()) { "not a bytecode file (one integer 0..255 per line) or byte listing" }
     return mem
 }

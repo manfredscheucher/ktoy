@@ -12,8 +12,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
-import org.bytefred.ktoy.core.parseVal
+import org.bytefred.ktoy.core.parseCellValue
 
 /**
  * Live-edit dialog for a memory cell. Asks only for the value (the address comes
@@ -44,8 +45,9 @@ fun EditValueDialog(
                         error = null
                         note = null
                     },
-                    label = { Text("decimal, 0x.., 0b.., or 8-bit binary") },
+                    label = { Text("decimal, binary b1010 or hex 0x1f") },
                     singleLine = true,
+                    modifier = Modifier.testTag("edit-value"),
                 )
                 error?.let { Text(it, Modifier.padding(top = 4.dp)) }
                 note?.let { Text(it, Modifier.padding(top = 4.dp)) }
@@ -53,7 +55,7 @@ fun EditValueDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                val raw = runCatching { parseVal(text) }.getOrNull()
+                val raw = runCatching { parseCellValue(text) }.getOrNull()
                 if (raw == null) {
                     error = "Could not parse '$text' as a number."
                     return@TextButton
@@ -68,7 +70,7 @@ fun EditValueDialog(
                     return@TextButton
                 }
                 onConfirm(value)
-            }) { Text(if (note != null) "Set anyway" else "Set") }
+            }) { Text(if (note != null) "Save anyway" else "Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )

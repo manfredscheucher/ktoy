@@ -60,8 +60,7 @@ import org.bytefred.ktoy.core.referenceText
 /**
  * The simulator's menu bar: File (Load/Reload/Save), one menu per layer of the
  * build pipeline — C (Edit, Compile, compiler), Assembly (Edit, Assemble),
- * Bytecode (Edit cell, Disassemble) — then Execution (what an invalid opcode
- * does), View (line numbers, I/O, layout, auto-scroll) and
+ * Bytecode (Edit line, Disassemble) — then View (line numbers, I/O, layout, auto-scroll) and
  * Help (instruction-set reference + About). The pytoy menu bar, as cross-platform
  * Compose: each menu is a text button that opens a [DropdownMenu]. File I/O goes
  * through the [FileIo] platform shim (Swing / SAF / browser blob). [onBrowseExamples]
@@ -74,6 +73,7 @@ fun SimMenuBar(
     onBrowseExamples: () -> Unit,
     onEditC: () -> Unit,
     onEditAsm: () -> Unit,
+    onEditBytecode: () -> Unit,
     onEditCell: () -> Unit,
 ) {
     // the enabled states below read plain VM fields; tick tells when they change
@@ -172,8 +172,9 @@ fun SimMenuBar(
 
         // ── Bytecode ──
         MenuButton("Bytecode", openMenu, { openMenu = it }) {
+            DropdownMenuItem(text = { Text("Edit…") }, onClick = { openMenu = null; onEditBytecode() })
             DropdownMenuItem(
-                text = { Text("Edit cell…") },
+                text = { Text("Edit line…") },
                 enabled = vm.memSelectedAddr != null,
                 onClick = { openMenu = null; onEditCell() },
             )
@@ -181,23 +182,6 @@ fun SimMenuBar(
                 text = { Text("Disassemble") },
                 onClick = { openMenu = null; vm.request(SimViewModel.BuildAction.Disassemble) },
             )
-        }
-
-        // ── Execution ──
-        MenuButton("Execution", openMenu, { openMenu = it }) {
-            // a flat radio group, like View -> Layout
-            Text("Invalid opcode", style = MonoStyle,
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
-            for ((mode, label) in listOf(
-                InvalidOpcodeMode.NOP to "NOP (like toycpu)",
-                InvalidOpcodeMode.STOP to "Stop with an error",
-                InvalidOpcodeMode.ASK to "Always ask",
-            )) {
-                CheckItem("  $label", vm.invalidOpcodeMode == mode) {
-                    vm.invalidOpcodeMode = mode
-                    openMenu = null
-                }
-            }
         }
 
         // ── View ──
@@ -553,12 +537,16 @@ and back up one:
 
 Edit
   Right-click a column (long-press on a touch screen) and
-  choose Edit…, or use Edit… in the C / Assembly /
+  choose Edit… or Edit line…, or use the C / Assembly /
   Bytecode menu.
   - C and assembly: Save only stores the text. The column
     shows "(modified)" and the program keeps running the
-    old version until you Compile / Assemble.
-  - Bytecode: edits one memory cell, at once.
+    old version until you Compile / Assemble. Save & Compile
+    / Save & Assemble does both.
+  - Edit line changes only that line.
+  - Bytecode: takes effect at once. Edit… shows all 256
+    cells, one integer per line. Missing lines at the end
+    are 0; more than 256 lines is an error.
 
 Compile (C menu)
   C -> assembly -> bytecode. The compiler choice in the

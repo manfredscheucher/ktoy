@@ -2,6 +2,7 @@ package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
@@ -14,12 +15,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.Checkbox
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.semantics.Role
-import androidx.compose.foundation.selection.toggleable
 
 /**
  * Edit the C or assembly source: a multiline text field prefilled with the
@@ -32,10 +32,16 @@ fun EditSourceDialog(
     title: String,
     label: String,
     initial: String,
+    buildLabel: String? = null,
+    singleLine: Boolean = false,
+    firstLineNumber: Int = 1,
+    check: (String) -> String? = { null },
     onSave: (String) -> Unit,
+    onBuild: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     var text by remember { mutableStateOf(initial) }
+    var error by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -43,14 +49,50 @@ fun EditSourceDialog(
         text = {
             OutlinedTextField(
                 value = text,
-                onValueChange = { text = it },
+                onValueChange = { text = it; error = null },
                 label = { Text(label) },
-                modifier = Modifier.heightIn(min = 160.dp, max = 360.dp).testTag("edit-source"),
+                isError = error != null,
+                supportingText = error?.let { { Text(it) } },
+                singleLine = singleLine,
+                textStyle = MonoStyle,
+                visualTransformation = if (singleLine) VisualTransformation.None else LineNumbers(firstLineNumber),
+                modifier = (if (singleLine) Modifier else Modifier.heightIn(min = 160.dp, max = 360.dp))
+                    .testTag("edit-source"),
             )
         },
-        confirmButton = { TextButton(onClick = { onSave(text); onDismiss() }) { Text("Save") } },
+        confirmButton = {
+            Row {
+                TextButton(onClick = {
+                    error = check(text)
+                    if (error == null) { onSave(text); onDismiss() }
+                }) { Text("Save") }
+                if (buildLabel != null) {
+                    TextButton(onClick = { onSave(text); onDismiss(); onBuild() }) { Text("Save & $buildLabel") }
+                }
+            }
+        },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/** Shows a line number in front of each line; they are not part of the text. */
+internal class LineNumbers(private val first: Int) : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val lines = text.text.split("\n")
+        val width = (first + lines.size - 1).toString().length
+        val prefix = width + 3   // the number and " | "
+        val starts = lines.runningFold(0) { start, line -> start + line.length + 1 }.dropLast(1)
+        val shown = lines.indices.joinToString("\n") { (first + it).toString().padStart(width) + " | " + lines[it] }
+        return TransformedText(AnnotatedString(shown), object : OffsetMapping {
+            override fun originalToTransformed(offset: Int): Int =
+                offset + prefix * (starts.indexOfLast { it <= offset } + 1)
+
+            override fun transformedToOriginal(offset: Int): Int {
+                val i = starts.indices.last { starts[it] + prefix * it <= offset }
+                return starts[i] + (offset - starts[i] - prefix * i - prefix).coerceAtLeast(0)
+            }
+        })
+    }
 }
 
 /**
@@ -83,35 +125,5 @@ fun ErrorDialog(message: String, onDismiss: () -> Unit, title: String = "The pro
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
-    )
-}
-
-/**
- * Execution -> Invalid opcode = Always ask: the run paused on a byte at [addr]
- * that is no opcode. NOP runs it as a NOP (the toycpu behaviour), Stop halts
- * with an error; "Remember this decision" makes the answer the setting.
- */
-@Composable
-fun InvalidOpcodeDialog(addr: Int, opcode: Int, onAnswer: (asNop: Boolean, remember: Boolean) -> Unit) {
-    var remember by remember { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = {},   // an answer is needed: the run waits for it
-        title = { Text("Invalid opcode") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("The byte $opcode at address $addr is not a valid opcode. " +
-                    "Like Jim Hall's toycpu, ktoy runs it as a NOP unless you stop here.")
-                // the label ticks the box too
-                Row(
-                    Modifier.toggleable(remember, role = Role.Checkbox) { remember = it },
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Checkbox(remember, onCheckedChange = null)
-                    Text("Remember this decision")
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = { onAnswer(true, remember) }) { Text("NOP") } },
-        dismissButton = { TextButton(onClick = { onAnswer(false, remember) }) { Text("Stop") } },
     )
 }

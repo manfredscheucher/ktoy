@@ -6,8 +6,7 @@ import java.io.File
 //   kotlinc MiniSim.kt -include-runtime -d minisim.jar && java -jar minisim.jar program.txt -v
 
 fun miniSimLoad(text: String): IntArray {
-    val mem = text.lines().flatMap { it.substringBefore('#').trim().split(Regex("\\s+")) }
-        .filter { it.isNotEmpty() }.map { it.toInt() }
+    val mem = text.lines().map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }.map { it.toInt() }
     require(mem.size <= 256 && mem.all { it in 0..255 }) { "expected at most 256 integers 0..255" }
     return mem.toIntArray() + IntArray(256 - mem.size)
 }

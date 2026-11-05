@@ -49,7 +49,6 @@ class StopStepTest {
     fun aTwoByteInvalidOpcodeRunsAsATwoByteNop() {
         val mem = IntArray(256).also { it[0] = 26; it[1] = 99; it[2] = 20; it[3] = 5; it[4] = 0; it[5] = 7 }
         val m = Machine(mem, emptySet())
-        assertTrue(m.atInvalidOpcode)
         m.step()
         assertEquals(2, m.pc, "skipped the operand byte")
         while (m.step()) { }

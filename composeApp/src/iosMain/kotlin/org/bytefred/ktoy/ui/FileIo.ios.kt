@@ -84,8 +84,11 @@ actual fun rememberFileSaver(
         if (ok) {
             val share = UIActivityViewController(
                 activityItems = listOf(url), applicationActivities = null)
+            // only a finished share counts as saved, not a cancelled sheet
+            share.completionWithItemsHandler = { _, completed, _, _ ->
+                onSaved(if (completed) fileName else null, null)
+            }
             viewController.presentViewController(share, animated = true, completion = null)
-            onSaved(fileName, null)
         } else {
             onSaved(null, null)
         }

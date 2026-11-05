@@ -24,6 +24,7 @@ import org.bytefred.ktoy.core.assemble
 import org.bytefred.ktoy.core.decompile
 import org.bytefred.ktoy.core.detectCompilers
 import org.bytefred.ktoy.core.bytecodeText
+import org.bytefred.ktoy.core.parseBytecodeEdit
 import org.bytefred.ktoy.core.parseToyo
 import org.bytefred.ktoy.core.transitiveSelection
 import kotlinx.coroutines.Job
@@ -34,8 +35,6 @@ import kotlinx.coroutines.launch
 /** How the C/asm/memory columns are arranged (View -> Layout). */
 enum class LayoutMode { AUTO, PORTRAIT, LANDSCAPE }
 
-/** Execution -> Invalid opcode: what a byte that is no opcode does. */
-enum class InvalidOpcodeMode { NOP, STOP, ASK }
 
 /** The simulator's panels (C / assembly / CPU & memory), e.g. as divider-share keys. */
 enum class Panel { C, ASM, MEMORY }
@@ -87,60 +86,6 @@ class SimViewModel : ViewModel() {
     // View -> Auto-scroll to PC: on Step / Run every panel scrolls so the PC's
     // line (">>") is centred.
     var autoScroll by mutableStateOf(true)
-
-    // Execution -> Invalid opcode. NOP (default) runs it as a NOP like Jim
-    // Hall's toycpu; STOP halts with "Error in step N"; ASK pauses and asks
-    // (invalidOpcodeQuestion). See stepOrAsk.
-    var invalidOpcodeMode by mutableStateOf(InvalidOpcodeMode.NOP)
-
-    /** The PC address while the "invalid opcode" question is open, else null. */
-    var invalidOpcodeQuestion by mutableStateOf<Int?>(null); private set
-
-    // the run was going when the question came up: NOP continues it
-    private var resumeAfterQuestion = false
-
-    /** Set when a STOP-mode halt should be shown as a dialog; cleared by the UI. */
-    var runError by mutableStateOf<String?>(null); private set
-    fun clearRunError() { runError = null }
-
-    /**
-     * One step that honours [invalidOpcodeMode]: false if the program did not
-     * go on (STOP, an error halt, or waiting for the user's answer).
-     */
-    private fun stepOrAsk(m: Machine): Boolean {
-        if (m.atInvalidOpcode) when (invalidOpcodeMode) {
-            InvalidOpcodeMode.NOP -> {}
-            InvalidOpcodeMode.STOP -> { haltOnInvalid(m); return false }
-            InvalidOpcodeMode.ASK -> { invalidOpcodeQuestion = m.pc; return false }
-        }
-        return m.step()
-    }
-
-    // [tell]: show the error as a dialog (not when the user just chose Stop)
-    private fun haltOnInvalid(m: Machine, tell: Boolean = true) {
-        m.haltOnInvalidOpcode()
-        if (tell) runError = "Error in step ${m.stepCount}: ${m.error}."
-    }
-
-    /**
-     * The answer to the invalid-opcode question: run it as a NOP (and go on
-     * running if a run was interrupted) or stop with an error. [remember] makes
-     * the answer the Execution -> Invalid opcode setting.
-     */
-    fun answerInvalidOpcode(asNop: Boolean, remember: Boolean) {
-        val m = machine ?: return
-        invalidOpcodeQuestion = null
-        if (remember) invalidOpcodeMode = if (asNop) InvalidOpcodeMode.NOP else InvalidOpcodeMode.STOP
-        if (asNop) {
-            m.step()
-            bump()
-            if (resumeAfterQuestion && !m.stopped) startRun(waitFirst = true)
-        } else {
-            haltOnInvalid(m, tell = false)
-            bump()
-        }
-        resumeAfterQuestion = false
-    }
 
     // Panel shares set by dragging the dividers, one map for side by side and
     // one for stacked. Equal by default; stacked memory gets 2 (it carries the
@@ -235,10 +180,6 @@ class SimViewModel : ViewModel() {
         runJob?.cancel()
         runJob = null
         running = false
-        // any user action (step, undo, reset, load, ...) drops an open
-        // invalid-opcode question; it comes back when the PC reaches the byte
-        invalidOpcodeQuestion = null
-        resumeAfterQuestion = false
     }
 
     /** True once any program (or the empty image) has been loaded. */
@@ -352,7 +293,7 @@ class SimViewModel : ViewModel() {
 
     /**
      * The export formats that fit the current program, as (label, extension).
-     * .toyo (the live byte image, incl. edits) is always available; .toys only
+     * .toyo (the program as built plus hand edits) is always available; .toys only
      * with assembly source; .toyc only for a C program. Mirrors pytoy's
      * _save_formats().
      */
@@ -402,7 +343,7 @@ class SimViewModel : ViewModel() {
 
     private fun handEditsUnsaved(): Boolean {
         val edits = machine?.handEdits ?: return false
-        return edits.isNotEmpty() && edits != savedHandEdits
+        return edits != savedHandEdits
     }
 
     private fun builtEditsUnsaved() = cText != savedC || asmText != savedAsm || handEditsUnsaved()
@@ -609,7 +550,7 @@ class SimViewModel : ViewModel() {
 
     fun step() {
         stopRun()
-        machine?.let { autoShowIo(it); stepOrAsk(it) }
+        machine?.let { autoShowIo(it); it.step() }
         // stepping drops the whole cross-column selection so a stale highlight
         // can't linger after execution moves on (pytoy clears both anchors)
         selectedCLine = null
@@ -630,6 +571,7 @@ class SimViewModel : ViewModel() {
     fun reset() {
         stopRun()
         machine?.reset()
+        savedHandEdits = emptyMap()   // Reset never asks, even if a saved file holds an edit
         selectedCLine = null
         selectedAddr = null
         memSelectedAddr = null
@@ -750,6 +692,19 @@ class SimViewModel : ViewModel() {
 
     /** Edited assembly not assembled yet (null = the asm panel shows the listing). */
     var asmDraft: String? by mutableStateOf(null); private set
+
+    /** What is wrong with bytecode typed into Edit…, or null if it can be saved. */
+    fun bytecodeError(text: String): String? =
+        try { parseBytecodeEdit(text); null } catch (e: IllegalArgumentException) { e.message }
+
+    /** Edit… on the bytecode: takes effect at once, like editing one cell. */
+    fun saveBytecode(text: String) {
+        machine?.editCells(parseBytecodeEdit(text))
+        selectedAddr = null
+        selectedCLine = null
+        memSelectedAddr = null
+        bump()
+    }
 
     fun saveCDraft(text: String) { cDraft = text.takeIf { it != cText } }
 
@@ -876,22 +831,15 @@ class SimViewModel : ViewModel() {
             stopRun()
             return
         }
-        startRun(waitFirst = false)
-    }
-
-    /** Start the run loop; [waitFirst] waits one step period before the first step. */
-    private fun startRun(waitFirst: Boolean) {
         val m = machine ?: return
         if (m.stopped) return
         running = true
         runJob = viewModelScope.launch {
-            if (waitFirst) delay(stepDelayMs())
             while (isActive) {
                 autoShowIo(m)
-                val advanced = stepOrAsk(m)   // capture m: never step a swapped machine
+                val advanced = m.step()   // capture m: never step a swapped machine
                 bump()
                 if (!advanced) {
-                    resumeAfterQuestion = invalidOpcodeQuestion != null
                     running = false; runJob = null; break
                 }
                 delay(stepDelayMs())

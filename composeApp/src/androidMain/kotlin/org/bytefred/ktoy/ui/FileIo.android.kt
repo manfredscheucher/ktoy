@@ -1,6 +1,7 @@
 package org.bytefred.ktoy.ui
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -24,10 +25,14 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String, path: Strin
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
         if (uri != null) {
-            val text = context.contentResolver.openInputStream(uri)
-                ?.bufferedReader()?.use { it.readText() } ?: ""
-            // full name incl. extension — the VM infers the kind from it
-            onLoaded(displayName(context, uri), text, null)
+            try {
+                val text = context.contentResolver.openInputStream(uri)
+                    ?.bufferedReader()?.use { it.readText() } ?: error("no input stream")
+                // full name incl. extension — the VM infers the kind from it
+                onLoaded(displayName(context, uri), text, null)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Could not read the file: ${e.message}", Toast.LENGTH_LONG).show()
+            }
         }
     }
     // Toy programs have no registered MIME type; accept anything and filter by
@@ -51,10 +56,15 @@ actual fun rememberFileSaver(
         val text = pending
         pending = null
         if (uri != null && text != null) {
-            context.contentResolver.openOutputStream(uri)?.use {
-                it.write((if (text.endsWith("\n")) text else text + "\n").toByteArray())
+            try {
+                (context.contentResolver.openOutputStream(uri) ?: error("no output stream")).use {
+                    it.write((if (text.endsWith("\n")) text else text + "\n").toByteArray())
+                }
+                onSaved(displayName(context, uri), null)
+            } catch (e: Exception) {
+                Toast.makeText(context, "Could not save the file: ${e.message}", Toast.LENGTH_LONG).show()
+                onSaved(null, null)
             }
-            onSaved(displayName(context, uri), null)
         } else {
             onSaved(null, null)
         }

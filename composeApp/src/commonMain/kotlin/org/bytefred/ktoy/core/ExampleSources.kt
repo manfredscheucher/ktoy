@@ -2055,29 +2055,37 @@ arr:    0
 #   io14            = 254  (11111110)
 #   ready           = 255  (11111111)
 """),
-    Example("invalid_opcode (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
+    Example("multiply_repeated (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
 #
 # ADDR  BYTES                   SOURCE
 # ────────────────────────────────────────────────────────
 #                                # result: 42
-#                                # steps: 4
-#                                # invalid_opcode.toys
-#                                # What happens when the CPU meets a byte that is not an instruction.
-#                                #
-#                                # The byte 3 at address 2 is no opcode (valid ones: stop right left not and or
-#                                # xor load store add sub goto ifzero nop). Like Jim Hall's toycpu, the CPU
-#                                # treats an unknown opcode as a NOP by default: it skips it and goes on, so
-#                                # ACC = 21 + 21 = 42 after 4 steps. ktoy can stop or ask instead
-#                                # (Execution -> Invalid opcode).
+#                                # steps: 60
+#                                # multiply: a * b by adding a to itself b times  (6 * 7 = 42)
+     0   00010100  00010110              load  b
+     2   00011001  00010010      loop:   ifzero done       # b == 0 -> done
+     4   00010100  00010111              load  res
+     6   00010110  00010101              add   a
+     8   00010101  00010111              store res         # res += a
+    10   00010100  00010110              load  b
+    12   00010111  00011000              sub   one
+    14   00010101  00010110              store b           # b--
+    16   00011000  00000010              goto  loop
+    18   00010100  00010111      done:   load  res
+    20   00000000                        stop
 #                                
-     0   00010100  00000110              load  x         # acc = 21
-     2   00000011                        3               # not an opcode: a NOP by default
-     3   00010110  00000110              add   x         # acc = 42
-     5   00000000                        stop
-     6   00010101                x:      21
+    21   00000110                a:      6
+    22   00000111                b:      7
+    23   00000000                res:    0
+    24   00000001                one:    1
 
 # SYMBOLS
-#   x               =   6  (00000110)
+#   loop            =   2  (00000010)
+#   done            =  18  (00010010)
+#   a               =  21  (00010101)
+#   b               =  22  (00010110)
+#   res             =  23  (00010111)
+#   one             =  24  (00011000)
 #   io0             = 240  (11110000)
 #   io1             = 241  (11110001)
 #   io2             = 242  (11110010)

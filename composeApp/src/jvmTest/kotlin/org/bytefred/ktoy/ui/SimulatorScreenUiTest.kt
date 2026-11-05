@@ -24,7 +24,10 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasAnyAncestor
@@ -35,6 +38,8 @@ import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.runComposeUiTest
@@ -159,10 +164,15 @@ class SimulatorScreenUiTest {
         // the memory row of address 3 (x: 42)
         onNodeWithText("3 (00000011) ->", substring = true).performMouseInput { rightClick() }
         waitForIdle()
-        onNodeWithTag("context-edit").performClick()
+        onNodeWithTag("context-edit-line").performClick()
         waitForIdle()
         assertEquals(3, vm.memSelectedAddr)
         onNodeWithText("address 3", substring = true).assertExists()
+        onNodeWithText("Save & ", substring = true).assertDoesNotExist()
+        onNodeWithTag("edit-value").performTextReplacement("9")
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        assertEquals(9, vm.machine!!.mem[3])
     }
 
     @Test
@@ -281,6 +291,315 @@ class SimulatorScreenUiTest {
         onNodeWithText("Reload").performClick()
         waitForIdle()
         onNodeWithText("Not saved to a file yet: assembly.").assertExists()
+    }
+
+    @Test
+    fun reloadingABrokenBytecodeFileShowsAnErrorAndKeepsTheProgram() = runComposeUiTest {
+        val file = java.io.File.createTempFile("prog", ".toyo").apply { deleteOnExit() }
+        file.writeText("20\n6\n")
+        val vm = SimViewModel().apply { loadFromFile("prog.toyo", file.readText(), file.path) }
+        show(vm)
+        val broken = listOf(
+            "-1\n".toByteArray(), "abc\n".toByteArray(), "20 6\n".toByteArray(), "300\n".toByteArray(),
+            "1\n".repeat(257).toByteArray(), "0x14\n".toByteArray(), byteArrayOf(0, 1, -1, -2),
+        )
+        for (bytes in broken) {
+            file.writeBytes(bytes)
+            onNodeWithText("Reload").performClick()
+            waitForIdle()
+            assertTrue(vm.errorMessage != null, "no error for ${bytes.decodeToString()}")
+            onNodeWithText(vm.errorMessage!!).assertExists()
+            onNodeWithText("OK").performClick()
+            waitForIdle()
+            assertEquals(null, vm.errorMessage)
+            assertEquals(20, vm.machine!!.mem[0], "the program stays")
+        }
+        file.writeText("# fixed\n7\n")
+        onNodeWithText("Reload").performClick()
+        waitForIdle()
+        assertEquals(null, vm.errorMessage)
+        assertEquals(7, vm.machine!!.mem[0])
+    }
+
+    @Test
+    fun aSavedBytecodeFileIsOnlyValuesAndLoadsBack() = runComposeUiTest {
+        val file = java.io.File.createTempFile("saved", ".toyo").apply { deleteOnExit() }
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        vm.editCell(3, 9)
+        file.writeText(vm.beginSave(".toyo")!!)
+        vm.fileSaved(file.name, file.path)
+        assertEquals("20\n3\n0\n9\n", file.readText())
+
+        val back = SimViewModel().apply { loadFromFile(file.name, file.readText(), file.path) }
+        show(back)
+        assertEquals(null, back.errorMessage)
+        assertFalse(back.hasSource)
+        assertEquals(vm.machine!!.programImage().toList(), back.machine!!.mem.toList())
+    }
+
+    @Test
+    fun undoAfterABytecodeSaveAsksAndResetDoesNot() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        vm.editCell(3, 9)
+        vm.beginSave(".toyo")
+        vm.fileSaved("prog.toyo")
+        show(vm)
+
+        onNodeWithText("Undo").performClick()
+        waitForIdle()
+        onNodeWithText("Reload").performClick()
+        waitForIdle()
+        onNodeWithText("Not saved to a file yet: memory edits.").assertExists()
+        onNodeWithText("Cancel").performClick()
+        waitForIdle()
+
+        vm.editCell(3, 9)
+        waitForIdle()
+        onNodeWithText("Reset").performClick()
+        waitForIdle()
+        onNodeWithText("Reload").performClick()
+        waitForIdle()
+        onNodeWithText("Save changes?").assertDoesNotExist()
+    }
+
+    @Test
+    fun loadAndExamplesAreOnlyInTheFileMenu() = runComposeUiTest {
+        show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) })
+        onNodeWithText("Load").assertDoesNotExist()
+        onNodeWithText("Examples").assertDoesNotExist()
+        onNodeWithTag("menu-Execution").assertDoesNotExist()
+        onNodeWithTag("menu-File").performClick()
+        waitForIdle()
+        onNodeWithText("Load…").assertExists()
+        onNodeWithText("Examples…").assertExists()
+    }
+
+    @Test
+    fun editLineChangesOnlyThatAsmLine() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        onNodeWithText("x: 42", substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        onNodeWithTag("context-edit-line").performClick()
+        waitForIdle()
+        onNodeWithText("Edit line 3").assertExists()
+        onNodeWithTag("edit-source").assertTextContains("x: 42")
+        onNodeWithTag("edit-source").performTextReplacement("x: 7")
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        assertEquals("load x\nstop\nx: 7\n", vm.asmDraft)
+        assertEquals(42, vm.machine!!.mem[3], "Save does not build")
+
+        onNodeWithText("x: 7", substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        onNodeWithTag("context-edit-line").performClick()
+        waitForIdle()
+        onNodeWithTag("edit-source").performTextReplacement("x: 8")
+        onNodeWithText("Save & Assemble").performClick()
+        waitForIdle()
+        assertEquals(null, vm.asmDraft)
+        assertEquals(8, vm.machine!!.mem[3])
+    }
+
+    @Test
+    fun editLineChangesOnlyThatCLine() = runComposeUiTest {
+        val src = "int main(void){\n  return 42;\n}\n"
+        val vm = SimViewModel().apply { loadFromFile("prog.toyc", src) }
+        show(vm)
+        onNodeWithText("return 42", substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        onNodeWithTag("context-edit-line").performClick()
+        waitForIdle()
+        onNodeWithText("Edit line 2").assertExists()
+        onNodeWithTag("edit-source").performTextReplacement("  return 7;")
+        onNodeWithText("Save & Compile").performClick()
+        waitForIdle()
+        assertEquals("int main(void){\n  return 7;\n}\n", vm.cText)
+    }
+
+    @Test
+    fun editTheWholeBytecodeShows256LinesAndMissingLinesAreZero() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        onNodeWithText("3 (00000011) ->", substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        onNodeWithTag("context-edit").performClick()
+        waitForIdle()
+        onNodeWithText("Edit bytecode").assertExists()
+        val shown = onNodeWithTag("edit-source").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.EditableText].text
+        assertEquals(256, shown.split("\n").size)
+        assertEquals(listOf("  0 | 20", "  1 | 3", "  2 | 0", "  3 | 42"), shown.split("\n").take(4))
+        assertEquals("255 | 0", shown.split("\n").last())
+        onNodeWithText("Save & ", substring = true).assertDoesNotExist()
+
+        onNodeWithTag("edit-source").performTextReplacement("1\n".repeat(257))
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        onNodeWithText("expected at most 256", substring = true).assertExists()
+        assertEquals(20, vm.machine!!.mem[0], "an error changes nothing")
+
+        onNodeWithTag("edit-source").performTextReplacement("abc\n")
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        onNodeWithText("Edit bytecode").assertExists()
+
+        onNodeWithTag("edit-source").performTextReplacement("20\n3\n0\n9\n")
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        onNodeWithText("Edit bytecode").assertDoesNotExist()
+        assertEquals(listOf(20, 3, 0, 9, 0), vm.machine!!.mem.take(5))
+        assertEquals(mapOf(3 to 9), vm.machine!!.handEdits)
+        assertEquals(listOf(".toyo"), vm.unsavedFormats())
+
+        onNodeWithText("Undo").performClick()
+        waitForIdle()
+        assertEquals(42, vm.machine!!.mem[3], "one Undo takes the whole edit back")
+        assertFalse(vm.unsavedEdits)
+    }
+
+    @Test
+    fun theSourceEditsShowLineNumbersThatAreNotPartOfTheText() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        onNodeWithTag("menu-Assembly").performClick()
+        onNodeWithText("Edit…").performClick()
+        onNodeWithTag("edit-source").assertTextContains("1 | load x", substring = true)
+        onNodeWithTag("edit-source").assertTextContains("3 | x: 42", substring = true)
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        assertEquals(null, vm.asmDraft, "the numbers did not end up in the text")
+    }
+
+    @Test
+    fun typingInANumberedEditGoesWhereTheCursorIs() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        onNodeWithTag("menu-Assembly").performClick()
+        onNodeWithText("Edit…").performClick()
+        onNodeWithTag("edit-source").performTextInputSelection(androidx.compose.ui.text.TextRange(5))
+        onNodeWithTag("edit-source").performTextInput("#")
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        assertEquals("load #x\nstop\nx: 42\n", vm.asmDraft)
+    }
+
+    @Test
+    fun lineNumberOffsetsMapBothWaysForEveryPosition() {
+        for ((text, first) in listOf("a\nbc\n\nd" to 1, "" to 0, "\n" to 0, ("1\n".repeat(120)) to 0)) {
+            val t = LineNumbers(first).filter(androidx.compose.ui.text.AnnotatedString(text))
+            for (o in 0..text.length) {
+                val shown = t.offsetMapping.originalToTransformed(o)
+                assertTrue(shown in 0..t.text.length, "'$text' $o -> $shown")
+                assertEquals(o, t.offsetMapping.transformedToOriginal(shown), "'$text' at $o")
+            }
+            for (shown in 0..t.text.length)
+                assertTrue(t.offsetMapping.transformedToOriginal(shown) in 0..text.length, "'$text' shown $shown")
+        }
+        assertEquals("1 | a\n2 | bc", LineNumbers(1).filter(androidx.compose.ui.text.AnnotatedString("a\nbc")).text.text)
+    }
+
+    @Test
+    fun theWholeBytecodeEditTakesDecimalBinaryAndHexPerLine() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        assertEquals(null, vm.bytecodeError("20\nb101\n0x1f\n# note\n0b11 # three\n00000011\n"))
+        vm.saveBytecode("20\nb101\n0x1f\n0b11\n00000011\n")
+        assertEquals(listOf(20, 5, 31, 3, 3, 0), vm.machine!!.mem.take(6))
+        for (bad in listOf("300", "0x100", "b111111111", "-1", "20 6", "b102", "abc"))
+            assertTrue(vm.bytecodeError(bad) != null, bad)
+        assertTrue(vm.bytecodeError("1\n".repeat(257))!!.contains("at most 256"))
+    }
+
+    @Test
+    fun theSingleCellEditTakesBinaryWithB() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        onNodeWithText("3 (00000011) ->", substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        onNodeWithTag("context-edit-line").performClick()
+        waitForIdle()
+        onNodeWithTag("edit-value").performTextReplacement("b1001")
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        assertEquals(9, vm.machine!!.mem[3])
+    }
+
+    private fun ComposeUiTest.barTop(label: String) = onNodeWithText(label).getUnclippedBoundsInRoot().top
+
+    @Test
+    fun aNarrowBottomBarPutsRunOnItsOwnLine() = runComposeUiTest {
+        show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }, width = 360.dp)
+        waitForIdle()
+        assertEquals(barTop("Reset"), barTop("Step"))
+        assertEquals(barTop("Undo"), barTop("Step"))
+        assertTrue(barTop("Run") > barTop("Step"), "Run wraps")
+        onNodeWithText("steps/sec:").assertIsDisplayed()
+        assertTrue(onNodeWithText("Run").getUnclippedBoundsInRoot().right <= 360.dp)
+    }
+
+    @Test
+    fun aRoomyBottomBarKeepsEverythingOnOneLine() = runComposeUiTest {
+        show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }, width = 780.dp)
+        waitForIdle()
+        assertEquals(barTop("Reset"), barTop("Step"))
+        val sameLine = barTop("Run") - barTop("Step")
+        assertTrue(sameLine.value == 0f, "Run is $sameLine below Step")
+    }
+
+    @Test
+    fun deletedLinesAtTheEndAreZeroInTheWholeBytecodeEdit() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toyo", "1\n2\n3\n4\n5\n") }
+        vm.saveBytecode("1\n2\n")
+        assertEquals(listOf(1, 2, 0, 0, 0), vm.machine!!.mem.take(5))
+        assertEquals(mapOf(2 to 0, 3 to 0, 4 to 0), vm.machine!!.handEdits)
+    }
+
+    @Test
+    fun saveAndAssembleBuildsAtOnce() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        onNodeWithTag("menu-Assembly").performClick()
+        onNodeWithText("Edit…").performClick()
+        onNodeWithTag("edit-source").performTextReplacement("load x\nstop\nx: 7\n")
+        onNodeWithText("Save & Assemble").performClick()
+        waitForIdle()
+        onNodeWithText("Edit assembly").assertDoesNotExist()
+        assertEquals(null, vm.asmDraft)
+        assertEquals(7, vm.machine!!.mem[3])
+    }
+
+    @Test
+    fun saveAndCompileBuildsAtOnceAndAFailureKeepsTheText() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toyc", cSrc) }
+        show(vm)
+        onNodeWithTag("menu-C").performClick()
+        onNodeWithText("Edit…").performClick()
+        onNodeWithTag("edit-source").performTextReplacement("int main(void){return 7;}\n")
+        onNodeWithText("Save & Compile").performClick()
+        waitForIdle()
+        assertEquals("int main(void){return 7;}\n", vm.cText)
+        assertEquals(null, vm.cDraft)
+
+        onNodeWithTag("menu-C").performClick()
+        onNodeWithText("Edit…").performClick()
+        onNodeWithTag("edit-source").performTextReplacement("not c\n")
+        onNodeWithText("Save & Compile").performClick()
+        waitForIdle()
+        onNodeWithText("OK").assertExists()
+        assertEquals("not c\n", vm.cDraft)
+    }
+
+    @Test
+    fun saveAndAssembleOfACProgramStillAsksAboutTheCColumn() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toyc", cSrc) }
+        show(vm)
+        onNodeWithTag("menu-Assembly").performClick()
+        onNodeWithText("Edit…").performClick()
+        onNodeWithTag("edit-source").performTextReplacement("stop\n")
+        onNodeWithText("Save & Assemble").performClick()
+        waitForIdle()
+        onNodeWithText("Assemble?").assertExists()
+        assertTrue(vm.hasCSource, "nothing happens before the answer")
     }
 
     @Test
@@ -549,65 +868,5 @@ class SimulatorScreenUiTest {
         waitForIdle()
         onNodeWithText("fibonacci_iter").assertExists().assertIsSelected()
         onNodeWithText("02-extended").assertExists()               // Assembly still open
-    }
-
-    @Test
-    fun invalidOpcodeAskDialogAndStopStatus() = runComposeUiTest {
-        val vm = SimViewModel().apply { loadFromFile("bad.toys", "load x\n3\nadd x\nstop\nx: 21\n") }
-        show(vm)
-        menu("Execution", "Always ask")
-        onNodeWithText("Step").performClick()
-        onNodeWithText("Step").performClick()
-        waitForIdle()
-        onNodeWithText("Invalid opcode").assertExists()
-        onNodeWithText("Remember this decision").performClick()
-        onNodeWithText("Stop").performClick()
-        waitForIdle()
-        assertEquals(InvalidOpcodeMode.STOP, vm.invalidOpcodeMode)
-        // in the status line (no extra error dialog: the user chose Stop)
-        onAllNodesWithText("Error in step 2: invalid opcode 3 at address 2.", substring = true).assertCountEquals(1)
-    }
-
-    @Test
-    fun askDuringRunPausesAndNopResumes() = runComposeUiTest {
-        val vm = SimViewModel().apply { loadFromFile("bad.toys", "load x\n3\nadd x\nstop\nx: 21\n") }
-        vm.invalidOpcodeMode = InvalidOpcodeMode.ASK
-        vm.stepsPerSecond = 1000.0
-        show(vm)
-        onNodeWithText("Run").performClick()
-        waitUntil(timeoutMillis = 5000) { vm.invalidOpcodeQuestion != null }
-        assertFalse(vm.running, "paused for the question")
-        onNodeWithText("NOP").performClick()
-        waitUntil(timeoutMillis = 5000) { vm.machine!!.stopped }
-        assertEquals(42, vm.machine!!.acc)
-        assertEquals(4, vm.machine!!.stepCount)
-        onNodeWithText("Invalid opcode").assertDoesNotExist()
-    }
-
-    @Test
-    fun choosingStopInTheQuestionShowsNoSecondDialog() = runComposeUiTest {
-        val vm = SimViewModel().apply { loadFromFile("bad.toys", "load x\n3\nadd x\nstop\nx: 21\n") }
-        vm.invalidOpcodeMode = InvalidOpcodeMode.ASK
-        show(vm)
-        onNodeWithText("Step").performClick()
-        onNodeWithText("Step").performClick()
-        onNodeWithText("Stop").performClick()
-        waitForIdle()
-        // only the status line, no error dialog on top
-        onAllNodesWithText("Error in step 2", substring = true).assertCountEquals(1)
-    }
-
-    @Test
-    fun stopModeShowsTheErrorDialogAndExplainsIt() = runComposeUiTest {
-        val vm = SimViewModel().apply { loadFromFile("bad.toys", "load x\n3\nadd x\nstop\nx: 21\n") }
-        vm.invalidOpcodeMode = InvalidOpcodeMode.STOP
-        show(vm)
-        onNodeWithText("Step").performClick()
-        waitForIdle()
-        onNodeWithText("invalid: stops", substring = true).assertExists()   // EXPLAIN before the bad byte
-        onNodeWithText("Step").performClick()
-        waitForIdle()
-        // status line + error dialog
-        onAllNodesWithText("Error in step 2: invalid opcode 3 at address 2.", substring = true).assertCountEquals(2)
     }
 }

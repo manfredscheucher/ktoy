@@ -54,7 +54,7 @@ b:      20
 
 ## The app
 
-A menu bar (File / View / Help) over an adaptive 1–3 column view: memory only for
+A menu bar (File / C / Assembly / Bytecode / View / Help) over an adaptive 1–3 column view: memory only for
 bytecode (`.toyo`), assembly + memory for `.toys`, and C + assembly + memory for a
 C program. The columns sit side by side when the window is wide and stack when
 it's narrow (View → Layout to force portrait/landscape).
@@ -65,12 +65,13 @@ it's narrow (View → Layout to force portrait/landscape).
 
 A click in any column highlights the same statement across the others. Controls:
 Reset, Undo, Step, and Run at an adjustable speed (steps/sec). Right-click a cell or
-line (long-press on touch) and choose Edit… to change it. File → Load/Save a program,
+line (long-press on touch) and choose Edit… or Edit line… to change it. File → Load/Save a program,
 Examples browses the built-ins by folder, Help shows the instruction set.
 
 ## The code
 
-One `composeApp` module. The CPU logic is a byte-for-byte port of pytoy and
+The shared code is the `composeApp` module (`androidApp` packages it for
+Android). The CPU logic is a byte-for-byte port of pytoy and
 lives in `commonMain`:
 
 - `core/ToyCpu.kt` — the CPU core (opcodes, decode/execute). The single source of
@@ -83,6 +84,7 @@ lives in `commonMain`:
 - `core/ExampleSources.kt` — the bundled example programs, **generated** from
   pytoy's `examples/` by `scripts/gen_example_sources.py` (pytoy is the single
   source of truth for the examples).
+- `jvmMain/.../MiniSim.kt` — [minisim](#minisim), a tiny standalone simulator.
 
 ## Build & run
 
@@ -90,8 +92,8 @@ Needs the `kotlin-common` git submodule (used for the shared logger):
 
 ```bash
 git submodule update --init --recursive
-./gradlew :composeApp:assembleDebug        # build the debug APK
-./gradlew :composeApp:testDebugUnitTest    # run the tests
+./gradlew :androidApp:assembleDebug        # build the debug APK
+./gradlew :composeApp:jvmTest              # run the tests
 ```
 
 Run scripts per platform (see [`doc/platforms.md`](doc/platforms.md) for details):
@@ -101,6 +103,7 @@ Run scripts per platform (see [`doc/platforms.md`](doc/platforms.md) for details
 ./scripts/runWeb.sh               # web dev-server (http://localhost:8604)
 ./scripts/runAndroidEmulator.sh   # Android emulator
 ./scripts/runIosSimulator.sh      # iOS Simulator (macOS + Xcode)
+./scripts/runMiniSim.sh program.txt -v   # minisim in the terminal
 ./scripts/deployPages.sh          # build the web bundle -> gh-pages branch
 ```
 
@@ -115,12 +118,13 @@ Machine-local scripts for installing on a specific device live in
 
 `MiniSim.kt` is a tiny standalone simulator: it reads a bytecode file (Save ->
 Bytecode: one integer per line), runs it to STOP and prints every step, with `-v`
-also a memory dump. No I/O.
+also a memory dump. No I/O. Same program as pytoy's `minisim.py`.
 
 ```bash
-kotlinc composeApp/src/jvmMain/kotlin/org/bytefred/ktoy/MiniSim.kt -include-runtime -d build/minisim.jar
-java -jar build/minisim.jar program.txt -v
+./scripts/runMiniSim.sh program.txt -v
 ```
+
+The script needs `kotlinc` and compiles on every run.
 
 ## Documentation
 

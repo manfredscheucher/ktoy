@@ -22,8 +22,12 @@ actual fun rememberFileLoader(onLoaded: (name: String, text: String, path: Strin
     }
     if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
         val f = chooser.selectedFile
-        // full name incl. extension — the VM infers the program kind from it
-        onLoaded(f.name, f.readText(), f.path)
+        try {
+            // full name incl. extension — the VM infers the program kind from it
+            onLoaded(f.name, f.readText(), f.path)
+        } catch (e: IOException) {
+            JOptionPane.showMessageDialog(null, "Could not read ${f.name}: ${e.message}", "Load", JOptionPane.ERROR_MESSAGE)
+        }
     }
 }
 

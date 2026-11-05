@@ -71,7 +71,7 @@ class MiniSimTest {
 
     @Test
     fun loadRejectsBadFiles() {
-        for (bad in listOf("1\n".repeat(257), "256\n", "-1\n", "abc\n"))
+        for (bad in listOf("1\n".repeat(257), "256\n", "-1\n", "abc\n", "20 6\n"))
             assertFailsWith<IllegalArgumentException>(bad) { miniSimLoad(bad) }
     }
 

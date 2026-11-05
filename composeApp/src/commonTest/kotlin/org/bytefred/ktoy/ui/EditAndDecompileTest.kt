@@ -1,5 +1,7 @@
 package org.bytefred.ktoy.ui
 
+import org.bytefred.ktoy.core.EXAMPLES
+import org.bytefred.ktoy.core.ExampleKind
 import org.bytefred.ktoy.ui.SimViewModel.BuildAction
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -140,5 +142,18 @@ class EditAndDecompileTest {
         val vm = asmVm()
         vm.saveAsmDraft("stop\n")
         assertEquals("stop\n", vm.exportText(".toys"))
+    }
+
+    /** Edit line relies on it: a listing row is its line of the assembly source. */
+    @Test
+    fun everyListingRowIsItsSourceLine() {
+        for (ex in EXAMPLES) {
+            if (ex.kind == ExampleKind.TOYO) continue
+            val vm = SimViewModel().apply { load(ex) }
+            val lines = vm.asmText!!.split("\n")
+            vm.listing.forEachIndexed { i, row ->
+                assertEquals(lines[i].trimEnd(), row.orig.trimEnd(), "${ex.name} row $i")
+            }
+        }
     }
 }

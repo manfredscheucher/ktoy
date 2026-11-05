@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,7 +41,6 @@ import org.bytefred.ktoy.core.decode
 import org.bytefred.ktoy.core.describe
 import org.bytefred.ktoy.core.formatByte
 import org.bytefred.ktoy.core.IoFormat
-import org.bytefred.ktoy.core.VALID_OPCODES
 
 /**
  * The simulator/debugger screen with an adaptive 1/2/3-column layout driven by
@@ -63,6 +63,9 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     // long-press menu, or C / Assembly -> Edit…)
     var editCOpen by remember { mutableStateOf(false) }
     var editAsmOpen by remember { mutableStateOf(false) }
+    var editBytecodeOpen by remember { mutableStateOf(false) }
+    var editCLine by remember { mutableStateOf<Int?>(null) }     // 0-based
+    var editAsmLine by remember { mutableStateOf<Int?>(null) }   // 0-based
 
     // current instruction (for PC / argument highlighting)
     val dec = decode(m.mem, m.pc)
@@ -96,6 +99,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
                 onBrowseExamples = onLoad,
                 onEditC = { editCOpen = true },
                 onEditAsm = { editAsmOpen = true },
+                onEditBytecode = { editBytecodeOpen = true },
                 onEditCell = { vm.memSelectedAddr?.let { editTarget = it } },
             )
             // The title must never push the menu off-screen or wrap the bar: cap
@@ -143,18 +147,18 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             }
             val pcCLine = vm.pcCLine()
             val cCol: @Composable (Modifier) -> Unit = { mod ->
-                CSourcePanel(vm, sel.cLines, changedCLines, pcCLine, { editCOpen = true }, mod)
+                CSourcePanel(vm, sel.cLines, changedCLines, pcCLine, { editCOpen = true }, { editCLine = it }, mod)
             }
             val src: @Composable (Modifier) -> Unit = { mod ->
                 LabeledPanel(if (vm.asmDraft != null) "Assembly (modified)" else "Assembly", mod) {
-                    SourcePanel(vm, pcBytes, dec.argAddr, sel.asmRows, changedRows, { editAsmOpen = true }, Modifier.fillMaxSize())
+                    SourcePanel(vm, pcBytes, dec.argAddr, sel.asmRows, changedRows, { editAsmOpen = true }, { editAsmLine = it }, Modifier.fillMaxSize())
                 }
             }
             val mem: @Composable (Modifier) -> Unit = { mod ->
                 LabeledPanel("CPU & memory", mod) {
                     Column(Modifier.fillMaxSize()) {
                         StatusBlock(vm, symOf)
-                        MemoryPanel(vm, pcBytes, dec.argAddr, sel.addrs, { editTarget = it }, Modifier.fillMaxSize())
+                        MemoryPanel(vm, pcBytes, dec.argAddr, sel.addrs, { editBytecodeOpen = true }, { editTarget = it }, Modifier.fillMaxSize())
                     }
                 }
             }
@@ -203,7 +207,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             }
         }
 
-        Controls(vm, onLoad = onLoad)
+        Controls(vm)
     }
 
     editTarget?.let { addr ->
@@ -216,24 +220,52 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     }
 
     // Edit dialogs (the column's context menu, or C / Assembly -> Edit…). Save only
-    // stores the text as a draft; C -> Compile / Assembly -> Assemble builds it.
+    // stores the text as a draft; Save & Compile / Save & Assemble also builds it.
     if (editCOpen) {
         EditSourceDialog(
             title = "Edit C source",
-            label = "C source (C → Compile builds it)",
+            label = "C source",
             initial = vm.cDraft ?: vm.cText ?: "",
+            buildLabel = "Compile",
             onSave = vm::saveCDraft,
+            onBuild = { vm.request(SimViewModel.BuildAction.Compile()) },
             onDismiss = { editCOpen = false },
         )
     }
     if (editAsmOpen) {
         EditSourceDialog(
             title = "Edit assembly",
-            label = if (vm.hasCSource) "Assembly (Assemble builds it; the C column then goes away)"
-            else "Assembly (Assembly → Assemble builds it)",
+            label = "Assembly",
             initial = vm.asmDraft ?: vm.asmText ?: "",
+            buildLabel = "Assemble",
             onSave = vm::saveAsmDraft,
+            onBuild = { vm.request(SimViewModel.BuildAction.Assemble) },
             onDismiss = { editAsmOpen = false },
+        )
+    }
+    if (editBytecodeOpen) {
+        EditSourceDialog(
+            title = "Edit bytecode",
+            label = "Bytecode",
+            initial = m.mem.joinToString("\n"),
+            firstLineNumber = 0,   // the number is the address
+            check = vm::bytecodeError,
+            onSave = vm::saveBytecode,
+            onDismiss = { editBytecodeOpen = false },
+        )
+    }
+    editCLine?.let { line ->
+        EditLineDialog(
+            line, vm.cDraft ?: vm.cText ?: "", "C source", "Compile", vm::saveCDraft,
+            onBuild = { vm.request(SimViewModel.BuildAction.Compile()) },
+            onDismiss = { editCLine = null },
+        )
+    }
+    editAsmLine?.let { line ->
+        EditLineDialog(
+            line, vm.asmDraft ?: vm.asmText ?: "", "Assembly", "Assemble", vm::saveAsmDraft,
+            onBuild = { vm.request(SimViewModel.BuildAction.Assemble) },
+            onDismiss = { editAsmLine = null },
         )
     }
 
@@ -249,14 +281,6 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
         ErrorDialog(message = msg, onDismiss = { vm.clearError() })
     }
 
-    // Execution -> Invalid opcode: the Stop halt as a dialog, and the question
-    // in "Always ask" mode
-    vm.runError?.let { msg ->
-        ErrorDialog(message = msg, onDismiss = { vm.clearRunError() }, title = "Invalid opcode")
-    }
-    vm.invalidOpcodeQuestion?.let { addr ->
-        InvalidOpcodeDialog(addr, m.mem[addr], vm::answerInvalidOpcode)
-    }
 }
 
 /** A bordered box with a small title label, used to visually separate and name
@@ -289,19 +313,37 @@ private fun LabeledPanel(
     }
 }
 
+/** Edits one line (0-based) of [source]; [onSave] gets the whole text back. */
+@Composable
+private fun EditLineDialog(
+    line: Int,
+    source: String,
+    label: String,
+    buildLabel: String,
+    onSave: (String) -> Unit,
+    onBuild: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val lines = source.split("\n")
+    EditSourceDialog(
+        title = "Edit line ${line + 1}",
+        label = label,
+        initial = lines.getOrElse(line) { "" },
+        buildLabel = buildLabel,
+        singleLine = true,
+        onSave = { new -> onSave(lines.mapIndexed { i, l -> if (i == line) new else l }.joinToString("\n")) },
+        onBuild = onBuild,
+        onDismiss = onDismiss,
+    )
+}
+
 @Composable
 private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
     @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose on every machine change
     val m = vm.machine ?: return
     val dec = decode(m.mem, m.pc)
-    // describe() calls an unknown byte "treated as NOP"; with Execution ->
-    // Invalid opcode on Stop / Always ask that is not what happens
-    val desc = if (dec.instr !in VALID_OPCODES && vm.invalidOpcodeMode != InvalidOpcodeMode.NOP)
-        "?? (opcode=${dec.instr}, invalid: " +
-            (if (vm.invalidOpcodeMode == InvalidOpcodeMode.STOP) "stops" else "asks") + ")"
-    else describe(dec.instr, dec.argAddr, symOf, m.mem)
+    val desc = describe(dec.instr, dec.argAddr, symOf, m.mem)
     val header = when {
-        m.error != null -> "Error in step ${m.stepCount}: ${m.error}."
         m.stopped -> "Stopped after ${m.stepCount} steps."
         else -> "Step #${m.stepCount}:"
     }
@@ -333,13 +375,14 @@ private fun SourcePanel(
     selAsmRows: Set<Int>,
     changedRows: Set<Int>,
     onEdit: () -> Unit,
+    onEditLine: (Int) -> Unit,
     modifier: Modifier,
 ) {
     val m = vm.machine ?: return
     val menu = rememberEditMenu()
     val gestures = LocalEditGestures.current
     vm.asmDraft?.let { draft ->
-        AsmDraftPanel(draft, vm.showLineNumbers, menu, gestures, onEdit, modifier)
+        AsmDraftPanel(draft, vm.showLineNumbers, menu, gestures, onEdit, onEditLine, modifier)
         return
     }
     // addr -> listing line index, for PC/arg line highlighting
@@ -404,8 +447,9 @@ private fun SourcePanel(
             }
             // tapping a source line selects its address (resolves across all
             // columns via the VM's shared selection), like pytoy's _source_clicked;
-            // right-click / long-press opens the Edit… menu
-            val rowMod = Modifier.editableRow(menu, gestures, line.addr, { line.addr?.let { vm.select(it) } }, onEdit)
+            // right-click / long-press opens the edit menu. A listing row is its
+            // line of the assembly source.
+            val rowMod = Modifier.editableRow(menu, gestures, i to line.addr, { line.addr?.let { vm.select(it) } }, onEdit) { onEditLine(i) }
             HighlightRow(gutter + text, colours, rowMod)
         }
       }
@@ -424,6 +468,7 @@ private fun AsmDraftPanel(
     menu: EditMenuState,
     gestures: EditGestures,
     onEdit: () -> Unit,
+    onEditLine: (Int) -> Unit,
     modifier: Modifier,
 ) {
     val lines = draft.split("\n")
@@ -441,7 +486,7 @@ private fun AsmDraftPanel(
             HighlightRow(
                 gutter + "   " + line,
                 emptyList(),
-                Modifier.editableRow(menu, gestures, i, onTap = null, onEdit),
+                Modifier.editableRow(menu, gestures, i, onTap = null, onEdit) { onEditLine(i) },
             )
         }
       }
@@ -455,7 +500,8 @@ private fun MemoryPanel(
     pcBytes: Set<Int>,
     argAddr: Int?,
     selAddrs: Set<Int>,
-    onEdit: (Int) -> Unit,
+    onEdit: () -> Unit,
+    onEditLine: (Int) -> Unit,
     modifier: Modifier,
 ) {
     val m = vm.machine ?: return
@@ -509,11 +555,11 @@ private fun MemoryPanel(
             val colours = memoryCellColours(a, selAddrs, pcBytes, argAddr, m.changedCell, m.stopped)
             // untouched, non-program bytes are shown greyed out
             val textColor = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)
-            // tap selects the cell; right-click / long-press opens the Edit… menu
+            // tap selects the cell; right-click / long-press opens the edit menu
             Box(
-                Modifier.fillMaxWidth().editableRow(menu, gestures, a, { vm.select(a, fromMemory = true) }) {
+                Modifier.fillMaxWidth().editableRow(menu, gestures, a, { vm.select(a, fromMemory = true) }, onEdit) {
                     vm.select(a, fromMemory = true)
-                    onEdit(a)
+                    onEditLine(a)
                 }
             ) {
                 HighlightRow(text, colours, textColor = textColor)
@@ -541,6 +587,7 @@ private fun CSourcePanel(
     changedCLines: Set<Int>,
     pcCLine: Int?,
     onEditC: () -> Unit,
+    onEditLine: (Int) -> Unit,
     modifier: Modifier,
 ) {
     // an uncompiled draft is shown as plain text: the C <-> asm maps belong to
@@ -588,7 +635,7 @@ private fun CSourcePanel(
                 HighlightRow(
                     gutter + line,
                     colours,
-                    Modifier.editableRow(menu, gestures, cLine to draft, { if (draft == null) vm.selectCLine(cLine) }, onEditC),
+                    Modifier.editableRow(menu, gestures, cLine to draft, { if (draft == null) vm.selectCLine(cLine) }, onEditC) { onEditLine(cLine - 1) },
                 )
             }
           }
@@ -618,35 +665,33 @@ private fun scrollToLine(state: androidx.compose.foundation.ScrollState, lineInd
 
 /**
  * The bottom controls bar:
- *   Load · Examples · Reload — GAP — Reset · Undo · Step · Run · steps/sec
- * Load opens the platform file picker, Examples opens the bundled example list
- * ([onLoad]), Reload re-runs the last file (both ask first about unsaved edits).
- * A cell is edited via its right-click / long-press menu or Bytecode -> Edit cell….
+ *   Reload — GAP — Reset · Undo · Step · Run · steps/sec
+ * Reload (desktop only) re-runs the last file, asking first about unsaved edits.
+ * Load and Examples are in the File menu.
+ * A cell is edited via its right-click / long-press menu or Bytecode -> Edit line….
  */
 @Composable
-private fun Controls(vm: SimViewModel, onLoad: () -> Unit) {
+private fun Controls(vm: SimViewModel) {
     @Suppress("UNUSED_VARIABLE") val t = vm.tick  // recompose when canUndo/stopped change
     val m = vm.machine
-    val loadFromDisk = rememberFileLoader { name, text, path -> vm.loadFromFile(name, text, path) }
 
     BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-        val oneRowMin = if (fileReloadSupported) CONTROLS_ONE_ROW_MIN_RELOAD else CONTROLS_ONE_ROW_MIN
         // narrow screens (phones) get two rows of compact, low controls so the
         // panels keep as much height as possible
-        val compact = maxWidth < oneRowMin
+        val compact = maxWidth < CONTROLS_ONE_ROW_MIN
 
-        // Load Examples Reload | Reset Undo Step Run steps/sec
+        // Reload | Reset Undo Step Run steps/sec
         val fileGroup: @Composable () -> Unit = {
-            if (fileLoadSupported) CtlButton("Load", compact) { vm.leave(loadFromDisk) }
-            CtlButton("Examples", compact, onClick = onLoad)
             if (fileReloadSupported) {
                 CtlButton("Reload", compact, enabled = vm.canReload) { vm.leave { vm.reload() } }
             }
         }
-        val runGroup: @Composable () -> Unit = {
+        val stepGroup: @Composable () -> Unit = {
             CtlButton("Reset", compact, enabled = m?.canUndo == true) { vm.reset() }
             CtlButton("Undo", compact, enabled = m?.canUndo == true) { vm.stepBack() }
             CtlButton("Step", compact, filled = true, enabled = m?.stopped == false && !vm.running) { vm.step() }
+        }
+        val runGroup: @Composable () -> Unit = {
             CtlButton(if (vm.running) "Stop" else "Run", compact, filled = true, enabled = m?.stopped == false) {
                 vm.toggleRun()
             }
@@ -656,37 +701,33 @@ private fun Controls(vm: SimViewModel, onLoad: () -> Unit) {
         val gap = Arrangement.spacedBy(if (compact) 4.dp else 6.dp)
 
         if (!compact) {
-            // wide: one row, the run group in the middle
+            // wide: one row, the run controls in the middle
             Row(Modifier.fillMaxWidth(), verticalAlignment = center, horizontalArrangement = gap) {
                 fileGroup()
                 Box(Modifier.weight(1f))
+                stepGroup()
                 runGroup()
                 Box(Modifier.weight(1f))
             }
         } else {
-            // narrow: two rows so nothing is squeezed or cut off. Row 1: file
-            // group; row 2: run controls, scrollable if they still don't fit.
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = center, horizontalArrangement = gap) {
-                    fileGroup()
-                }
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    verticalAlignment = center,
-                    horizontalArrangement = gap,
-                ) {
-                    runGroup()
+            // narrow: the groups wrap as needed, compact so the panels keep their height
+            FlowRow(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = gap,
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                for (group in listOf(fileGroup, stepGroup, runGroup)) {
+                    Row(Modifier.horizontalScroll(rememberScrollState()), verticalAlignment = center, horizontalArrangement = gap) {
+                        group()
+                    }
                 }
             }
         }
     }
 }
 
-// Below this width the bottom bar splits into two compact rows. The one-row bar
-// needs about 950 dp of content (Material3 button min widths + the 96 dp
-// steps/sec field), plus ~100 dp more when Reload is shown (desktop).
-private val CONTROLS_ONE_ROW_MIN = 1000.dp
-private val CONTROLS_ONE_ROW_MIN_RELOAD = 1100.dp
+// Below this width the bottom bar turns compact and wraps.
+private val CONTROLS_ONE_ROW_MIN = 800.dp
 
 // Height of a compact (phone) control, instead of Material3's 40 dp buttons and
 // the 56 dp text field.

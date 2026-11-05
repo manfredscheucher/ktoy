@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.round
 
 /**
- * How a panel's context menu (a single "Edit…" item) opens: a right-click
+ * How a panel's context menu ("Edit…" and "Edit line…") opens: a right-click
  * and/or a long-press. Right-click on desktop and the web, long-press on
  * touch (Android, iOS) and also on the web.
  */
@@ -33,15 +33,17 @@ expect val platformEditGestures: EditGestures
 /** The gestures in use; tests can switch on the other platforms' ones. */
 val LocalEditGestures = staticCompositionLocalOf { platformEditGestures }
 
-/** One panel's context menu: where it is open and what its Edit… does. */
+/** One panel's context menu: where it is open and what its items do. */
 class EditMenuState {
     // the last press in the panel, in the panel's coordinates: the menu opens there
     internal var lastPress = Offset.Zero
     internal var openAt by mutableStateOf<Offset?>(null)
     private var onEdit: () -> Unit = {}
+    private var onEditLine: () -> Unit = {}
 
-    fun open(edit: () -> Unit) {
+    fun open(edit: () -> Unit, editLine: () -> Unit) {
         onEdit = edit
+        onEditLine = editLine
         openAt = lastPress
     }
 
@@ -49,12 +51,17 @@ class EditMenuState {
         openAt = null
         onEdit()
     }
+
+    internal fun editLine() {
+        openAt = null
+        onEditLine()
+    }
 }
 
 @Composable
 fun rememberEditMenu() = remember { EditMenuState() }
 
-/** A panel area whose rows ([editableRow]) can open the "Edit…" menu at the pointer. */
+/** A panel area whose rows ([editableRow]) can open the edit menu at the pointer. */
 @Composable
 fun EditMenuBox(state: EditMenuState, modifier: Modifier, content: @Composable () -> Unit) {
     Box(modifier.pointerInput(state) {
@@ -75,6 +82,11 @@ fun EditMenuBox(state: EditMenuState, modifier: Modifier, content: @Composable (
                         onClick = state::edit,
                         modifier = Modifier.testTag("context-edit"),
                     )
+                    DropdownMenuItem(
+                        text = { Text("Edit line…") },
+                        onClick = state::editLine,
+                        modifier = Modifier.testTag("context-edit-line"),
+                    )
                 }
             }
         }
@@ -83,7 +95,7 @@ fun EditMenuBox(state: EditMenuState, modifier: Modifier, content: @Composable (
 
 /**
  * A row's pointer handling: a tap runs [onTap]; a right-click or long-press
- * (as [gestures] allow) opens [menu] with [onEdit]. A right-click is taken
+ * (as [gestures] allow) opens [menu] with [onEdit] and [onEditLine]. A right-click is taken
  * before the tap detector sees it, so it does not also select the row.
  */
 fun Modifier.editableRow(
@@ -92,6 +104,7 @@ fun Modifier.editableRow(
     key: Any?,
     onTap: (() -> Unit)?,
     onEdit: () -> Unit,
+    onEditLine: () -> Unit,
 ): Modifier = this
     .pointerInput(key, gestures) {
         if (!gestures.rightClick) return@pointerInput
@@ -100,7 +113,7 @@ fun Modifier.editableRow(
                 val e = awaitPointerEvent(PointerEventPass.Initial)
                 if (e.type == PointerEventType.Press && e.buttons.isSecondaryPressed) {
                     e.changes.forEach { it.consume() }
-                    menu.open(onEdit)
+                    menu.open(onEdit, onEditLine)
                 }
             }
         }
@@ -108,6 +121,6 @@ fun Modifier.editableRow(
     .pointerInput(key, gestures) {
         detectTapGestures(
             onTap = onTap?.let { tap -> { tap() } },
-            onLongPress = if (gestures.longPress) { _ -> menu.open(onEdit) } else null,
+            onLongPress = if (gestures.longPress) { _ -> menu.open(onEdit, onEditLine) } else null,
         )
     }

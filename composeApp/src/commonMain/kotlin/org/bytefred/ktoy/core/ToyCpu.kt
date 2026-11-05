@@ -11,7 +11,7 @@ package org.bytefred.ktoy.core
 
 // ── Instruction set ─────────────────────────────────────────────────────────
 
-/** mnemonic -> opcode number. */
+/** mnemonic -> opcode number. Any other byte runs as a NOP, like Jim Hall's toycpu. */
 val OPCODES: Map<String, Int> = mapOf(
     "stop" to 0, "right" to 1, "left" to 2, "not" to 15,
     "and" to 17, "or" to 18, "xor" to 19,
@@ -23,13 +23,6 @@ val OPCODES: Map<String, Int> = mapOf(
 const val FETCH = 0x10
 
 fun hasOperand(op: Int): Boolean = (op and FETCH) != 0
-
-/**
- * The 14 real opcodes. Any other byte is an invalid opcode, which the CPU runs
- * as a NOP (like Jim Hall's toycpu); ktoy can stop or ask instead (Execution ->
- * Invalid opcode).
- */
-val VALID_OPCODES: Set<Int> = OPCODES.values.toSet()
 
 // ── Value parser ────────────────────────────────────────────────────────────
 
@@ -177,8 +170,7 @@ fun referenceText(): String {
     }
     lines += listOf(
         "",
-        "Any opcode not listed behaves like nop (like toycpu); Execution ->",
-        "Invalid opcode can make it stop or ask instead.",
+        "Any opcode not listed behaves like nop (like toycpu).",
         "Arithmetic wraps modulo 256. ifzero is the only conditional.",
         "",
         "KEYBOARD SHORTCUTS",

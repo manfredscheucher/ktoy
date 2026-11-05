@@ -992,8 +992,14 @@ listing and symbols are not wanted. Decisions (same in pytoy):
   all-zero program is an empty file). No comments are written. Extension stays
   `.toyo`.
 - Loading tells the formats apart by content: only single integers (`#` comments
-  allowed) is bytecode, anything else is the old byte listing. Too many lines or
-  a value above 255 is a load error.
+  allowed) is bytecode, anything else is the old byte listing. Too many lines, a
+  value above 255, or text that is neither format is a load error and keeps the
+  program. An empty or comment-only file is an all-zero program. `minisim` is just
+  as strict: one integer per line.
+- Hand edits to the I/O cells (240..255) are not part of the saved program. Values
+  a loaded file has there are.
+- After a bytecode save, Undo of a saved edit counts as unsaved: the file still
+  holds it. Reset never asks.
 - `run.py asm` and the bundled `examples/toyo` stay byte listings: the example
   check reads their `# result` and `# steps` comments.
 - pytoy's Save now writes the program as built plus hand edits, like ktoy.
@@ -1003,3 +1009,30 @@ reads such a bytecode file and runs it. One line per step, state before the step
 `step=1 acc=0 pc=0 op=20`. `-v` adds a memory dump under each line,
 `x_000...x_015:` and 16 cells, width 3. The end prints `stopped after N steps,
 acc=A`. No I/O (cells 240..255 are plain memory) and no step limit.
+
+## 27. 2026-11-05: Simpler: no invalid-opcode modes, fewer buttons
+
+Manfred: keep the code simple.
+
+- An invalid opcode does nothing, like toycpu. The **Execution** menu, its Stop /
+  Always ask modes and their dialog are gone (replaces §21's menu). A two-byte
+  invalid opcode is still a two-byte NOP.
+- The bottom bar no longer has **Load** and **Examples**: both are in the File
+  menu. Reload stays on the desktop (replaces the bar in §23).
+- The edit dialogs have **Save** and **Save & Compile** / **Save & Assemble**
+  instead of a hint in the field label. Building still asks first if it would
+  lose something, and a failed build keeps the text as a draft.
+- The context menu on C and assembly rows offers **Edit…** (whole text) and **Edit
+  line…**: just that row's line, with Cancel / Save / Save & Compile (Assemble).
+- Bytecode rows and the Bytecode menu offer the same two items, with only Cancel /
+  Save, and take effect at once. **Edit…** shows all 256 cells as decimal integers,
+  one per line. Each line may also be binary (`b1010`) or hex (`0x1f`); files stay
+  plain integers. Missing lines at the end count as 0; more than 256 lines or a bad
+  value shows an error in the dialog and changes nothing. It is one Undo step.
+- On a narrow window the bottom bar wraps as needed: Reset, Undo and Step stay
+  together, Run and steps/sec stay together, and all fit on one line if there is room.
+- The whole-text edit dialogs show line numbers in front of the lines (not part of
+  the text): from 1 for C and assembly, from 0 for bytecode, where the number is
+  the address.
+- `invalid_opcode.toyo` is gone: such a byte is just a NOP, nothing special to show.
+  The bytecode examples are fibonacci, multiply_repeated (6 * 7 by addition) and sum3.

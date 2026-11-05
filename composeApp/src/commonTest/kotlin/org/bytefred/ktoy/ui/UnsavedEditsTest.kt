@@ -290,6 +290,30 @@ class UnsavedEditsTest {
     }
 
     @Test
+    fun undoAfterABytecodeSaveIsUnsavedAndResetIsNot() {
+        val vm = asmVm()
+        vm.editCell(3, 9)
+        vm.beginSave(".toyo")
+        vm.fileSaved("prog.toyo")
+        assertFalse(vm.unsavedEdits)
+        vm.stepBack()
+        assertEquals(listOf(".toyo"), vm.unsavedFormats(), "the file still holds the edit")
+        vm.editCell(3, 9)
+        assertFalse(vm.unsavedEdits, "the same edit again matches the file")
+        vm.reset()
+        assertFalse(vm.unsavedEdits, "Reset never asks")
+    }
+
+    @Test
+    fun aGarbageBytecodeFileIsAnError() {
+        val vm = SimViewModel()
+        vm.loadFromFile("p.toyo", "20\n6\n")
+        vm.loadFromFile("q.toyo", "20 6\n")
+        assertNotNull(vm.errorMessage)
+        assertEquals("p.toyo", vm.title)
+    }
+
+    @Test
     fun bytecodeFileIsOnlyTheValuesUpToTheLastNonZeroCell() {
         val vm = SimViewModel()
         vm.loadFromFile("p.toyo", "20\n6\n0\n0\n")

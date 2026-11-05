@@ -79,8 +79,46 @@ class ReferenceAndExportTest {
     }
 
     @Test
-    fun badBytecodeFilesAreRejected() {
-        for (bad in listOf("1\n".repeat(257), "300\n", "99999999999\n"))
-            assertFailsWith<IllegalArgumentException>(bad) { parseToyo(bad) }
+    fun emptyOrCommentOnlyFileIsAllZero() {
+        assertContentEquals(IntArray(256), parseToyo(""))
+        assertContentEquals(IntArray(256), parseToyo("# nothing here\n\n"))
     }
+
+    @Test
+    fun badBytecodeFilesAreRejected() {
+        for (bad in listOf(
+            "1\n".repeat(257), "300\n", "99999999999\n", "-1\n", "20\nabc\n", "0x14\n", "20 6\n", "\uFEFF20\n",
+        )) assertFailsWith<IllegalArgumentException>(bad) { parseToyo(bad) }
+    }
+}
+
+/**
+ * A byte listing (bytes, source + a symbol table), as pytoy's assembler.export()
+ * writes it. Save writes bytecode only; this is here to test reading listings.
+ */
+internal fun exportToyo(listing: List<ListingLine>, syms: Map<String, Int>): String {
+    val out = mutableListOf(
+        "# Toy CPU – compiled listing", "#",
+        "# " + "ADDR".padStart(4) + "  " + "BYTES".padEnd(22) + "  SOURCE",
+        "# " + "─".repeat(56),
+    )
+    for (line in listing) {
+        val addr = line.addr
+        if (addr == null) {
+            out.add("#        " + "".padEnd(22) + "  " + line.orig.trimEnd())
+        } else {
+            val bs = line.bytes.joinToString("  ") {
+                it.toString(2).padStart(8, '0')
+            }
+            out.add("  " + addr.toString().padStart(4) + "   " +
+                    bs.padEnd(22) + "  " + line.orig.trimEnd())
+        }
+    }
+    out.add("")
+    out.add("# SYMBOLS")
+    for ((name, addr) in syms.entries.sortedBy { it.value }) {
+        out.add("#   " + name.padEnd(15) + " = " + addr.toString().padStart(3) +
+                "  (" + addr.toString(2).padStart(8, '0') + ")")
+    }
+    return out.joinToString("\n") + "\n"
 }

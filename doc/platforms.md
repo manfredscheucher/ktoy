@@ -30,7 +30,7 @@ git submodule update --init --recursive        # kotlin-common (shared logger)
 ./gradlew :composeApp:compileKotlinJs                    # Web
 ./gradlew :composeApp:compileKotlinIosSimulatorArm64     # iOS (slow, K/Native)
 
-./gradlew :composeApp:assembleDebug        # Android debug APK
+./gradlew :androidApp:assembleDebug        # Android debug APK
 ```
 
 ## Run
@@ -62,7 +62,6 @@ OpenYarnStash template:
 
 ```bash
 ./gradlew :composeApp:jvmTest              # commonTest on the JVM (fast)
-./gradlew :composeApp:testDebugUnitTest    # commonTest on Android
 ```
 
 `commonTest` runs the same tests on every target. The snapshot table asserts ktoy
@@ -94,8 +93,9 @@ the file's text; Save writes/downloads the chosen format.
 
 Save offers only the formats that fit the loaded program (`SimViewModel.saveFormats`):
 
-- `.toyo` — always; the **live** byte image (listing rebuilt from current memory),
-  so hand edits and runtime stores are saved. Round-trips through `parseToyo`.
+- `.toyo` — always; the bytecode: one integer per line up to the last non-zero
+  cell, the program as built plus hand edits, nothing a run stored. Round-trips
+  through `parseToyo`.
 - `.toys` — only with assembly source.
 - `.toyc` — only for a C program.
 

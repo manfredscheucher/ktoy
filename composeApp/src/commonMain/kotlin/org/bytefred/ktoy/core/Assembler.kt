@@ -251,35 +251,3 @@ private fun resolve(
 }
 
 private val LABEL_ARITH = Regex("""\s*([A-Za-z_]\w*)\s*([+-])\s*(\w+)\s*""")
-
-/**
- * Serialize a program to a .toyo byte listing (bytes, source + a symbol table),
- * matching pytoy's assembler.export(); round trips through parseToyo(). This is
- * the format of the bundled .toyo examples. Save writes [bytecodeText] instead.
- */
-fun exportToyo(listing: List<ListingLine>, syms: Map<String, Int>): String {
-    val out = mutableListOf(
-        "# Toy CPU – compiled listing", "#",
-        "# " + "ADDR".padStart(4) + "  " + "BYTES".padEnd(22) + "  SOURCE",
-        "# " + "─".repeat(56),
-    )
-    for (line in listing) {
-        val addr = line.addr
-        if (addr == null) {
-            out.add("#        " + "".padEnd(22) + "  " + line.orig.trimEnd())
-        } else {
-            val bs = line.bytes.joinToString("  ") {
-                it.toString(2).padStart(8, '0')
-            }
-            out.add("  " + addr.toString().padStart(4) + "   " +
-                    bs.padEnd(22) + "  " + line.orig.trimEnd())
-        }
-    }
-    out.add("")
-    out.add("# SYMBOLS")
-    for ((name, addr) in syms.entries.sortedBy { it.value }) {
-        out.add("#   " + name.padEnd(15) + " = " + addr.toString().padStart(3) +
-                "  (" + addr.toString(2).padStart(8, '0') + ")")
-    }
-    return out.joinToString("\n") + "\n"
-}
