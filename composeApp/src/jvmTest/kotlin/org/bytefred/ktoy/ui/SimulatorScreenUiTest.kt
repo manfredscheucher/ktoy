@@ -603,6 +603,20 @@ class SimulatorScreenUiTest {
     }
 
     @Test
+    fun theInstructionSetHelpHasAScrollbarAndNoLongLines() = runComposeUiTest {
+        show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) })
+        val text = org.bytefred.ktoy.core.referenceText()
+        assertTrue(text.lines().all { it.length <= 56 }, text.lines().maxBy { it.length })
+        assertTrue(text.lines().none { it.startsWith("  ") }, "no indentation")
+        val before = onAllNodesWithTag("vscroll-thumb").fetchSemanticsNodes().size
+        onNodeWithTag("menu-Help").performClick()
+        onNodeWithText("Instruction set", substring = true).performClick()
+        waitForIdle()
+        onNodeWithText("ifzero", substring = true).assertExists()
+        assertEquals(before + 1, onAllNodesWithTag("vscroll-thumb").fetchSemanticsNodes().size, "the dialog has a scrollbar")
+    }
+
+    @Test
     fun theCMenuFollowsALoad() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
         show(vm)

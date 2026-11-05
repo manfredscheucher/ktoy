@@ -401,11 +401,16 @@ private fun TextDialog(title: String, body: String, onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text = {
-            Text(
-                body,
-                style = MonoStyle,
-                modifier = Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()),
-            )
+            val vScroll = rememberScrollState()
+            val hScroll = rememberScrollState()
+            ScrollbarBox(vScroll, Modifier.heightIn(max = 480.dp), hScroll) {
+                Text(
+                    body,
+                    style = MonoStyle,
+                    softWrap = false,
+                    modifier = Modifier.verticalScroll(vScroll).horizontalScroll(hScroll),
+                )
+            }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
     )
@@ -418,7 +423,9 @@ private fun AboutDialog(onDismiss: () -> Unit) {
         onDismissRequest = onDismiss,
         title = { Text("ktoy") },
         text = {
-            Column(Modifier.heightIn(max = 520.dp).verticalScroll(rememberScrollState())) {
+            val vScroll = rememberScrollState()
+            ScrollbarBox(vScroll, Modifier.heightIn(max = 520.dp)) {
+            Column(Modifier.verticalScroll(vScroll)) {
                 Text("A Toy CPU toolbox: simulator, assembler, C compiler.")
                 Spacer(Modifier.height(8.dp))
                 FeedbackBox(FEEDBACK_TEXT)
@@ -433,6 +440,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+            }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },

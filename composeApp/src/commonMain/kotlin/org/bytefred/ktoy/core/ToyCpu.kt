@@ -159,31 +159,30 @@ private val EFFECTS: Map<Int, String> = mapOf(
  */
 fun referenceText(): String {
     val lines = mutableListOf("TOY CPU — INSTRUCTION SET", "")
-    lines.add("  " + "mnemonic".padEnd(9) + " " + "opcode".padStart(6) +
-              "  " + "bytes".padStart(5) + "   effect")
-    lines.add("  " + "-".repeat(54))
+    lines.add("mnemonic opcode bytes  effect")
+    lines.add("-".repeat(52))
     for (op in INSTR.keys.sorted()) {
         val name = INSTR.getValue(op).name.lowercase()
         val nbytes = if (hasOperand(op)) 2 else 1
-        lines.add("  " + name.padEnd(9) + " " + op.toString().padStart(6) +
-                  "  " + nbytes.toString().padStart(5) + "   " + (EFFECTS[op] ?: ""))
+        lines.add(name.padEnd(8) + op.toString().padStart(7) + nbytes.toString().padStart(6) + "  " + (EFFECTS[op] ?: ""))
     }
     lines += listOf(
         "",
         "Any opcode not listed behaves like nop (like toycpu).",
-        "Arithmetic wraps modulo 256. ifzero is the only conditional.",
+        "Arithmetic wraps modulo 256.",
+        "ifzero is the only conditional.",
         "",
         "KEYBOARD SHORTCUTS",
         "",
-        "  Space / Enter    step one instruction",
-        "  Backspace        step back (undo one step)",
-        "  R                run / stop",
-        "  Esc              reset to the start",
-        "  Cmd/Ctrl+O       load a program",
-        "  Cmd/Ctrl+R       reload from disk",
-        "  Cmd/Ctrl+S       save the current program",
+        "Space / Enter    step one instruction",
+        "Backspace        step back (undo one step)",
+        "R                run / stop",
+        "Esc              reset to the start",
+        "Cmd/Ctrl+O       load a program",
+        "Cmd/Ctrl+R       reload from disk",
+        "Cmd/Ctrl+S       save the current program",
         "",
-        "Tap a memory cell to edit it.",
+        "Right-click a line (long-press on touch) to edit it.",
     )
     return lines.joinToString("\n")
 }
