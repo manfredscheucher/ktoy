@@ -14,7 +14,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.layout.PaddingValues
@@ -25,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -84,9 +84,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     val (changedCLines, changedRows) = vm.changeSets()
 
     Column(Modifier.fillMaxSize().padding(8.dp)) {
-        // Menu bar (File / View / Help) + the current program title. Replaces the
-        // old inline Load button and I/O toggle (now menu items). pytoy's menus.
-        // A grey bar, so it reads as a menu bar.
+        // Menu bar + the current program title, a grey bar so it reads as one.
         Row(
             Modifier.fillMaxWidth()
                 .background(MENU_BAR_COLOR, RoundedCornerShape(6.dp))
@@ -102,10 +100,8 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
                 onEditBytecode = { editBytecodeOpen = true },
                 onEditCell = { vm.memSelectedAddr?.let { editTarget = it } },
             )
-            // The title must never push the menu off-screen or wrap the bar: cap
-            // it to one line + ellipsis and let it shrink (weight) so a long
-            // program name is truncated, not overflowed. General layout fix
-            // (web + jvm), not target-specific.
+            // one line + ellipsis, shrinking (weight), so a long name can't push
+            // the menu off-screen
             Text(
                 vm.title,
                 style = MonoStyle,
@@ -128,17 +124,11 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
         // source) | CPU & memory (always). Side by side when wide, stacked when
         // narrow; each in a labelled, bordered box.
         BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-            // How many columns are actually shown (C only for a C load; asm only
-            // with source; memory always).
             val cols = (if (vm.hasCSource) 1 else 0) +
                 (if (vm.hasSource) 1 else 0) + 1
-            // Side-by-side vs stacked. AUTO decides purely by WIDTH so it reacts
-            // to window resize (an aspect test made a tall-narrow window wrongly
-            // go side-by-side and not switch back): side-by-side once the window
-            // is wide enough to give each shown column a usable minimum width,
-            // stacked otherwise. ~300.dp/column is the floor the panels need
-            // before text clips. PORTRAIT / LANDSCAPE override the auto choice
-            // (View -> Layout).
+            // AUTO: side by side once each shown column gets its usable minimum
+            // width (by width only, so it follows a window resize); PORTRAIT /
+            // LANDSCAPE override it (View -> Layout).
             val minPerCol = 300.dp
             val wide = when (vm.layoutMode) {
                 LayoutMode.LANDSCAPE -> true
@@ -167,12 +157,15 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
                 if (vm.hasSource) add(SplitPanel(Panel.ASM, src))
                 add(SplitPanel(Panel.MEMORY, mem))
             }
-            if (wide) {
-                SplitPane(panels, vm.wideWeights, { vm.wideWeights = it }, horizontal = true, modifier = Modifier.fillMaxSize())
-            } else {
-                // Stacked (portrait, phones too), with draggable dividers (see
-                // stackedWeights).
-                SplitPane(panels, vm.stackedWeights, { vm.stackedWeights = it }, horizontal = false, modifier = Modifier.fillMaxSize())
+            // stacked on phones too; each layout keeps its own divider positions
+            key(wide) {
+                SplitPane(
+                    panels,
+                    if (wide) vm.wideWeights else vm.stackedWeights,
+                    { if (wide) vm.wideWeights = it else vm.stackedWeights = it },
+                    horizontal = wide,
+                    modifier = Modifier.fillMaxSize(),
+                )
             }
         }
 
@@ -385,19 +378,8 @@ private fun SourcePanel(
         AsmDraftPanel(draft, vm.showLineNumbers, menu, gestures, onEdit, onEditLine, modifier)
         return
     }
-    // addr -> listing line index, for PC/arg line highlighting
-    val lineForAddr = remember(vm.tick, vm.listing) {
-        val map = mutableMapOf<Int, Int>()
-        vm.listing.forEachIndexed { i, l ->
-            if (l.addr != null) {
-                map[l.addr] = i
-                if (l.bytes.size == 2) map[l.addr + 1] = i
-            }
-        }
-        map
-    }
-    val pcLines = pcBytes.mapNotNull { lineForAddr[it] }.toSet()
-    val argLine = argAddr?.let { lineForAddr[it] }
+    val pcLines = pcBytes.mapNotNull { vm.addrToLine[it] }.toSet()
+    val argLine = argAddr?.let { vm.addrToLine[it] }
 
     val vScroll = rememberScrollState()
     val hScroll = rememberScrollState()
@@ -412,10 +394,7 @@ private fun SourcePanel(
     // are how asm refers to lines.
     val gutterWidth = vm.listing.size.toString().length.coerceAtLeast(1)
     EditMenuBox(menu, modifier.fillMaxSize()) {
-    ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
-      Column(Modifier.fillMaxSize().padding(4.dp)
-        .verticalScroll(vScroll)
-        .horizontalScroll(hScroll)) {
+    ScrollColumn(vScroll, hScroll) {
         vm.listing.forEachIndexed { i, line ->
             val gutter = if (vm.showLineNumbers)
                 "${(i + 1).toString().padStart(gutterWidth)} | " else ""
@@ -452,7 +431,6 @@ private fun SourcePanel(
             val rowMod = Modifier.editableRow(menu, gestures, i to line.addr, { line.addr?.let { vm.select(it) } }, onEdit) { onEditLine(i) }
             HighlightRow(gutter + text, colours, rowMod)
         }
-      }
     }
     }
 }
@@ -476,10 +454,7 @@ private fun AsmDraftPanel(
     val vScroll = rememberScrollState()
     val hScroll = rememberScrollState()
     EditMenuBox(menu, modifier.fillMaxSize()) {
-    ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
-      Column(Modifier.fillMaxSize().padding(4.dp)
-        .verticalScroll(vScroll)
-        .horizontalScroll(hScroll)) {
+    ScrollColumn(vScroll, hScroll) {
         lines.forEachIndexed { i, line ->
             val gutter = if (showLineNumbers) "${(i + 1).toString().padStart(gutterWidth)} | " else ""
             // "   " lines the text up with the listing's ">> " marker column
@@ -489,7 +464,6 @@ private fun AsmDraftPanel(
                 Modifier.editableRow(menu, gestures, i, onTap = null, onEdit) { onEditLine(i) },
             )
         }
-      }
     }
     }
 }
@@ -533,10 +507,7 @@ private fun MemoryPanel(
     val menu = rememberEditMenu()
     val gestures = LocalEditGestures.current
     EditMenuBox(menu, modifier.fillMaxSize()) {
-    ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
-      Column(Modifier.fillMaxSize().padding(4.dp)
-        .verticalScroll(vScroll)
-        .horizontalScroll(hScroll)) {
+    ScrollColumn(vScroll, hScroll) {
         Text(header, style = MonoStyle, softWrap = false, maxLines = 1)
         visible.forEach { a ->
             val v = m.mem[a]
@@ -552,7 +523,13 @@ private fun MemoryPanel(
             // the transitive selection: a C-line click lights up ALL the bytes of
             // the statement here; an asm/memory click lights only the clicked
             // row's own bytes (pytoy's sel_addrs)
-            val colours = memoryCellColours(a, selAddrs, pcBytes, argAddr, m.changedCell, m.stopped)
+            // selected, PC, argument, change: all the roles this cell has
+            val colours = buildList {
+                if (a in selAddrs) add(HL_SELECTED)
+                if (a in pcBytes) add(HL_PC)
+                if (a == argAddr) add(HL_ARG)
+                if (!m.stopped && a == m.changedCell) add(HL_CHANGE)
+            }
             // untouched, non-program bytes are shown greyed out
             val textColor = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)
             // tap selects the cell; right-click / long-press opens the edit menu
@@ -565,7 +542,6 @@ private fun MemoryPanel(
                 HighlightRow(text, colours, textColor = textColor)
             }
         }
-      }
     }
     }
 }
@@ -614,12 +590,7 @@ private fun CSourcePanel(
         val menu = rememberEditMenu()
         val gestures = LocalEditGestures.current
         EditMenuBox(menu, Modifier.fillMaxSize()) {
-        ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
-          Column(
-              Modifier.fillMaxSize().padding(4.dp)
-                  .verticalScroll(vScroll)
-                  .horizontalScroll(hScroll)
-          ) {
+        ScrollColumn(vScroll, hScroll) {
             lines.forEachIndexed { i, line ->
                 val cLine = i + 1   // 1-based, matching the markers
                 val colours = mutableListOf<Color>()
@@ -638,7 +609,6 @@ private fun CSourcePanel(
                     Modifier.editableRow(menu, gestures, cLine to draft, { if (draft == null) vm.selectCLine(cLine) }, onEditC) { onEditLine(cLine - 1) },
                 )
             }
-          }
         }
         }
     }

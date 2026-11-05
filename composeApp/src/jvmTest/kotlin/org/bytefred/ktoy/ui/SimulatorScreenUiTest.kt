@@ -868,7 +868,7 @@ class SimulatorScreenUiTest {
         val state = ExamplesTreeState()
         var open by mutableStateOf(true)
         setContent {
-            KtoyTheme { if (open) ExamplesDialog(state, running = false, onLoad = { open = false }, onDismiss = { open = false }) }
+            KtoyTheme { if (open) ExamplesDialog(state, onLoad = { open = false }, onDismiss = { open = false }) }
         }
         onNodeWithText("03-programs").assertDoesNotExist()        // starts with the groups only
         onNodeWithText("Assembly").performClick()

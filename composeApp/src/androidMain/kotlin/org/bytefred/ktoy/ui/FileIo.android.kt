@@ -14,8 +14,6 @@ import androidx.compose.ui.platform.LocalContext
 // Android: the Storage Access Framework (SAF). OpenDocument picks a file to read;
 // CreateDocument picks where to write. A content:// Uri is not a stable file
 // path we can silently re-read later, so Reload is not supported.
-actual val fileLoadSupported: Boolean = true
-actual val fileSaveSupported: Boolean = true
 actual val fileReloadSupported: Boolean = false
 
 @Composable

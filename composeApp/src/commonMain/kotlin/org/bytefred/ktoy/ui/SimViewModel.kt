@@ -12,7 +12,6 @@ import org.bytefred.ktoy.core.CProgram
 import org.bytefred.ktoy.core.EXAMPLES
 import org.bytefred.ktoy.core.Example
 import org.bytefred.ktoy.core.ExampleKind
-import org.bytefred.ktoy.core.IO_BASE
 import org.bytefred.ktoy.core.IoFormat
 import org.bytefred.ktoy.core.ListingLine
 import org.bytefred.ktoy.core.Machine
@@ -60,19 +59,18 @@ class SimViewModel : ViewModel() {
     var machine: Machine? = null; private set
     var listing: List<ListingLine> = emptyList(); private set
     var syms: Map<String, Int> = emptyMap(); private set
-    var hasSource: Boolean = true; private set
     var title: String = ""; private set
 
     // The current assembly source text (for .toys Save), or null for a .toyo load
     // with no source. Mirrors pytoy's _asm_text.
     var asmText: String? = null; private set
+    val hasSource: Boolean get() = asmText != null
 
     // ── File-menu state ───────────────────────────────────────────────────────
-    // The last file opened from disk (name + raw text + inferred kind), so Reload
+    // The last file opened from disk (name + raw text), so Reload
     // can re-run it. null until a file is loaded from disk (examples don't set it).
     var currentFileName: String? = null; private set
     private var currentFileText: String? = null
-    private var currentFileKind: ExampleKind? = null
     // where it is on disk (desktop only), so Reload reads the file again
     private var currentFilePath: String? = null
 
@@ -109,12 +107,11 @@ class SimViewModel : ViewModel() {
     fun setStatus(msg: String?) { statusMessage = msg }
 
     // ── C-source state (null / empty for an ASM or TOYO load) ────────────────
-    // The loaded C program (source + compiler + C↔asm maps), or null. hasCSource
-    // mirrors it so the C column shows only for a C load. See loadCProgram /
-    // clearCSource.
+    // The loaded C program (source + compiler + C↔asm maps), or null. See
+    // loadCProgram / clearCSource.
     var cText: String? = null; private set
     var currentCompiler: String? = null; private set
-    var hasCSource: Boolean = false; private set
+    val hasCSource: Boolean get() = cText != null
     var cToAsm: Map<Int, List<Int>> = emptyMap(); private set
     var asmToC: Map<Int, Int> = emptyMap(); private set
 
@@ -182,14 +179,14 @@ class SimViewModel : ViewModel() {
         running = false
     }
 
-    /** True once any program (or the empty image) has been loaded. */
+    /** True once a program has been loaded. */
     val hasProgram: Boolean get() = machine != null
 
     // ── addr ↔ listing-row maps (derived from the current listing) ───────────
     // Each ListingLine carries its start addr; a two-byte instruction also owns
     // addr+1. Rebuilt whenever the listing changes (every load / switch / edit).
     private var lineToAddr: Map<Int, Int> = emptyMap()
-    private var addrToLine: Map<Int, Int> = emptyMap()
+    var addrToLine: Map<Int, Int> = emptyMap(); private set
 
     private fun rebuildAddrMaps() {
         val l2a = mutableMapOf<Int, Int>()
@@ -204,39 +201,14 @@ class SimViewModel : ViewModel() {
         addrToLine = a2l
     }
 
-    /** The program shown at app start: the 00_stop example (empty if it's missing). */
-    fun loadStartExample() {
-        val ex = EXAMPLES.firstOrNull { it.name == START_EXAMPLE && it.kind == ExampleKind.ASM }
-        if (ex != null) load(ex) else loadEmpty()
-    }
-
-    /**
-     * Start with an empty, zeroed 256-byte memory and no source — like pytoy's
-     * empty_gui(). The user then loads an example via the Load button.
-     */
-    fun loadEmpty() {
-        stopRun()
-        title = "(empty)"
-        val mem = IntArray(256)
-        listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
-        syms = emptyMap()
-        hasSource = false
-        asmText = null
-        asmDraft = null
-        machine = Machine(mem, (0..255).toSet())
-        clearCSource()
-        clearCurrentFile()
-        rebuildAddrMaps()
-        markLoadedAsSaved()
-        bump()
-    }
+    /** The program shown at app start: the 00_stop example. */
+    fun loadStartExample() = load(EXAMPLES.first { it.name == START_EXAMPLE && it.kind == ExampleKind.ASM })
 
     // ── loading a file from disk / device ─────────────────────────────────────
 
     private fun clearCurrentFile() {
         currentFileName = null
         currentFileText = null
-        currentFileKind = null
         currentFilePath = null
     }
 
@@ -267,7 +239,6 @@ class SimViewModel : ViewModel() {
         if (errorMessage == null) {
             currentFileName = fileName
             currentFileText = text
-            currentFileKind = kind
             currentFilePath = path
             title = fileName
             bump()
@@ -425,7 +396,6 @@ class SimViewModel : ViewModel() {
         if (ext == saveFormats().first().second && text != null) {
             currentFileName = name
             currentFileText = text
-            currentFileKind = kindOf(name)
             currentFilePath = path
             title = name
         }
@@ -470,7 +440,6 @@ class SimViewModel : ViewModel() {
                 title = example.name
                 listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
                 syms = emptyMap()
-                hasSource = false
                 asmText = null
                 machine = Machine(mem, (0..255).toSet())
                 clearCSource()
@@ -485,7 +454,6 @@ class SimViewModel : ViewModel() {
                 title = example.name
                 listing = res.listing
                 syms = res.syms
-                hasSource = true
                 asmText = example.source
                 machine = Machine(res.mem, res.dataAddrs)
                 clearCSource()
@@ -522,14 +490,12 @@ class SimViewModel : ViewModel() {
     private fun loadCProgram(p: CProgram) {
         listing = p.result.listing
         syms = p.result.syms
-        hasSource = true
         asmText = p.asm
         machine = Machine(p.result.mem, p.result.dataAddrs)
         cText = p.cText
         currentCompiler = p.compiler
         cToAsm = p.cToAsm
         asmToC = p.asmToC
-        hasCSource = true
         selectedCLine = null
         selectedAddr = null
         memSelectedAddr = null
@@ -544,7 +510,6 @@ class SimViewModel : ViewModel() {
         currentCompiler = null
         cToAsm = emptyMap()
         asmToC = emptyMap()
-        hasCSource = false
         selectedCLine = null
     }
 
@@ -553,29 +518,20 @@ class SimViewModel : ViewModel() {
         machine?.let { autoShowIo(it); it.step() }
         // stepping drops the whole cross-column selection so a stale highlight
         // can't linger after execution moves on (pytoy clears both anchors)
-        selectedCLine = null
-        selectedAddr = null
-        memSelectedAddr = null
-        bump()
+        clearSelection()
     }
 
     fun stepBack() {
         stopRun()
         machine?.stepBack()
-        selectedCLine = null
-        selectedAddr = null
-        memSelectedAddr = null
-        bump()
+        clearSelection()
     }
 
     fun reset() {
         stopRun()
         machine?.reset()
         savedHandEdits = emptyMap()   // Reset never asks, even if a saved file holds an edit
-        selectedCLine = null
-        selectedAddr = null
-        memSelectedAddr = null
-        bump()
+        clearSelection()
     }
 
     // The address selected specifically in the memory (CPU & memory) panel, or
@@ -592,13 +548,12 @@ class SimViewModel : ViewModel() {
      */
     fun select(addr: Int?, fromMemory: Boolean = false) {
         if (addr == null) {
-            clearSelection(fromMemory)
+            clearSelection()
             return
         }
         selectedAddr = addr
         selectedCLine = addrToCLine(addr, addrToLine, asmToC)
         selectedFromC = false   // asm/mem click: single row, no sibling fan-out
-        machine?.select(addr)
         memSelectedAddr = if (fromMemory) addr else null
         bump()
     }
@@ -612,23 +567,21 @@ class SimViewModel : ViewModel() {
     fun selectCLine(cLine: Int?) {
         val rows = cLine?.let { cToAsm[it] }
         if (cLine == null || rows == null || rows.isEmpty()) {
-            clearSelection(fromMemory = false)
+            clearSelection()
             return
         }
         val addrs = asmRowsToAddrs(rows.toSet(), lineToAddr)
         selectedCLine = cLine
         selectedAddr = addrs.minOrNull()
         selectedFromC = true   // C click: fan DOWN to all the statement's rows
-        machine?.select(selectedAddr)
         memSelectedAddr = null
         bump()
     }
 
-    private fun clearSelection(fromMemory: Boolean) {
+    private fun clearSelection() {
         selectedCLine = null
         selectedAddr = null
         selectedFromC = true   // back to the neutral default
-        machine?.select(null)
         memSelectedAddr = null
         bump()
     }
@@ -661,9 +614,7 @@ class SimViewModel : ViewModel() {
         val changed = if (m.stopped) null else m.changedCell
         if (changed == null) return emptySet<Int>() to emptySet()
         val row = addrToLine[changed] ?: return emptySet<Int>() to emptySet()
-        val cLine = asmToC[row]
-        val cLines = if (cLine != null) setOf(cLine) else emptySet()
-        return cLines to setOf(row)
+        return setOfNotNull(asmToC[row]) to setOf(row)
     }
 
     fun editCell(addr: Int, value: Int) {
@@ -679,8 +630,6 @@ class SimViewModel : ViewModel() {
         selectedFromC = false
         bump()
     }
-
-    // ── Part 3: compiler switch + C edit ─────────────────────────────────────
 
     // ── editing and building (C / Assembly / Bytecode menus) ─────────────────
     // Edit -> Save only stores the text as a draft; the panel shows it marked

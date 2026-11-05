@@ -50,13 +50,8 @@ live in `_private/scripts/`.
 The web dev-server port is **8604** (block 8600–8619, see `~/github/.dev-ports.md`),
 set in `composeApp/webpack.config.d/watch.js` and mirrored in `scripts/runWeb.sh`.
 
-iOS needs a macOS host with Xcode. First time, scaffold the Xcode project from the
-OpenYarnStash template:
-
-```bash
-./scripts/scaffold-iosapp.sh   # creates iosApp/ (refuses to clobber an existing one)
-# then: open iosApp/iosApp.xcodeproj, set the signing team + bundle id (org.bytefred.ktoy)
-```
+iOS needs a macOS host with Xcode: open `iosApp/iosApp.xcodeproj` and set the signing
+team and bundle id (org.bytefred.ktoy).
 
 ## Tests
 

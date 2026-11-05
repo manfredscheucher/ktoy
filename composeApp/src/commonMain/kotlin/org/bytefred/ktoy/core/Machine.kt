@@ -14,7 +14,6 @@ data class MachineState(
     val changedCell: Int?,
     val changedCellPrev: Int?,
     val accWritten: Boolean,
-    val selectedAddr: Int?,
     val hasLiveEdits: Boolean,
     val handEdits: Map<Int, Int>,
 )
@@ -45,7 +44,6 @@ class Machine(
     // step the write is highlighted (the memory panel shows it as "# old: N").
     var changedCellPrev: Int? = null; private set
     var accWritten: Boolean = false; private set
-    var selectedAddr: Int? = null; private set
     var hasLiveEdits: Boolean = false; private set
     // program bytes (0..239) changed by hand and now differing from the original;
     // unlike [mem], nothing the running program stored
@@ -67,7 +65,6 @@ class Machine(
         changedCell = null
         changedCellPrev = null
         accWritten = false
-        selectedAddr = null
         hasLiveEdits = false
         handEdits = emptyMap()
         history.clear()
@@ -77,7 +74,7 @@ class Machine(
         mem = mem.copyOf(), acc = acc, pc = pc, stopped = stopped,
         stepCount = stepCount, touched = touched.toSet(), changedCell = changedCell,
         changedCellPrev = changedCellPrev, accWritten = accWritten,
-        selectedAddr = selectedAddr, hasLiveEdits = hasLiveEdits, handEdits = handEdits,
+        hasLiveEdits = hasLiveEdits, handEdits = handEdits,
     )
 
     private fun restore(s: MachineState) {
@@ -90,7 +87,6 @@ class Machine(
         changedCell = s.changedCell
         changedCellPrev = s.changedCellPrev
         accWritten = s.accWritten
-        selectedAddr = s.selectedAddr
         hasLiveEdits = s.hasLiveEdits
         handEdits = s.handEdits
     }
@@ -113,7 +109,6 @@ class Machine(
             changedCell = null
             changedCellPrev = null
             accWritten = false
-            selectedAddr = null
             return false
         }
 
@@ -130,7 +125,6 @@ class Machine(
         changedCellPrev = oldVal   // null on any non-STORE step (clears itself)
         accWritten = instr in WRITES_ACC
         stepCount += 1
-        selectedAddr = null
         return true
     }
 
@@ -140,9 +134,6 @@ class Machine(
         restore(s)
         return true
     }
-
-    /** Select an address (for click-to-highlight in both panels). */
-    fun select(addr: Int?) { selectedAddr = addr }
 
     /**
      * Live-edit a memory cell: write [value] (already masked to 0..255) into
@@ -156,7 +147,6 @@ class Machine(
         changedCell = addr
         changedCellPrev = null   // a hand edit isn't a STORE — no "# old" to show
         accWritten = false
-        selectedAddr = addr
         hasLiveEdits = true
         recordHandEdit(addr)
     }
@@ -174,7 +164,6 @@ class Machine(
         changedCell = changed.singleOrNull()
         changedCellPrev = null
         accWritten = false
-        selectedAddr = null
         hasLiveEdits = true
     }
 

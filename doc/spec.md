@@ -1036,3 +1036,5 @@ Manfred: keep the code simple.
   the address.
 - `invalid_opcode.toyo` is gone: such a byte is just a NOP, nothing special to show.
   The bytecode examples are fibonacci, multiply_repeated (6 * 7 by addition) and sum3.
+- Load in the Examples dialog no longer asks "still running, stop it?": it just stops
+  the run, like File -> Load and Reload.

@@ -74,7 +74,6 @@ fun App(closeRequests: Int = 0, onClose: () -> Unit = {}) {
             if (showList) {
                 ExamplesDialog(
                     state = examplesState,
-                    running = vm.running,
                     onLoad = { example ->
                         vm.leave { vm.load(example) }
                         showList = false
@@ -93,8 +92,7 @@ fun App(closeRequests: Int = 0, onClose: () -> Unit = {}) {
  * categories (Assembly / Bytecode / C (minicc) / C (toycc)); their children are
  * the subfolders (01-basics, 04-io, ...); leaves are the examples, as radio
  * buttons. Bytecode has a single unnamed subfolder, so its leaves sit directly
- * under it. A click only selects; Load loads the selected example. If the
- * program is still running, Load first asks whether to stop it.
+ * under it. A click only selects; Load loads the selected example.
  *
  * Which category node a C leaf lives under IS the chosen compiler: the tree
  * holds an Example already narrowed to that one compiler, so [SimViewModel.load]
@@ -104,7 +102,6 @@ fun App(closeRequests: Int = 0, onClose: () -> Unit = {}) {
 @Composable
 internal fun ExamplesDialog(
     state: ExamplesTreeState,
-    running: Boolean,
     onLoad: (Example) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -113,21 +110,7 @@ internal fun ExamplesDialog(
     fun isOpen(key: String, default: Boolean) = expanded[key] ?: default
     fun toggle(key: String, default: Boolean) { expanded[key] = !isOpen(key, default) }
     var selected by state::selected
-    var confirmStop by remember { mutableStateOf(false) }
 
-    if (confirmStop) {
-        AlertDialog(
-            onDismissRequest = { confirmStop = false },
-            text = { Text("The program is still running. Stop it and load the new example?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmStop = false
-                    selected?.let(onLoad)   // load() stops the run first
-                }) { Text("Stop and load") }
-            },
-            dismissButton = { TextButton(onClick = { confirmStop = false }) { Text("Cancel") } },
-        )
-    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Examples") },
@@ -164,10 +147,7 @@ internal fun ExamplesDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = {
-                    val ex = selected ?: return@TextButton
-                    if (running) confirmStop = true else onLoad(ex)
-                },
+                onClick = { selected?.let(onLoad) },
                 enabled = selected != null,
             ) { Text("Load") }
         },

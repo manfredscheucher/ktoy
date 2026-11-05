@@ -9,8 +9,6 @@ import javax.swing.filechooser.FileNameExtensionFilter
 
 // Desktop: a Swing file chooser + plain java.io read/write. A real path exists,
 // so Reload is supported.
-actual val fileLoadSupported: Boolean = true
-actual val fileSaveSupported: Boolean = true
 actual val fileReloadSupported: Boolean = true
 
 @Composable

@@ -14,16 +14,7 @@ import androidx.compose.runtime.Composable
  *  - [rememberFileSaver] writes `text` out under a suggested `name`+extension —
  *    a Save dialog on desktop/Android/iOS, a download in the browser.
  *
- * `fileIoSupported` reports whether real load/save exists on this platform; the
- * UI hides Load-from-disk / Save where it doesn't (none hidden today, but the
- * browser's "Reload from disk" is suppressed since there is no stable path).
  */
-
-/** True if this platform can load a program file from disk / the user's device. */
-expect val fileLoadSupported: Boolean
-
-/** True if this platform can save a program to disk / download it. */
-expect val fileSaveSupported: Boolean
 
 /**
  * True if this platform has a stable file *path* that a later Reload can re-read.

@@ -2,6 +2,12 @@ package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
@@ -39,6 +45,17 @@ fun ScrollbarBox(
         content()
         ScrollThumb(vScroll, vertical = true)
         if (hScroll != null) ScrollThumb(hScroll, vertical = false)
+    }
+}
+
+/** A panel's content: a padded column scrolling both ways, with scrollbars. */
+@Composable
+fun ScrollColumn(vScroll: ScrollState, hScroll: ScrollState, content: @Composable ColumnScope.() -> Unit) {
+    ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
+        Column(
+            Modifier.fillMaxSize().padding(4.dp).verticalScroll(vScroll).horizontalScroll(hScroll),
+            content = content,
+        )
     }
 }
 

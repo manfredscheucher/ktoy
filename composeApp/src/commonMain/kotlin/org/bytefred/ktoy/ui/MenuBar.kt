@@ -88,10 +88,8 @@ fun SimMenuBar(
     // so the bar takes the focus while a menu is open
     val barFocus = remember { FocusRequester() }
     LaunchedEffect(openMenu) { if (openMenu != null) barFocus.requestFocus() }
-    var showReference by remember { mutableStateOf(false) }
+    var help by remember { mutableStateOf<Pair<String, String>?>(null) }   // title to text
     var showAbout by remember { mutableStateOf(false) }
-    var showCHelp by remember { mutableStateOf(false) }
-    var showBuildHelp by remember { mutableStateOf(false) }
     // Welcome / early-development notice at start, until "Don't show again".
     // rememberSaveable so an Android rotation doesn't re-open a dismissed one.
     var showWelcome by rememberSaveable { mutableStateOf(loadPref(WELCOME_PREF) != "off") }
@@ -105,7 +103,15 @@ fun SimMenuBar(
         else savePickerFor = formats
     }
 
-    // scrolls sideways when the seven menus don't fit (phones)
+    // a menu entry: closes the menu, then runs [onClick]
+    @Composable
+    fun Item(label: String, enabled: Boolean = true, onClick: () -> Unit) = DropdownMenuItem(
+        text = { Text(label) },
+        enabled = enabled,
+        onClick = { openMenu = null; onClick() },
+    )
+
+    // scrolls sideways when the menus don't fit (phones)
     Row(
         Modifier.horizontalScroll(rememberScrollState())
             .testTag("menu-bar")
@@ -119,38 +125,16 @@ fun SimMenuBar(
     ) {
         // ── File ──
         MenuButton("File", openMenu, { openMenu = it }) {
-            DropdownMenuItem(
-                text = { Text("Examples…") },
-                onClick = { openMenu = null; onBrowseExamples() },
-            )
-            if (fileLoadSupported) {
-                DropdownMenuItem(
-                    text = { Text("Load…") },
-                    onClick = { openMenu = null; vm.leave(loadFromDisk) },
-                )
-            }
-            if (fileReloadSupported) {
-                DropdownMenuItem(
-                    text = { Text("Reload") },
-                    enabled = vm.canReload,
-                    onClick = { openMenu = null; vm.leave { vm.reload() } },
-                )
-            }
-            if (fileSaveSupported) {
-                DropdownMenuItem(
-                    text = { Text("Save…") },
-                    onClick = { openMenu = null; save() },
-                )
-            }
+            Item("Examples…", onClick = onBrowseExamples)
+            Item("Load…") { vm.leave(loadFromDisk) }
+            if (fileReloadSupported) Item("Reload", vm.canReload) { vm.leave { vm.reload() } }
+            Item("Save…") { save() }
         }
 
         // ── C ── (only for a C program)
         MenuButton("C", openMenu, { openMenu = it }, enabled = vm.hasCSource) {
-            DropdownMenuItem(text = { Text("Edit…") }, onClick = { openMenu = null; onEditC() })
-            DropdownMenuItem(
-                text = { Text("Compile") },
-                onClick = { openMenu = null; vm.request(SimViewModel.BuildAction.Compile()) },
-            )
+            Item("Edit…", onClick = onEditC)
+            Item("Compile") { vm.request(SimViewModel.BuildAction.Compile()) }
             HorizontalDivider()
             // switching recompiles right away (full C is the default at load)
             for ((compiler, label) in listOf("toycc" to "Full C (toycc)", "minicc" to "Mini C (minicc)")) {
@@ -163,25 +147,15 @@ fun SimMenuBar(
 
         // ── Assembly ── (any program with source; for C it drops the C)
         MenuButton("Assembly", openMenu, { openMenu = it }, enabled = vm.asmText != null) {
-            DropdownMenuItem(text = { Text("Edit…") }, onClick = { openMenu = null; onEditAsm() })
-            DropdownMenuItem(
-                text = { Text("Assemble") },
-                onClick = { openMenu = null; vm.request(SimViewModel.BuildAction.Assemble) },
-            )
+            Item("Edit…", onClick = onEditAsm)
+            Item("Assemble") { vm.request(SimViewModel.BuildAction.Assemble) }
         }
 
         // ── Bytecode ──
         MenuButton("Bytecode", openMenu, { openMenu = it }) {
-            DropdownMenuItem(text = { Text("Edit…") }, onClick = { openMenu = null; onEditBytecode() })
-            DropdownMenuItem(
-                text = { Text("Edit line…") },
-                enabled = vm.memSelectedAddr != null,
-                onClick = { openMenu = null; onEditCell() },
-            )
-            DropdownMenuItem(
-                text = { Text("Disassemble") },
-                onClick = { openMenu = null; vm.request(SimViewModel.BuildAction.Disassemble) },
-            )
+            Item("Edit…", onClick = onEditBytecode)
+            Item("Edit line…", vm.memSelectedAddr != null, onEditCell)
+            Item("Disassemble") { vm.request(SimViewModel.BuildAction.Disassemble) }
         }
 
         // ── View ──
@@ -206,22 +180,10 @@ fun SimMenuBar(
 
         // ── Help ──
         MenuButton("Help", openMenu, { openMenu = it }) {
-            DropdownMenuItem(
-                text = { Text("Instruction set & shortcuts") },
-                onClick = { openMenu = null; showReference = true },
-            )
-            DropdownMenuItem(
-                text = { Text("Edit and build") },
-                onClick = { openMenu = null; showBuildHelp = true },
-            )
-            DropdownMenuItem(
-                text = { Text("C: full C vs mini C") },
-                onClick = { openMenu = null; showCHelp = true },
-            )
-            DropdownMenuItem(
-                text = { Text("About ktoy") },
-                onClick = { openMenu = null; showAbout = true },
-            )
+            Item("Instruction set & shortcuts") { help = "Instruction set & shortcuts" to referenceText() }
+            Item("Edit and build") { help = "Edit and build" to BUILD_HELP }
+            Item("C: full C vs mini C") { help = "C: full C vs mini C" to C_HELP }
+            Item("About ktoy") { showAbout = true }
         }
     }
 
@@ -257,9 +219,7 @@ fun SimMenuBar(
         )
     }
 
-    if (showReference) TextDialog("Instruction set & shortcuts", referenceText()) { showReference = false }
-    if (showBuildHelp) TextDialog("Edit and build", BUILD_HELP) { showBuildHelp = false }
-    if (showCHelp) TextDialog("C: full C vs mini C", C_HELP) { showCHelp = false }
+    help?.let { (title, text) -> TextDialog(title, text) { help = null } }
     if (showAbout) AboutDialog { showAbout = false }
     if (showWelcome) WelcomeDialog { showWelcome = false }
 }
@@ -428,7 +388,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
             Column(Modifier.verticalScroll(vScroll)) {
                 Text("A Toy CPU toolbox: simulator, assembler, C compiler.")
                 Spacer(Modifier.height(8.dp))
-                FeedbackBox(FEEDBACK_TEXT)
+                FeedbackBox()
                 Spacer(Modifier.height(8.dp))
                 ProjectLine("ktoy", "https://github.com/manfredscheucher/ktoy", "this app")
                 ProjectLine("pytoy", "https://github.com/manfredscheucher/pytoy", "the Python original ktoy is ported from")
@@ -477,7 +437,7 @@ private fun WelcomeDialog(close: () -> Unit) {
             Column {
                 Text("Step through a tiny 8-bit CPU: assembly, bytecode and a small C compiler.")
                 Spacer(Modifier.height(10.dp))
-                FeedbackBox(FEEDBACK_TEXT)
+                FeedbackBox()
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(dontShow, { dontShow = it })
                     Text("Don't show again")
@@ -487,24 +447,15 @@ private fun WelcomeDialog(close: () -> Unit) {
     )
 }
 
-// the feedback note, the same in About and the welcome dialog
-private const val FEEDBACK_TEXT = "ktoy is in early development. Feedback is very welcome:"
-
-/** Yellow box with a clickable e-mail address that opens a prepared mail. Ported from PoCoView. */
+/** Yellow box with a clickable e-mail address that opens a prepared mail (About, welcome). */
 @Composable
-private fun FeedbackBox(question: String) {
-    val uri = LocalUriHandler.current
+private fun FeedbackBox() {
     Column(
         Modifier.fillMaxWidth().background(Color(0xFFFFF3B0), RoundedCornerShape(8.dp))
             .border(1.dp, Color(0xFFE0C200), RoundedCornerShape(8.dp)).padding(10.dp),
     ) {
-        Text(question, color = Color(0xFF3A3000))
-        Text(
-            EMAIL,
-            style = LocalTextStyle.current.copy(textDecoration = TextDecoration.Underline),
-            color = Color(0xFF1A4FB0),
-            modifier = Modifier.clickable { openUriSafely(uri, FEEDBACK_MAILTO) }.padding(top = 2.dp),
-        )
+        Text("ktoy is in early development. Feedback is very welcome:", color = Color(0xFF3A3000))
+        LinkText(EMAIL, FEEDBACK_MAILTO)
     }
 }
 
@@ -581,21 +532,18 @@ run in progress, memory edits, unassembled edits) ktoy
 asks first and lists what would be lost.
 
 Saving
-  File -> Save… asks for the format: C, assembly or
-  bytecode (whichever the program has; the highest level
-  is preselected). Compile and Assemble never run by
-  themselves, so if the chosen format lacks an edit (say
-  assembly while the C edit is not compiled) ktoy asks
-  first. An edit counts as saved only in the format it
-  was made in: C edits as C, assembly as assembly, memory
-  cells as bytecode. Until then Load, Examples, Reload and
-  closing the window ask "Save changes?". Running a program
-  is no edit, and a bytecode file holds the program as
-  built plus your cell edits, nothing a run stored: one
-  value per line, up to the last non-zero cell.
-  Reload reads the file from disk again; saving at the
-  program's highest level makes that file the one Reload
-  opens, a lower level is only an export.
+  File -> Save… asks for the format (the highest level is
+  preselected). An edit counts as saved only in the format
+  it was made in: C edits as C, assembly as assembly,
+  memory cells as bytecode. If the chosen format lacks an
+  edit, ktoy asks first. Until all is saved, Load, Examples,
+  Reload and closing the window ask "Save changes?".
+  A run is no edit. A bytecode file holds the program as
+  built plus your cell edits: one value per line, up to
+  the last non-zero cell.
+  Reload reads the file from disk again. Saving at the
+  highest level makes that file the one Reload opens; a
+  lower level is only an export.
 """
 
 private const val C_HELP = """C COMPILERS

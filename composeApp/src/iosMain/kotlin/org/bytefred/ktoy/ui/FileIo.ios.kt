@@ -22,8 +22,6 @@ import platform.darwin.NSObject
 // UIActivityViewController (writes a temp file, then presents the share sheet).
 // A picked file is a one-shot security-scoped URL, not a stable path we re-read,
 // so Reload is not supported.
-actual val fileLoadSupported: Boolean = true
-actual val fileSaveSupported: Boolean = true
 actual val fileReloadSupported: Boolean = false
 
 @OptIn(ExperimentalForeignApi::class)

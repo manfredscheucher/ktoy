@@ -13,8 +13,6 @@ import org.w3c.files.get
 // Browser: load via a hidden <input type=file> + FileReader; save via a Blob
 // download. There is no stable path, so Reload is not supported (a picked File
 // is a one-shot blob).
-actual val fileLoadSupported: Boolean = true
-actual val fileSaveSupported: Boolean = true
 actual val fileReloadSupported: Boolean = false
 
 @Composable
