@@ -1,7 +1,9 @@
 package org.bytefred.ktoy.core
 
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
@@ -65,5 +67,20 @@ class ReferenceAndExportTest {
         }
         val back = parseToyo(exportToyo(live, res.syms))
         assertEquals(123, back[xAddr], "edited byte not exported")
+    }
+
+    @Test
+    fun bytecodeFileRoundTripsWithComments() {
+        val mem = IntArray(256).also { it[0] = 1; it[2] = 3 }
+        assertEquals("1\n0\n3\n", bytecodeText(mem))
+        assertEquals("", bytecodeText(IntArray(256)))
+        assertEquals(256, bytecodeText(IntArray(256) { 9 }).count { it == '\n' })
+        assertContentEquals(mem, parseToyo("# a comment\n1  # one\n0\n3\n"))
+    }
+
+    @Test
+    fun badBytecodeFilesAreRejected() {
+        for (bad in listOf("1\n".repeat(257), "300\n", "99999999999\n"))
+            assertFailsWith<IllegalArgumentException>(bad) { parseToyo(bad) }
     }
 }

@@ -203,12 +203,30 @@ class Machine(
 }
 
 /**
- * Parse an exported .toyo byte listing back into a 256-byte memory image.
- * Reads lines whose first token is a decimal address followed by one or two
- * 8-bit binary byte-strings; ignores comments and the SYMBOLS section. Mirrors
- * pytoy parse_toyo().
+ * The bytecode file for a memory image: one integer per line, up to the last
+ * non-zero cell (cells after that are 0). What Save writes; mirrors pytoy
+ * bytecode_text().
+ */
+fun bytecodeText(mem: IntArray): String =
+    mem.take(mem.indexOfLast { it != 0 } + 1).joinToString("") { "$it\n" }
+
+/**
+ * Parse a .toyo file into a 256-byte memory image. Mirrors pytoy parse_toyo().
+ * Two formats. Bytecode ([bytecodeText]): only one integer per line, at most
+ * 256, cells after the last line are 0, # starts a comment; a value out of range
+ * or too many lines throws IllegalArgumentException. Byte listing: lines whose
+ * first token is a decimal address followed by one or two 8-bit binary
+ * byte-strings; ignores comments and the SYMBOLS section.
  */
 fun parseToyo(text: String): IntArray {
+    val rows = text.split("\n").map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }
+    if (rows.isNotEmpty() && rows.all { r -> r.all { it in '0'..'9' } }) {
+        val values = rows.map { it.toIntOrNull() ?: Int.MAX_VALUE }
+        require(values.size <= 256 && values.all { it <= 255 }) {
+            "expected at most 256 integers 0..255, got ${values.size} values, largest ${values.max()}"
+        }
+        return values.toIntArray() + IntArray(256 - values.size)
+    }
     val mem = IntArray(256)
     for (rawLine in text.split("\n")) {
         val s = rawLine.trim()

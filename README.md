@@ -111,6 +111,17 @@ implementations can't drift.
 Machine-local scripts for installing on a specific device live in
 `_private/scripts/` (not committed).
 
+## minisim
+
+`MiniSim.kt` is a tiny standalone simulator: it reads a bytecode file (Save ->
+Bytecode: one integer per line), runs it to STOP and prints every step, with `-v`
+also a memory dump. No I/O.
+
+```bash
+kotlinc composeApp/src/jvmMain/kotlin/org/bytefred/ktoy/MiniSim.kt -include-runtime -d build/minisim.jar
+java -jar build/minisim.jar program.txt -v
+```
+
 ## Documentation
 
 The full specification — what was built and why, and how it maps to pytoy — is in

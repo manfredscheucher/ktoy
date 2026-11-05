@@ -23,7 +23,7 @@ import org.bytefred.ktoy.core.asmRowsToAddrs
 import org.bytefred.ktoy.core.assemble
 import org.bytefred.ktoy.core.decompile
 import org.bytefred.ktoy.core.detectCompilers
-import org.bytefred.ktoy.core.exportToyo
+import org.bytefred.ktoy.core.bytecodeText
 import org.bytefred.ktoy.core.parseToyo
 import org.bytefred.ktoy.core.transitiveSelection
 import kotlinx.coroutines.Job
@@ -372,24 +372,13 @@ class SimViewModel : ViewModel() {
     /**
      * The text to write for a given export extension:
      *  - .toyo : the program as built plus the hand edits, without what a run
-     *            stored (also edited cells outside the listing), via exportToyo().
+     *            stored, as [bytecodeText]: nothing but the values.
      *  - .toys : the current assembly source.
      *  - .toyc : the current C source.
      * Returns null if the format doesn't apply to the loaded program.
      */
     fun exportText(extension: String): String? = when (extension) {
-        ".toyo" -> {
-            val m = machine ?: return null
-            val image = m.programImage()
-            val lines = listing.map { line ->
-                val a = line.addr ?: return@map line
-                line.copy(bytes = line.bytes.indices.map { image[(a + it) % 256] })
-            }
-            val listed = addrToLine.keys
-            val extra = m.handEdits.filterKeys { it !in listed }.toList().sortedBy { it.first }
-                .map { (a, v) -> ListingLine(a, listOf(v), "", true) }
-            exportToyo(lines + extra, syms)
-        }
+        ".toyo" -> machine?.let { bytecodeText(it.programImage()) }
         ".toys" -> asmDraft ?: asmText
         ".toyc" -> cDraft ?: cText
         else -> null
@@ -531,7 +520,12 @@ class SimViewModel : ViewModel() {
         errorMessage = null
         when (example.kind) {
             ExampleKind.TOYO -> {
-                val mem = parseToyo(example.source)
+                val mem = try {
+                    parseToyo(example.source)
+                } catch (e: IllegalArgumentException) {
+                    errorMessage = e.message
+                    return false  // leave the current program untouched
+                }
                 title = example.name
                 listing = (0..255).map { ListingLine(it, listOf(mem[it]), "", true) }
                 syms = emptyMap()

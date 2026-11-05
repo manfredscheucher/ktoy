@@ -253,10 +253,9 @@ private fun resolve(
 private val LABEL_ARITH = Regex("""\s*([A-Za-z_]\w*)\s*([+-])\s*(\w+)\s*""")
 
 /**
- * Serialize a program to .toyo text (compiled byte listing + a symbol table),
- * matching pytoy's assembler.export() so the files are interchangeable and round
- * trip through parseToyo(). The caller passes the listing to write: the GUI Save
- * builds it from live memory so hand edits / runtime stores are reflected.
+ * Serialize a program to a .toyo byte listing (bytes, source + a symbol table),
+ * matching pytoy's assembler.export(); round trips through parseToyo(). This is
+ * the format of the bundled .toyo examples. Save writes [bytecodeText] instead.
  */
 fun exportToyo(listing: List<ListingLine>, syms: Map<String, Int>): String {
     val out = mutableListOf(

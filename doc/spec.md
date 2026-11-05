@@ -981,3 +981,25 @@ Decided by Claude with the reviewer:
 - The picker keeps preselecting the highest level (Manfred's rule) even when only
   bytecode is left unsaved.
 - A reloaded file that can't be read shows an error and keeps the program.
+
+## 26. 2026-11-05: Bytecode files, minisim
+
+Manfred: the bytecode export should really show only the values of the 256
+cells, up to the last non-zero one; comments are allowed in such a file, the
+listing and symbols are not wanted. Decisions (same in pytoy):
+
+- Save -> Bytecode writes one integer per line, up to the last non-zero cell (an
+  all-zero program is an empty file). No comments are written. Extension stays
+  `.toyo`.
+- Loading tells the formats apart by content: only single integers (`#` comments
+  allowed) is bytecode, anything else is the old byte listing. Too many lines or
+  a value above 255 is a load error.
+- `run.py asm` and the bundled `examples/toyo` stay byte listings: the example
+  check reads their `# result` and `# steps` comments.
+- pytoy's Save now writes the program as built plus hand edits, like ktoy.
+
+`minisim` (`pytoy/minisim.py`, `jvmMain/.../MiniSim.kt`): one standalone file that
+reads such a bytecode file and runs it. One line per step, state before the step:
+`step=1 acc=0 pc=0 op=20`. `-v` adds a memory dump under each line,
+`x_000...x_015:` and 16 cells, width 3. The end prints `stopped after N steps,
+acc=A`. No I/O (cells 240..255 are plain memory) and no step limit.

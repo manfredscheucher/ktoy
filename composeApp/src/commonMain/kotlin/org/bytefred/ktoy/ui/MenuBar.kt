@@ -595,7 +595,8 @@ Saving
   cells as bytecode. Until then Load, Examples, Reload and
   closing the window ask "Save changes?". Running a program
   is no edit, and a bytecode file holds the program as
-  built plus your cell edits, nothing a run stored.
+  built plus your cell edits, nothing a run stored: one
+  value per line, up to the last non-zero cell.
   Reload reads the file from disk again; saving at the
   program's highest level makes that file the one Reload
   opens, a lower level is only an export.

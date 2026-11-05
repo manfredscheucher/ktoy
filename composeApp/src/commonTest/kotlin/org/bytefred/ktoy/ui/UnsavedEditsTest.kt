@@ -289,6 +289,25 @@ class UnsavedEditsTest {
         assertEquals(77, parseToyo(vm.exportText(".toyo")!!)[200])
     }
 
+    @Test
+    fun bytecodeFileIsOnlyTheValuesUpToTheLastNonZeroCell() {
+        val vm = SimViewModel()
+        vm.loadFromFile("p.toyo", "20\n6\n0\n0\n")
+        assertEquals("20\n6\n", vm.exportText(".toyo"))
+        vm.editCell(4, 7)
+        assertEquals("20\n6\n0\n0\n7\n", vm.exportText(".toyo"))
+    }
+
+    @Test
+    fun aBadBytecodeFileIsAnErrorAndKeepsTheProgram() {
+        val vm = SimViewModel()
+        vm.loadFromFile("p.toyo", "20\n6\n")
+        vm.loadFromFile("q.toyo", "300\n")
+        assertTrue(vm.errorMessage!!.contains("0..255"))
+        assertEquals(20, vm.machine!!.mem[0])
+        assertEquals("p.toyo", vm.title)
+    }
+
     // ── Reload ──
 
     @Test
