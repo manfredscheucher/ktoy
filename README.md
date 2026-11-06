@@ -19,28 +19,8 @@ works: while a program runs, it highlights the current bytecode in memory next t
 the matching assembly instruction, and you step through one instruction at a time.
 
 You write assembly (`.toys`); ktoy assembles it to a 256-byte image and runs it.
-It also compiles a small C subset (the same `toycc`/`minicc` as pytoy) and shows
-C, assembly and memory side by side. Example programs are built in.
-
-ktoy is in early development. Feedback is very welcome:
-[manfred.scheucher@proton.me](mailto:manfred.scheucher@proton.me?subject=ktoy%20feedback&body=hi%20manfred%2C%0A%0A)
-
-## Videos
-
-Tutorials and demos on the Toy CPU and these tools (basic instruction set,
-programs, the C compiler, and more):
-
-▶ [YouTube playlist](https://www.youtube.com/watch?v=vQxGXtlf5c4&list=PLU1OJ36r4v_c)
-
-## pytoy and ktoy
-
-[**pytoy**](https://github.com/manfredscheucher/pytoy) is the original
-implementation — Python, for the desktop. ktoy is the Kotlin Multiplatform
-rewrite that covers more platforms (desktop plus web, Android, iOS) and is meant
-to become the main front end over time. pytoy stays the reference: it's the
-source of truth for the CPU semantics and the examples, which ktoy is generated
-from, and it keeps working. Python covers Windows/Linux/macOS; Kotlin
-Multiplatform is a superset that adds the browser and the phones on top.
+It also compiles a small C subset and shows C, assembly and memory side by side.
+Example programs are built in.
 
 A taste of the syntax:
 
@@ -51,6 +31,16 @@ A taste of the syntax:
 a:      10              # data goes after stop
 b:      20
 ```
+
+ktoy is in early development. Feedback is very welcome:
+[manfred.scheucher@proton.me](mailto:manfred.scheucher@proton.me?subject=ktoy%20feedback&body=hi%20manfred%2C%0A%0A)
+
+## Videos
+
+Tutorials and demos on the Toy CPU (basic instruction set, programs, the C
+compiler, and more):
+
+▶ [YouTube playlist](https://www.youtube.com/watch?v=vQxGXtlf5c4&list=PLU1OJ36r4v_c)
 
 ## The app
 
@@ -71,8 +61,7 @@ Examples browses the built-ins by folder, Help shows the instruction set.
 ## The code
 
 The shared code is the `composeApp` module (`androidApp` packages it for
-Android). The CPU logic is a byte-for-byte port of pytoy and
-lives in `commonMain`:
+Android). The CPU logic lives in `commonMain`:
 
 - `core/ToyCpu.kt` — the CPU core (opcodes, decode/execute). The single source of
   truth for the machine's semantics.
@@ -81,9 +70,8 @@ lives in `commonMain`:
 - `core/Machine.kt` — the runnable simulator state: step, step-back (undo), live
   edit, and `.toyo` parsing.
 - `ui/` — the Compose screens.
-- `core/ExampleSources.kt` — the bundled example programs, **generated** from
-  pytoy's `examples/` by `scripts/gen_example_sources.py` (pytoy is the single
-  source of truth for the examples).
+- `core/ExampleSources.kt` — the bundled example programs, **generated** by
+  `scripts/gen_example_sources.py`.
 - `jvmMain/.../MiniSim.kt` — [minisim](#minisim), a tiny standalone simulator.
 
 ## Build & run
@@ -107,9 +95,8 @@ Run scripts per platform (see [`doc/platforms.md`](doc/platforms.md) for details
 ./scripts/deployPages.sh          # build the web bundle -> gh-pages branch
 ```
 
-The tests include a snapshot table that asserts ktoy computes the exact same final
-accumulator and step count as pytoy for every bundled example, so the two
-implementations can't drift.
+The tests check the final accumulator and step count of every bundled example,
+except the I/O ones, which wait for input.
 
 Machine-local scripts for installing on a specific device live in
 `_private/scripts/` (not committed).
@@ -118,7 +105,7 @@ Machine-local scripts for installing on a specific device live in
 
 `MiniSim.kt` is a tiny standalone simulator: it reads a bytecode file (Save ->
 Bytecode: one integer per line), runs it to STOP and prints every step, with `-v`
-also a memory dump. No I/O. Same program as pytoy's `minisim.py`.
+also a memory dump. No I/O.
 
 ```bash
 ./scripts/runMiniSim.sh program.txt -v
@@ -128,7 +115,7 @@ The script needs `kotlinc` and compiles on every run.
 
 ## Documentation
 
-The full specification — what was built and why, and how it maps to pytoy — is in
+The full specification, what was built and why, is in
 [`doc/spec.md`](doc/spec.md). Building and running each platform (Android, desktop,
 web, iOS), the menus, file I/O and version info are in
 [`doc/platforms.md`](doc/platforms.md).
@@ -137,7 +124,6 @@ web, iOS), the menus, file I/O and version info are in
 
 The Toy CPU instruction set is by Jim Hall (FreeDOS Project) — see its
 [official page](https://jimhall.itch.io/toy-cpu) and
-[source](https://github.com/freedosproject/toycpu). ktoy is a port of pytoy,
-whose own code (assembler, simulator, UI) is independent of the original toycpu.
+[source](https://github.com/freedosproject/toycpu).
 
 ktoy is MIT-licensed (see [`LICENSE`](LICENSE)).
