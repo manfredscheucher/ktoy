@@ -7,7 +7,10 @@ Android and iOS**. A Kotlin Multiplatform + Compose rewrite of
 
 **Try it in the browser: <https://manfredscheucher.github.io/ktoy/>**
 
-![ktoy stepping through a program: assembly on the left, CPU state and memory on the right](doc/screenshot.png)
+<p>
+  <img src="doc/screenshot.png" height="400" alt="ktoy on the desktop: assembly on the left, CPU state and memory on the right">
+  <img src="doc/screenshot-mobile.png" height="400" alt="ktoy on a phone: assembly above, CPU state and memory below">
+</p>
 
 The Toy CPU is a minimal 8-bit processor with 256 bytes of memory, one
 accumulator, and a program counter. It was built as a FreeDOS learning tool with
