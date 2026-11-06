@@ -1007,7 +1007,8 @@ listing and symbols are not wanted. Decisions (same in pytoy):
 `minisim` (`pytoy/minisim.py`, `jvmMain/.../MiniSim.kt`): one standalone file that
 reads such a bytecode file and runs it. One line per step, state before the step:
 `step=1 acc=0 pc=0 op=20`. `-v` adds a memory dump under each line,
-`x_000...x_015:` and 16 cells, width 3. The end prints `stopped after N steps,
+`x_000...x_015:` and 16 cells, width 3 plus one marker char: `*` behind the cell
+the PC points at, else a space. The end prints `stopped after N steps,
 acc=A`. No I/O (cells 240..255 are plain memory) and no step limit.
 
 ## 27. 2026-11-05: Simpler: no invalid-opcode modes, fewer buttons

@@ -53,11 +53,12 @@ class MiniSimTest {
     }
 
     @Test
-    fun verboseDumps16RowsOf78Chars() {
+    fun verboseDumps16RowsAndMarksThePc() {
         val (_, lines) = runLines(program, verbose = true)
-        assertEquals("x_000...x_015:  20   6   3  22   6   0  21" + "   0".repeat(9), lines[1])
-        assertEquals("x_240...x_255:" + "   0".repeat(16), lines[16])
-        assertTrue(lines.subList(1, 17).all { it.length == 78 })
+        assertEquals("x_000...x_015:  20*  6   3  22   6   0  21 " + "  0 ".repeat(9), lines[1])
+        assertEquals("x_240...x_255: " + "  0 ".repeat(16), lines[16])
+        assertTrue(lines.subList(1, 17).all { it.length == 79 })
+        assertEquals("x_000...x_015:  20   6   3* 22   6   0  21 " + "  0 ".repeat(9), lines[18])
         assertTrue(lines[17].startsWith("step=2 "))
     }
 

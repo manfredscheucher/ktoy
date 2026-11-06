@@ -21,7 +21,7 @@ fun miniSimRun(mem: IntArray, verbose: Boolean = false): Pair<Int, Int> {
         steps++
         println("step=$steps acc=$acc pc=$pc op=$op")
         if (verbose) for (i in 0 until 256 step 16)
-            println("x_%03d...x_%03d:".format(i, i + 15) + mem.slice(i until i + 16).joinToString("") { " %3d".format(it) })
+            println("x_%03d...x_%03d: ".format(i, i + 15) + (i until i + 16).joinToString("") { "%3d%s".format(mem[it], if (it == pc) "*" else " ") })
         if (op == 0) {
             println("stopped after $steps step${if (steps == 1) "" else "s"}, acc=$acc")
             return acc to steps
