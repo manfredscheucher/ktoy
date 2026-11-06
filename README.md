@@ -2,10 +2,9 @@
 
 A cross-platform app for the [Toy CPU](https://github.com/freedosproject/toycpu):
 an assembler and a simulator you can step through — on the **desktop, the web,
-Android and iOS**. A Kotlin Multiplatform + Compose rewrite of
-[pytoy](https://github.com/manfredscheucher/pytoy).
+Android and iOS**.
 
-**Try it in the browser: <https://manfredscheucher.github.io/ktoy/>**
+**Try it in the browser: <https://manfredscheucher.github.io/ktoy/>** (desktop, Android, iOS: see [Build & run](#build--run))
 
 <p>
   <img src="doc/screenshot.png" height="400" alt="ktoy on the desktop: assembly on the left, CPU state and memory on the right">
@@ -25,12 +24,6 @@ C, assembly and memory side by side. Example programs are built in.
 
 ktoy is in early development. Feedback is very welcome:
 [manfred.scheucher@proton.me](mailto:manfred.scheucher@proton.me?subject=ktoy%20feedback&body=hi%20manfred%2C%0A%0A)
-
-## Try it
-
-- **Web** (live once GitHub Pages is enabled):
-  <https://manfredscheucher.github.io/ktoy/>
-- **Desktop / Android / iOS** — see [Build & run](#build--run) below.
 
 ## Videos
 
