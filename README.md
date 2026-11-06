@@ -5,6 +5,10 @@ an assembler and a simulator you can step through — on the **desktop, the web,
 Android and iOS**. A Kotlin Multiplatform + Compose rewrite of
 [pytoy](https://github.com/manfredscheucher/pytoy).
 
+**Try it in the browser: <https://manfredscheucher.github.io/ktoy/>**
+
+![ktoy stepping through a program: assembly on the left, CPU state and memory on the right](doc/screenshot.png)
+
 The Toy CPU is a minimal 8-bit processor with 256 bytes of memory, one
 accumulator, and a program counter. It was built as a FreeDOS learning tool with
 a switch-based interface (like an Altair 8800); ktoy keeps the same CPU but lets
