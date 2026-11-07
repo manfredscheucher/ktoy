@@ -38,44 +38,52 @@ data class Example(
 )
 
 val EXAMPLES: List<Example> = listOf(
-    Example("00_stop", ExampleKind.ASM, """# result: 42
+    Example("00_stop", ExampleKind.ASM, """# example: stop
+# description: Halts the CPU.
 # steps: 2
-# STOP (00000000) — halt execution
-# The CPU runs until STOP. Everything after it is never executed.
+# result: 42
+
+# Opcode 00000000.
 
         load  x         # acc = 42
-        stop            # halt here
-        load  y         # never runs (acc stays 42)
+        stop
+        load  y         # never runs
 
 x:      42
 y:      99
 """, subfolder = "01-basics"),
-    Example("01_right", ExampleKind.ASM, """# result: 2
+    Example("01_right", ExampleKind.ASM, """# example: right
+# description: Shifts acc right by 1 bit.
 # steps: 3
-# RIGHT (00000001) — shift accumulator right by 1
-# 00000100 (4) becomes 00000010 (2).
+# result: 2
 
-        load  x         # acc = 4
-        right           # acc = 2
+# Opcode 00000001.
+
+        load  x         # acc = 00000100
+        right           # acc = 00000010
         stop
 
 x:      4
 """, subfolder = "01-basics"),
-    Example("02_left", ExampleKind.ASM, """# result: 8
+    Example("02_left", ExampleKind.ASM, """# example: left
+# description: Shifts acc left by 1 bit.
 # steps: 3
-# LEFT (00000010) — shift accumulator left by 1
-# 00000100 (4) becomes 00001000 (8).
+# result: 8
 
-        load  x         # acc = 4
-        left            # acc = 8
+# Opcode 00000010.
+
+        load  x         # acc = 00000100
+        left            # acc = 00001000
         stop
 
 x:      4
 """, subfolder = "01-basics"),
-    Example("03_not", ExampleKind.ASM, """# result: 240
+    Example("03_not", ExampleKind.ASM, """# example: not
+# description: Flips every bit of acc.
 # steps: 3
-# NOT (00001111) — bitwise NOT of the accumulator
-# 00001111 (15) becomes 11110000 (240).
+# result: 240
+
+# Opcode 00001111.
 
         load  x         # acc = 00001111
         not             # acc = 11110000
@@ -83,10 +91,12 @@ x:      4
 
 x:      15
 """, subfolder = "01-basics"),
-    Example("04_and", ExampleKind.ASM, """# result: 136
+    Example("04_and", ExampleKind.ASM, """# example: and
+# description: Computes the bitwise and of acc and a memory value.
 # steps: 3
-# AND (00010001) — bitwise AND of accumulator with a memory value
-# 11001100 AND 10101010 = 10001000.
+# result: 136
+
+# Opcode 00010001.
 
         load  x         # acc = 11001100
         and   y         # acc = 10001000
@@ -95,10 +105,12 @@ x:      15
 x:      204             # 11001100
 y:      170             # 10101010
 """, subfolder = "01-basics"),
-    Example("05_or", ExampleKind.ASM, """# result: 238
+    Example("05_or", ExampleKind.ASM, """# example: or
+# description: Computes the bitwise or of acc and a memory value.
 # steps: 3
-# OR (00010010) — bitwise OR of accumulator with a memory value
-# 11001100 OR 10101010 = 11101110.
+# result: 238
+
+# Opcode 00010010.
 
         load  x         # acc = 11001100
         or    y         # acc = 11101110
@@ -107,10 +119,12 @@ y:      170             # 10101010
 x:      204             # 11001100
 y:      170             # 10101010
 """, subfolder = "01-basics"),
-    Example("06_xor", ExampleKind.ASM, """# result: 102
+    Example("06_xor", ExampleKind.ASM, """# example: xor
+# description: Computes the bitwise xor of acc and a memory value.
 # steps: 3
-# XOR (00010011) — bitwise XOR of accumulator with a memory value
-# 11001100 XOR 10101010 = 01100110.
+# result: 102
+
+# Opcode 00010011.
 
         load  x         # acc = 11001100
         xor   y         # acc = 01100110
@@ -119,19 +133,24 @@ y:      170             # 10101010
 x:      204             # 11001100
 y:      170             # 10101010
 """, subfolder = "01-basics"),
-    Example("07_load", ExampleKind.ASM, """# result: 42
+    Example("07_load", ExampleKind.ASM, """# example: load
+# description: Copies a memory value into acc.
 # steps: 2
-# LOAD (00010100) — copy a memory value into the accumulator
+# result: 42
+
+# Opcode 00010100.
 
         load  x         # acc = 42
         stop
 
 x:      42
 """, subfolder = "01-basics"),
-    Example("08_store", ExampleKind.ASM, """# result: 42
+    Example("08_store", ExampleKind.ASM, """# example: store
+# description: Copies acc into memory.
 # steps: 3
-# STORE (00010101) — copy the accumulator into a memory address
-# Watch address `dst` change from 0 to 42 in the memory panel.
+# result: 42
+
+# Opcode 00010101.
 
         load  x         # acc = 42
         store dst       # dst = 42
@@ -140,10 +159,12 @@ x:      42
 x:      42
 dst:    0
 """, subfolder = "01-basics"),
-    Example("09_add", ExampleKind.ASM, """# result: 42
+    Example("09_add", ExampleKind.ASM, """# example: add
+# description: Adds a memory value to acc.
 # steps: 3
-# ADD (00010110) — add a memory value to the accumulator
-# 40 + 2 = 42.
+# result: 42
+
+# Opcode 00010110.
 
         load  x         # acc = 40
         add   y         # acc = 42
@@ -152,10 +173,12 @@ dst:    0
 x:      40
 y:      2
 """, subfolder = "01-basics"),
-    Example("10_sub", ExampleKind.ASM, """# result: 42
+    Example("10_sub", ExampleKind.ASM, """# example: sub
+# description: Subtracts a memory value from acc.
 # steps: 3
-# SUB (00010111) — subtract a memory value from the accumulator
-# 50 - 8 = 42.
+# result: 42
+
+# Opcode 00010111.
 
         load  x         # acc = 50
         sub   y         # acc = 42
@@ -164,74 +187,86 @@ y:      2
 x:      50
 y:      8
 """, subfolder = "01-basics"),
-    Example("11_goto", ExampleKind.ASM, """# result: 42
+    Example("11_goto", ExampleKind.ASM, """# example: goto
+# description: Jumps to an address unconditionally.
 # steps: 3
-# GOTO (00011000) — unconditional jump to a program address
-# Jumps over the middle LOAD, so acc ends up 42, not 99.
+# result: 42
+
+# Opcode 00011000.
 
         goto  skip
-        load  y         # skipped
+        load  y         # never runs
 skip:   load  x         # acc = 42
         stop
 
 x:      42
 y:      99
 """, subfolder = "01-basics"),
-    Example("12_ifzero", ExampleKind.ASM, """# result: 0
+    Example("12_ifzero", ExampleKind.ASM, """# example: ifzero
+# description: Jumps to an address only if acc is zero.
 # steps: 3
-# IFZERO (00011001) — jump to an address only if the accumulator is zero
-# x is 0, so the jump to `done` is taken and `LOAD y` is skipped; acc stays 0.
+# result: 0
 
-        load  x         # acc = x
-        ifzero done     # x == 0 -> jump to done
-        load  y         # x != 0: acc = y
+# Opcode 00011001.
+
+        load  x         # acc = 0
+        ifzero done     # taken
+        load  y         # never runs
 done:   stop
 
 x:      0
 y:      99
 """, subfolder = "01-basics"),
-    Example("13_nop", ExampleKind.ASM, """# result: 42
+    Example("13_nop", ExampleKind.ASM, """# example: nop
+# description: Does nothing.
 # steps: 3
-# NOP (10000000) — do nothing, just advance to the next instruction
+# result: 42
+
+# Opcode 10000000.
 
         load  x         # acc = 42
-        nop             # no effect
+        nop
         stop
 
 x:      42
 """, subfolder = "01-basics"),
-    Example("bit_set_clear_toggle", ExampleKind.ASM, """# result: 1
+    Example("bit_set_clear_toggle", ExampleKind.ASM, """# example: set, clear and toggle a bit
+# description: Sets, toggles and clears bit 3 of x, storing each result.
 # steps: 10
-# set / clear / toggle bit 3 (mask 00001000) of x
-# x=00000001 -> set:00001001 -> toggle:00000001 -> stored in results
+# result: 1
+
         load  x
         or    mask        # set bit 3
-        store r_set
-
-        load  r_set
-        xor   mask        # toggle bit 3 (back off)
-        store r_toggle
+        store r_set       # 00001001
 
         load  x
-        and   keep        # clear bit 3 (mask's complement)
-        store r_clear
+        xor   mask        # toggle bit 3
+        store r_toggle    # 00001001
+
+        load  x
+        and   keep        # clear bit 3
+        store r_clear     # 00000001
         stop
 
 x:        1               # 00000001
 mask:     8               # 00001000
-keep:     247             # 11110111 (NOT mask)
+keep:     247             # 11110111 (not mask)
 r_set:    0
 r_toggle: 0
 r_clear:  0
 """, subfolder = "02-extended"),
-    Example("compare_less", ExampleKind.ASM, """# result: 1
+    Example("compare_less", ExampleKind.ASM, """# example: compare a < b
+# description: Sets acc to 1 if a < b, else to 0.
 # steps: 6
-# compare a < b: sign bit of (a-b) is set on underflow
-# a=3, b=5 -> a<b -> acc=1  (try a=5,b=3 -> acc=0)
+# result: 1
+
+# The most significant bit (MSB) of a - b acts as its sign: set means a < b.
+# Valid while a - b stays in -128..127.
+
         load  a
         sub   b
-        and   sign        # isolate bit 7
-        ifzero ge         # bit 7 clear -> a >= b
+        and   sign        # isolate the MSB
+        ifzero ge         # MSB clear -> a >= b
         load  one
         stop
 ge:     load  zero
@@ -239,19 +274,22 @@ ge:     load  zero
 
 a:      3
 b:      5
-sign:   128
+sign:   128               # 10000000
 one:    1
 zero:   0
 """, subfolder = "02-extended"),
-    Example("divide", ExampleKind.ASM, """# result: 3
+    Example("divide", ExampleKind.ASM, """# example: divide by repeated subtraction
+# description: Computes a / b by counting how often b can be subtracted from a.
 # steps: 39
-# divide: a / b by repeated subtraction  (20 / 6 = 3)
-# count how often b fits in a; stop when a-b goes negative (msb set).
-# valid for a in 0..127 (msb is the sign).
+# result: 3
+
+# The most significant bit (MSB) of a - b acts as its sign: set means a < b.
+# Valid for a in 0..127, b in 1..128.
+
 loop:   load  a
         sub   b
-        and   sign        # a-b < 0 ?
-        ifzero cont       # no -> subtract for real
+        and   sign        # isolate the MSB
+        ifzero cont       # MSB clear -> a >= b, subtract for real
         load  q
         stop              # q = quotient
 cont:   load  a
@@ -266,17 +304,21 @@ a:      20
 b:      6
 q:      0
 one:    1
-sign:   128
+sign:   128               # 10000000
 """, subfolder = "02-extended"),
-    Example("load_indirect", ExampleKind.ASM, """# result: 9
+    Example("load_indirect", ExampleKind.ASM, """# example: load indirect
+# description: Reads data[i] into acc by patching the address of a load.
 # steps: 5
-# load indirect: read data[i] into acc  (i=5 -> pi digit 9)
+# result: 9
+
+# Self-modifying code: the load is written as raw bytes so its address byte can have a label.
+
         load  base
         add   i
-        store patch       # patch the LOAD address below
+        store patch
 
-load:   20                # LOAD opcode
-patch:  0                 # address byte -> data+i
+load:   20                # load opcode
+patch:  0                 # <- address of data[i], patched above
         stop
 
 base:   data
@@ -292,15 +334,18 @@ data:   3
         5
         3
 """, subfolder = "02-extended"),
-    Example("modulo", ExampleKind.ASM, """# result: 2
+    Example("modulo", ExampleKind.ASM, """# example: modulo by repeated subtraction
+# description: Computes a % b by subtracting b until a < b.
 # steps: 30
-# modulo: a % b by repeated subtraction  (20 % 6 = 2)
-# subtract b from a until a-b goes negative; a is then the remainder.
-# valid for a in 0..127 (msb is the sign).
+# result: 2
+
+# The most significant bit (MSB) of a - b acts as its sign: set means a < b.
+# Valid for a in 0..127, b in 1..128.
+
 loop:   load  a
         sub   b
-        and   sign        # a-b < 0 ?
-        ifzero cont       # no -> subtract for real
+        and   sign        # isolate the MSB
+        ifzero cont       # MSB clear -> a >= b, subtract for real
         load  a
         stop              # a = remainder
 cont:   load  a
@@ -310,12 +355,13 @@ cont:   load  a
 
 a:      20
 b:      6
-sign:   128
+sign:   128               # 10000000
 """, subfolder = "02-extended"),
-    Example("msb_shift_vs_mask", ExampleKind.ASM, """# result: 0
+    Example("msb_shift_vs_mask", ExampleKind.ASM, """# example: most significant bit (MSB), shift vs mask
+# description: Extracts the MSB of x by shifting and by masking, then compares the two.
 # steps: 18
-# MSB of x: two ways, same answer.  x=200 -> msb=1
-# shift: 7x RIGHT.  mask: AND 128 then branch (no shifting).
+# result: 0
+
         load  x
         right
         right
@@ -327,7 +373,7 @@ sign:   128
         store m1          # m1 = x >> 7
 
         load  x
-        and   mask        # keep bit 7 -> 0 or 128
+        and   mask        # isolate the MSB: 0 or 128
         ifzero zero
         load  one
         goto  done
@@ -336,23 +382,27 @@ done:   store m2          # m2 = (x & 128) ? 1 : 0
 
         load  m1
         sub   m2
-        stop              # 0 -> both methods agree
+        stop              # 0 -> both agree
 
-x:      200
-mask:   128
+x:      200               # 11001000
+mask:   128               # 10000000
 one:    1
 zero_v: 0
 m1:     0
 m2:     0
 """, subfolder = "02-extended"),
-    Example("multiply_doubling", ExampleKind.ASM, """# result: 42
+    Example("multiply_doubling", ExampleKind.ASM, """# example: multiply by double-and-add
+# description: Computes a * b by adding shifted copies of a.
 # steps: 43
-# multiply fast: a * b by double-and-add  (6 * 7 = 42)
-# each step: if lsb(b) add a to res; then a <<= 1, b >>= 1
+# result: 42
+
+# One pass per bit of b: add a if the least significant bit (LSB) of b is set, then
+# double a and halve b. An 8-bit b needs at most 8 passes, repeated addition up to 255.
+
         load  b
-loop:   ifzero done       # b == 0 -> done
-        and   one         # test lsb(b)
-        ifzero skip       # lsb 0 -> don't add
+loop:   ifzero done       # b == 0
+        and   one         # isolate the LSB
+        ifzero skip       # LSB clear -> don't add
         load  res
         add   a
         store res         # res += a
@@ -371,11 +421,15 @@ b:      7
 res:    0
 one:    1
 """, subfolder = "02-extended"),
-    Example("multiply_repeated", ExampleKind.ASM, """# result: 42
+    Example("multiply_repeated", ExampleKind.ASM, """# example: multiply by repeated addition
+# description: Computes a * b by adding a to res, b times.
 # steps: 60
-# multiply: a * b by adding a to itself b times  (6 * 7 = 42)
+# result: 42
+
+# 255 * 255 would take 255 passes, multiply_doubling.toys at most 8.
+
         load  b
-loop:   ifzero done       # b == 0 -> done
+loop:   ifzero done       # b == 0
         load  res
         add   a
         store res         # res += a
@@ -391,9 +445,13 @@ b:      7
 res:    0
 one:    1
 """, subfolder = "02-extended"),
-    Example("negate", ExampleKind.ASM, """# result: 251
+    Example("negate", ExampleKind.ASM, """# example: negate
+# description: Negates x by computing 0 - x.
 # steps: 3
-# negate: 0 - x  (two's complement)  x=5 -> 251 (= -5 mod 256)
+# result: 251
+
+# 251 is -5 mod 256.
+
         load  zero
         sub   x
         stop
@@ -401,16 +459,21 @@ one:    1
 zero:   0
 x:      5
 """, subfolder = "02-extended"),
-    Example("store_indirect", ExampleKind.ASM, """# result: 42
+    Example("store_indirect", ExampleKind.ASM, """# example: store indirect
+# description: Writes val into data[i] by patching the address of a store.
 # steps: 6
-# store indirect: write val into data[i]  (watch data[3]: 0 -> 42)
+# result: 42
+
+# Self-modifying code: the store is written as raw bytes so its address byte can have a label.
+# data[3] changes from 0 to 42.
+
         load  base
         add   i
-        store patch       # patch the STORE address below
+        store patch
 
         load  val
-store:  21                # STORE opcode
-patch:  0                 # address byte -> data+i
+store:  21                # store opcode
+patch:  0                 # <- address of data[i], patched above
         stop
 
 base:   data
@@ -422,10 +485,13 @@ data:   0
         0
         0
 """, subfolder = "02-extended"),
-    Example("switch", ExampleKind.ASM, """# result: 2
+    Example("switch", ExampleKind.ASM, """# example: switch
+# description: Branches on x with equality tests: 0, 1 and 2 map to themselves, else 3.
 # steps: 10
-# switch(x): 0->0, 1->1, 2->2, else->3   (no jump table, just equality tests)
-# equality a==b is (a-b)==0 via SUB + IFZERO.
+# result: 2
+
+# Equality a == b is tested as (a - b) == 0 with sub and ifzero.
+
         load  x
         ifzero case0      # x == 0
 
@@ -452,46 +518,33 @@ one:    1
 two:    2
 three:  3
 """, subfolder = "02-extended"),
-    Example("fibonacci_iter", ExampleKind.ASM, """# result: 13
+    Example("fibonacci_iter", ExampleKind.ASM, """# example: iterative Fibonacci
+# description: Computes fib(7) in a loop.
 # steps: 81
-# fibonacci_iter.toys
-# Computes the n-th Fibonacci number
-# Result ends up in the accumulator
-#
-# Algorithm:
-#   a, b = 0, 1
-#   for i in range(n):
-#       b = a + b
-#       a = b - a   (= old b, no temp needed)
-#
-# The sequence: fib(0)=0, fib(1)=1, fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5,
-# fib(6)=8, fib(7)=13. Here n = 7, so ACC = 13.
-#
-# Note: fib(14) = 377 > 255, so n > 13 causes overflow
-#
-# Set before running:
-#   n   = desired position (e.g. 10 -> fib(10) = 55)
-#   b   = 1
-#   one = 1
+# result: 13
 
-        load  n         # acc = n (loop counter)
-loop:   ifzero end      # n == 0 -> done
+# a = b - a recovers the old b, so no temporary variable is needed.
+# fib(14) = 377 does not fit in a byte, so n > 13 overflows.
+# Recursive version: fibonacci_rec.toys.
 
-        load  a         # acc = a
-        add   b         # acc = a + b
-        store b         # b = a + b  (new b)
+        load  n         # loop counter
+loop:   ifzero end      # n == 0
 
-        load  b         # acc = new b
-        sub   a         # acc = (a+b) - a = old b
-        store a         # a = old b
+        load  a
+        add   b
+        store b         # b = a + b
 
-        load  n         # acc = n
-        sub   one       # acc = n - 1
+        load  b
+        sub   a         # acc = (a + b) - a = old b
+        store a
+
+        load  n
+        sub   one
         store n         # n--
 
         goto  loop
 
-end:    load  a         # result: fib(n) in accumulator
+end:    load  a         # fib(n)
         stop
 
 # data
@@ -500,51 +553,48 @@ a:      0
 b:      1
 one:    1
 """, subfolder = "03-programs"),
-    Example("fibonacci_rec", ExampleKind.ASM, """# result: 13
+    Example("fibonacci_rec", ExampleKind.ASM, """# example: recursive Fibonacci
+# description: Computes fib(7) recursively on a self-modifying-code stack.
 # steps: 2145
-# Recursive Fibonacci, Toy CPU. fib(n)=n if n<2 else fib(n-1)+fib(n-2) mod 256.
-# Real stack via sp + self-modifying indirect load/store.
-# Frame (pushed by caller): [marker][n]. markers: 0=top,1=after fib(n-1),2=after fib(n-2).
-# The top frame is pre-allocated as data; the entry code seeds its n from
-# `input`, so you only set `input` to choose which fib(n) to compute.
-# Here input = 7, so ACC = fib(7) = 13.
-# The sequence: fib(0)=0, fib(1)=1, fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5,
-# fib(6)=8, fib(7)=13.
+# result: 13
 
-# ---------------- entry: seed the top frame's n from input ----------------
+# Frame, pushed by the caller: [marker][n]. Marker: 0 = top, 1 = after fib(n-1), 2 = after fib(n-2).
+# The top frame is preallocated as data; set `input` to choose n. Iterative version: fibonacci_iter.toys.
+
+        # entry: seed the top frame's n from input
         load  input
-        store seedn        # top-frame n = input (no manual sync needed)
+        store seedn
         goto  fib
 
-# ---------------- fib body ----------------
+        # fib body: n is read from the frame at sp-1
 fib:    load  sp
-        sub   one          # acc = sp-1  (address of this frame's n)
-        store pka          # patch indirect-load address
-lop:    20                 # LOAD opcode (raw byte)
-pka:    0                  # <- address of n, patched above
-        store nloc         # nloc = n
+        sub   one           # address of this frame's n
+        store pka
+lop:    20                  # load opcode
+pka:    0                   # <- address of n, patched above
+        store nloc          # nloc = n
 
-        ifzero ret         # n==0 -> result 0 (acc already 0), return
+        ifzero ret          # n == 0 -> result 0 (acc already 0)
         load  nloc
         sub   one
-        ifzero r1          # n==1 -> result 1
+        ifzero r1           # n == 1 -> result 1
         goto  rec
 r1:     load  one
         goto  ret
 
 rec:    load  nloc
         sub   one
-        store nm1          # nm1 = n-1
+        store nm1           # nm1 = n-1
         load  nloc
         sub   two
-        store nm2          # nm2 = n-2
+        store nm2           # nm2 = n-2
 
         # push marker=1
         load  sp
         store pa1
         load  one
-so1:    21
-pa1:    0
+so1:    21                  # store opcode
+pa1:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
         store sp
@@ -552,30 +602,30 @@ pa1:    0
         load  sp
         store pa2
         load  nm1
-so2:    21
-pa2:    0
+so2:    21                  # store opcode
+pa2:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
         store sp
         goto  fib
 
-r1site: store fret1         # acc=fib(n-1); save it (transient: no call before push)
-        # Re-derive n-2 from THIS frame's n (globals were clobbered by inner calls).
-        # sp still points past our frame, so n is at sp-1, exactly as at fib entry.
+r1site: store fret1         # acc = fib(n-1); safe in a global, no call before the push
+        # Re-derive n-2 from this frame's n (inner calls overwrote the globals).
+        # sp still points past this frame, so n is at sp-1, exactly as at fib entry.
         load  sp
         sub   one
         store pka2
         load  zero
-lop2:   20
-pka2:   0                   # acc = n (from frame)
+lop2:   20                  # load opcode
+pka2:   0                   # <- address of n, patched above
         sub   two
-        store nm2           # nm2 = n-2  (fresh)
+        store nm2           # nm2 = n-2
         # push saved fib(n-1)
         load  sp
         store pa3
         load  fret1
-so3:    21
-pa3:    0
+so3:    21                  # store opcode
+pa3:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
         store sp
@@ -583,8 +633,8 @@ pa3:    0
         load  sp
         store pa4
         load  two
-so4:    21
-pa4:    0
+so4:    21                  # store opcode
+pa4:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
         store sp
@@ -592,41 +642,41 @@ pa4:    0
         load  sp
         store pa5
         load  nm2
-so5:    21
-pa5:    0
+so5:    21                  # store opcode
+pa5:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
         store sp
         goto  fib
 
-r2site: store fscr          # acc = fib(n-2), stash to scratch
+r2site: store fscr          # acc = fib(n-2)
         load  sp
         sub   one
         store sp            # pop
         store pa6
         load  zero
-lo6:    20
-pa6:    0                   # load saved fib(n-1)
+lo6:    20                  # load opcode
+pa6:    0                   # <- address of saved fib(n-1), patched above
         add   fscr          # fib(n-1)+fib(n-2)
 
-# ---------------- return: acc=result. pop frame, dispatch on marker ----------
+        # return: acc = result; pop the frame, dispatch on marker
 ret:    store result
         load  sp
-        sub   two           # pop n and marker (sp -= 2)
+        sub   two           # pop n and marker
         store sp
-        store pa7           # sp now points at marker slot; patch load addr
+        store pa7           # sp points at the marker
         load  zero
-lo7:    20
-pa7:    0                   # load marker
+lo7:    20                  # load opcode
+pa7:    0                   # <- address of the marker, patched above
         store mk
-        ifzero top          # marker 0 -> top-level
+        ifzero top          # marker 0 -> top level
         load  mk
         sub   one
         ifzero r1load       # marker 1 -> after fib(n-1) call
         load  result        # marker 2 -> after fib(n-2) call; restore result
         goto  r2site
 
-r1load: load  result        # restore result into ACC for r1site
+r1load: load  result        # restore result into acc for r1site
         goto  r1site
 
 top:    load  result
@@ -645,10 +695,10 @@ nm2:    0
 fret1:  0
 fscr:   0
 sp:     stackbase
-# Pre-seeded top frame sits JUST BELOW stackbase: [marker=0][n=input].
-# sp = stackbase points at the next free slot; peek (sp-1) reads n.
-seedm:  0            # top-frame marker = 0   (addr stackbase-2)
-seedn:  0            # top-frame n, set to `input` by the entry code (addr stackbase-1)
+# The top frame sits just below stackbase: [marker=0][n=input].
+# sp = stackbase points at the next free slot; sp-1 is n.
+seedm:  0            # top-frame marker (stackbase-2)
+seedn:  0            # top-frame n, set from `input` at entry (stackbase-1)
 stackbase: 0
         0
         0
@@ -671,23 +721,24 @@ stackbase: 0
         0
         0
 """, subfolder = "03-programs"),
-    Example("gcd_iter", ExampleKind.ASM, """# result: 12
+    Example("gcd_iter", ExampleKind.ASM, """# example: iterative GCD by subtraction
+# description: Computes gcd(48, 36) in a loop with Euclid's subtraction algorithm.
 # steps: 32
-# gcd_iter.toys
-# Greatest common divisor by subtraction (Euclid):
-#   while a != b: if a > b: a -= b  else: b -= a
-# gcd(48, 36) = 12.  Values 1..127 (msb is used as the sign for a > b).
+# result: 12
+
+# Trace: (48, 36) -> (12, 36) -> (12, 24) -> (12, 12), then a == b.
+# The most significant bit (MSB) of a - b acts as its sign: set means a < b.
+# Valid for a and b in 1..127.
 
 loop:   load  a
         sub   b
         ifzero done       # a == b -> gcd found
-        and   sign        # sign bit of (a - b)
-        ifzero a_gt_b     # bit clear -> a > b
+        and   sign        # isolate the MSB
+        ifzero a_gt_b     # MSB clear -> a > b
 
-        # a < b:  b -= a
         load  b
         sub   a
-        store b
+        store b           # b -= a
         goto  loop
 
 a_gt_b: load  a
@@ -701,96 +752,79 @@ done:   load  a           # a == b == gcd
 # data
 a:      48
 b:      36
-sign:   128
+sign:   128               # 10000000
 """, subfolder = "03-programs"),
-    Example("max3", ExampleKind.ASM, """# result: 4
+    Example("max3", ExampleKind.ASM, """# example: largest of three values
+# description: Finds the largest of a, b and c.
 # steps: 15
-# max3.toys
-# Largest of three named values a, b, c.
-#
-# The three values are the first three digits of pi (a=3, b=1, c=4),
-# so the expected result is max(3, 1, 4) = 4.
-#
-# Compare trick (same idea as max_array.toys, but on named values, not an
-# array): to test "x > best", compute x - best. If that subtraction
-# underflows (bit 7 set), then x < best; otherwise x >= best.
-#
-#   best = a
-#   if b > best: best = b
-#   if c > best: best = c
+# result: 4
+
+# The most significant bit (MSB) of b - best acts as its sign: set means b < best.
+# Valid for values 0..127. Whole array: max_array.toys.
 
         load  a
-        store best        # best = a
+        store best
 
-        # compare b vs best
+        # compare b with best
         load  b
-        sub   best        # acc = b - best
-        and   mask        # bit 7 set -> b < best (underflow)
-        ifzero setb       # bit 7 clear -> b >= best -> take b
+        sub   best
+        and   mask        # isolate the MSB
+        ifzero setb       # MSB clear -> b >= best
         goto  chkc
 setb:   load  b
-        store best        # best = b
+        store best
 
-        # compare c vs best
+        # compare c with best
 chkc:   load  c
-        sub   best        # acc = c - best
-        and   mask        # bit 7 set -> c < best
-        ifzero setc       # bit 7 clear -> c >= best -> take c
+        sub   best
+        and   mask        # isolate the MSB
+        ifzero setc       # MSB clear -> c >= best
         goto  done
 setc:   load  c
-        store best        # best = c
+        store best
 
-done:   load  best        # result 4 in accumulator
+done:   load  best
         stop
 
 # data
-mask:   128
+mask:   128               # 10000000
 best:   0
 a:      3
 b:      1
 c:      4
 """, subfolder = "03-programs"),
-    Example("max_array", ExampleKind.ASM, """# result: 9
+    Example("max_array", ExampleKind.ASM, """# example: largest value in an array
+# description: Finds the largest value in an array with a loop.
 # steps: 115
-# max_array.toys
-# Finds the maximum of an array using self-modifying code
-#
-# Algorithm:
-#   best = 0
-#   for each element in arr:
-#       if element > best: best = element
-#
-# Compare trick: compute element - best.
-# If no underflow (bit 7 clear), element >= best.
-#
-# Values: 3, 1, 4, 1, 5, 9, 2  (expected max = 9)
+# result: 9
 
-# ── init: set indirect load to point at arr[0] ──────────
+# Self-modifying code: the load is written as raw bytes so its address byte can have a label.
+# The most significant bit (MSB) of cur - best acts as its sign: set means cur < best.
+# Valid for values 0..127. Three values: max3.toys.
+
+        # point the indirect load at arr[0]
         load  ptr
         store iarg
 
-# ── main loop ────────────────────────────────────────────
 loop:   load  count
         ifzero done
 
-        # load arr[i]
-        20                # LOAD opcode
-iarg:   0                 # ← patched to arr[i]
-        store cur         # cur = arr[i]
+        20                # load opcode
+iarg:   0                 # <- address of arr[i], patched each pass
+        store cur
 
-        # compare: cur - best
         sub   best        # acc = cur - best
-        and   mask        # bit 7 set if cur < best (underflow)
-        ifzero update     # bit 7 clear -> cur >= best -> update
+        and   mask        # isolate the MSB
+        ifzero update     # MSB clear -> cur >= best
 
         goto  next
 
 update: load  cur
-        store best        # best = cur
+        store best
 
 next:   load  iarg
         add   one
-        store iarg        # ptr++
+        store iarg        # next element
 
         load  count
         sub   one
@@ -803,12 +837,11 @@ done:   load  best
 # data
 count:  7
 one:    1
-mask:   128
+mask:   128               # 10000000
 best:   0
 cur:    0
-ptr:    arr
+ptr:    arr               # address of arr[0]
 
-# array (contiguous)
 arr:    3
         1
         4
@@ -817,28 +850,20 @@ arr:    3
         9
         2
 """, subfolder = "03-programs"),
-    Example("sort3", ExampleKind.ASM, """# result: 1
+    Example("sort3", ExampleKind.ASM, """# example: sort three values
+# description: Sorts a, b and c; the result is the smallest.
 # steps: 20
-# sort3.toys
-# Sorts three named values a, b, c ascending, then returns the smallest.
-#
-# The three values are the first three digits of pi (a=3, b=1, c=4).
-# Sorted they are 1, 3, 4, so the smallest -- left in a -- is 1.
-#
-# Three compare-and-swap steps (same idea as bubble sort, but on three
-# named variables instead of an array):
-#   if a > b: swap(a, b)   # a <= b
-#   if b > c: swap(b, c)   # b <= c  (largest now in c)
-#   if a > b: swap(a, b)   # a <= b  (smallest now in a)
-#
-# Compare trick: to test "x > y", compute y - x. If that underflows
-# (bit 7 set) then y < x, i.e. x > y, so we swap.
+# result: 1
+
+# Same idea as bubble sort, on three named variables instead of an array.
+# The most significant bit (MSB) of b - a acts as its sign: set means b < a.
+# Valid for values 0..127. Whole array: sort_array_inline.toys.
 
         # step 1: if a > b, swap
         load  b
-        sub   a           # acc = b - a
-        and   mask        # bit 7 set -> b < a -> a > b -> swap
-        ifzero s2         # bit 7 clear -> a <= b -> no swap
+        sub   a
+        and   mask        # isolate the MSB
+        ifzero s2         # MSB clear -> a <= b -> no swap
         load  a
         store t
         load  b
@@ -846,11 +871,11 @@ arr:    3
         load  t
         store b           # a <-> b
 
-        # step 2: if b > c, swap
+        # step 2: if b > c, swap (the largest ends in c)
 s2:     load  c
-        sub   b           # acc = c - b
-        and   mask        # bit 7 set -> c < b -> b > c -> swap
-        ifzero s3
+        sub   b
+        and   mask        # isolate the MSB
+        ifzero s3         # MSB clear -> b <= c -> no swap
         load  b
         store t
         load  c
@@ -858,11 +883,11 @@ s2:     load  c
         load  t
         store c           # b <-> c
 
-        # step 3: if a > b, swap
+        # step 3: if a > b, swap (the smallest ends in a)
 s3:     load  b
-        sub   a           # acc = b - a
-        and   mask        # bit 7 set -> b < a -> a > b -> swap
-        ifzero done
+        sub   a
+        and   mask        # isolate the MSB
+        ifzero done       # MSB clear -> a <= b -> no swap
         load  a
         store t
         load  b
@@ -870,104 +895,72 @@ s3:     load  b
         load  t
         store b           # a <-> b
 
-done:   load  a           # smallest, 1 in accumulator
+done:   load  a
         stop
 
 # data
-mask:   128
+mask:   128               # 10000000
 t:      0
 a:      3
 b:      1
 c:      4
 """, subfolder = "03-programs"),
-    Example("sort_array_inline", ExampleKind.ASM, """# result: 1
+    Example("sort_array_inline", ExampleKind.ASM, """# example: bubble sort of an array
+# description: Sorts an array in place with bubble sort; the result is the smallest.
 # steps: 1956
-# sort_array_inline.toys
-# ---------------------------------------------------------------------------
-# Bubble sort of 10 bytes, in place, ascending.
-#
-# Array = the 10 digits of pi:  3 1 4 1 5 9 2 6 5 3
-# After sorting:                1 1 2 3 3 4 5 5 6 9
-#
-# The Toy CPU has no index register, no compare, no multiply. We reach the
-# array elements with SELF-MODIFYING CODE: a bare opcode byte followed by a
-# patchable address byte (exactly the sum_array.toys / max_array.toys trick). Four such
-# "indirect" instructions are used, all patched from one running pointer `j`:
-#
-#   ldj_arg:  LOAD arr[j]        (opcode 20 + addr byte)
-#   ldj1_arg: LOAD arr[j+1]      (opcode 20 + addr byte)
-#   stj_arg:  STORE arr[j]       (opcode 21 + addr byte)
-#   stj1_arg: STORE arr[j+1]     (opcode 21 + addr byte)
-#
-# Loop structure (fixed passes, always correct):
-#   for pass in 0..8:                 # outer, 9 passes
-#       j = addr(arr)
-#       for k in 0..8:                # inner, 9 compares over adjacent pairs
-#           a = arr[j]; b = arr[j+1]
-#           if a > b: swap            # bit 7 of (b - a) set  =>  b < a  => swap
-#           j = j + 1
-#
-# Compare trick (from max_array.toys): compute (b - a) mod 256. If a > b then b - a
-# underflows and bit 7 is set. We test bit 7 with `and mask(128)`:
-#     acc==0  -> bit clear -> b >= a -> already ordered, no swap
-#     acc!=0  -> bit set   -> b <  a -> swap
-# (All values are small digits 0..9, so the sign-bit test is unambiguous.)
-# ---------------------------------------------------------------------------
+# result: 1
 
-# ── outer loop init ──────────────────────────────────────────────────────
+# Self-modifying code: loads and stores are written as raw bytes so their address bytes can have labels.
+# Always 9 passes of 9 compares, with no early exit.
+# The most significant bit (MSB) of b - a acts as its sign: set means b < a. Valid for values 0..127.
+
         load  npass_init
-        store npass          # npass = 9 outer passes
+        store npass          # 9 outer passes
 
 outer:  load  npass
-        ifzero done          # all passes done -> finish
+        ifzero done
 
-        # reset inner pointer j to the start of the array
         load  arrptr
-        store jptr           # jptr = addr(arr[0])
+        store jptr           # reset j to arr[0]
 
         load  ninner_init
-        store ninner         # ninner = 9 comparisons this pass
+        store ninner         # 9 compares this pass
 
-# ── inner loop ────────────────────────────────────────────────────────────
 inner:  load  ninner
-        ifzero next_pass     # inner loop finished -> next outer pass
+        ifzero next_pass
 
-        # patch the four indirect instructions from jptr (a[j]) and jptr+1 (a[j+1])
+        # patch the four indirect instructions from jptr (arr[j]) and jptr+1 (arr[j+1])
         load  jptr
-        store ldj_arg        # LOAD arr[j]  address
-        store stj_arg        # STORE arr[j] address
+        store ldj_arg
+        store stj_arg
         add   one
-        store ldj1_arg       # LOAD arr[j+1]  address
-        store stj1_arg       # STORE arr[j+1] address
+        store ldj1_arg
+        store stj1_arg
 
-        # a = arr[j]
-        20                   # LOAD opcode (raw byte)
-ldj_arg:  0                  # ← patched: addr of arr[j]
-        store a              # a = arr[j]
+        20                   # load opcode
+ldj_arg:  0                  # <- address of arr[j], patched each pass
+        store a
 
-        # b = arr[j+1]
-        20                   # LOAD opcode
-ldj1_arg: 0                  # ← patched: addr of arr[j+1]
-        store b              # b = arr[j+1]
+        20                   # load opcode
+ldj1_arg: 0                  # <- address of arr[j+1], patched each pass
+        store b
 
-        # compare: (b - a); bit 7 set  =>  b < a  =>  must swap
         sub   a              # acc = b - a
-        and   mask           # isolate bit 7
-        ifzero no_swap       # bit clear -> b >= a -> ordered, skip swap
+        and   mask           # isolate the MSB
+        ifzero no_swap       # MSB clear -> b >= a -> no swap
 
-        # swap: arr[j] = b ; arr[j+1] = a
+        # swap: arr[j] = b; arr[j+1] = a
         load  b
-        21                   # STORE opcode
-stj_arg:  0                  # ← patched: addr of arr[j]
+        21                   # store opcode
+stj_arg:  0                  # <- address of arr[j], patched each pass
         load  a
-        21                   # STORE opcode
-stj1_arg: 0                  # ← patched: addr of arr[j+1]
+        21                   # store opcode
+stj1_arg: 0                  # <- address of arr[j+1], patched each pass
 
 no_swap:
-        # j = j + 1
         load  jptr
         add   one
-        store jptr
+        store jptr           # j++
 
         load  ninner
         sub   one
@@ -980,8 +973,7 @@ next_pass:
         store npass          # npass--
         goto  outer
 
-# ── done: leave arr[0] (smallest element = 1) in ACC ───────────────────────
-done:   load  arr           # arr[0], should be 1 after sorting
+done:   load  arr
         stop
 
 # data
@@ -990,13 +982,12 @@ ninner_init: 9
 npass:       0
 ninner:      0
 one:         1
-mask:        128
+mask:        128            # 10000000
 a:           0
 b:           0
 jptr:        0
-arrptr:      arr            # address constant: start of the array
+arrptr:      arr            # address of arr[0]
 
-# array (contiguous) — the 10 digits of pi
 arr:    3
         1
         4
@@ -1008,55 +999,46 @@ arr:    3
         5
         3
 """, subfolder = "03-programs"),
-    Example("sum3", ExampleKind.ASM, """# result: 8
+    Example("sum3", ExampleKind.ASM, """# example: sum of three values
+# description: Adds a, b and c.
 # steps: 4
-# sum3.toys
-# Adds three named values: a + b + c.
-#
-# The three values are the first three digits of pi (a=3, b=1, c=4),
-# so the expected result is 3 + 1 + 4 = 8.
-#
-# No loop needed -- just load the first, add the other two.
-# (For summing a whole array, see sum_array.toys.)
+# result: 8
 
-        load  a         # acc = a
-        add   b         # acc = a + b
-        add   c         # acc = a + b + c
-        stop            # result 8 in accumulator
+# Whole array: sum_array.toys.
+
+        load  a
+        add   b
+        add   c
+        stop
 
 # data
 a:      3
 b:      1
 c:      4
 """, subfolder = "03-programs"),
-    Example("sum_array", ExampleKind.ASM, """# result: 25
+    Example("sum_array", ExampleKind.ASM, """# example: sum of an array
+# description: Sums an array with a loop.
 # steps: 90
-# sum_array.toys
-# Sums an array of values using self-modifying code
-#
-# Trick: the LOAD instruction is 2 bytes [opcode=20, address].
-# We place the opcode as a raw data byte followed by a patchable
-# address byte. At runtime we overwrite the address byte to
-# iterate through the array.
-#
-# Values: 3, 1, 4, 1, 5, 9, 2  (expected sum = 25)
+# result: 25
 
-# ── init: set indirect load to point at arr[0] ──────────
-        load  ptr         # acc = address of arr[0]
-        store iarg        # patch the address byte
+# Self-modifying code: the load is written as raw bytes so its address byte can have a label.
+# Three values: sum3.toys.
 
-# ── main loop ────────────────────────────────────────────
+        # point the indirect load at arr[0]
+        load  ptr
+        store iarg
+
 loop:   load  count
         ifzero done
 
-iop:    20                # LOAD opcode (raw byte)
-iarg:   0                 # ← address byte, patched to arr[i]
+iop:    20                # load opcode
+iarg:   0                 # <- address of arr[i], patched each pass
         add   result
         store result      # result += arr[i]
 
-        load  iarg        # current pointer
+        load  iarg
         add   one
-        store iarg        # ptr++
+        store iarg        # next element
 
         load  count
         sub   one
@@ -1072,7 +1054,6 @@ one:    1
 result: 0
 ptr:    arr               # address of arr[0]
 
-# array (contiguous)
 arr:    3
         1
         4
@@ -1081,16 +1062,10 @@ arr:    3
         9
         2
 """, subfolder = "03-programs"),
-    Example("times7_doubling", ExampleKind.ASM, """# result: 28
+    Example("times7_doubling", ExampleKind.ASM, """# example: times 7 by doubling
+# description: Computes 7 * a by doubling and adding.
 # steps: 10
-# times7_doubling.toys
-# Computes res = 7 * a using doubling and addition
-#
-# b = a + a      (2a)
-# c = b + b      (4a)
-# res = a + b + c (a + 2a + 4a = 7a)
-#
-# With a = 4: result = 28
+# result: 28
 
         load  a
         add   a
@@ -1110,29 +1085,25 @@ a:      4
 b:      0
 c:      0
 """, subfolder = "03-programs"),
-    Example("countdown", ExampleKind.ASM, """# countdown.toys — count down from 10 to 1, writing each step to an out cell.
-# io0=10, io1=9, ... io9=1  (decimal).
-# Same self-modifying output-pointer trick as fibonacci_io.toys.
-#
+    Example("countdown", ExampleKind.ASM, """# example: countdown
+# description: Counts down from 10 to 1, writing each value to io0..io9.
 # pytoy: output=decimal
 
 wloop:  load  n
-        ifzero done       # n == 0 -> done
+        ifzero done
 
-        # write n to out[i] via a patched STORE
+        # write n to io[i] via a patched store
         load  n
-iop:    21                # STORE opcode
-iarg:   240               # <- address, patched each pass (starts at io0)
+iop:    21                # store opcode
+iarg:   240               # <- address of io[i], patched each pass (starts at io0)
 
-        # advance the output pointer
         load  iarg
         add   one
-        store iarg
+        store iarg        # next io cell
 
-        # n = n - 1
         load  n
         sub   one
-        store n
+        store n           # n--
         goto  wloop
 
 done:   load  n
@@ -1142,32 +1113,27 @@ done:   load  n
 n:    10
 one:   1
 """, subfolder = "04-io"),
-    Example("fibonacci_io", ExampleKind.ASM, """# fibonacci_io.toys — compute fib(0..13) and write them to io0..io13 (decimal).
-# fib(0)=0, fib(1)=1, fib(n)=fib(n-1)+fib(n-2).  fib(13)=233 is the largest that
-# still fits in one byte (fib(14)=377 would overflow).
-#
-# The output index is advanced by self-modifying code: the STORE below has its
-# address byte patched each iteration to point at the next out cell.
-#
+    Example("fibonacci_io", ExampleKind.ASM, """# example: Fibonacci numbers
+# description: Writes fib(0)..fib(13) to io0..io13.
 # pytoy: output=decimal
+
+# fib(14) = 377 does not fit in a byte, so the output stops at fib(13) = 233.
 
         load  a
 wloop:  load  count
         ifzero done
 
-        # write the current fib value (in `a`) to out[i] via a patched STORE
+        # write a to io[i] via a patched store
         load  a
-        store ival        # stash the value to write
-iop:    21                # STORE opcode (raw byte)
-iarg:   240               # <- address, starts at io0 (240), patched each pass
-        # (the STORE above wrote ival into out[i])
+        store ival        # never read: the patched store writes acc
+iop:    21                # store opcode
+iarg:   240               # <- address of io[i], patched each pass (starts at io0)
 
-        # advance the output pointer
         load  iarg
         add   one
-        store iarg
+        store iarg        # next io cell
 
-        # fib step: next = a + b ; a = b ; b = next
+        # fib step: next = a + b; a = b; b = next
         load  a
         add   b
         store next
@@ -1176,10 +1142,9 @@ iarg:   240               # <- address, starts at io0 (240), patched each pass
         load  next
         store b
 
-        # count down
         load  count
         sub   one
-        store count
+        store count       # count--
         goto  wloop
 
 done:   load  a
@@ -1189,73 +1154,54 @@ done:   load  a
 a:     0            # fib(i)
 b:     1            # fib(i+1)
 next:  0
-count: 14           # write 14 values: fib(0)..fib(13)
+count: 14           # values left to write
 one:   1
 ival:  0
 """, subfolder = "04-io"),
-    Example("greet_name", ExampleKind.ASM, """# greet_name.toys — read a name via busy-poll, then write a greeting.
-#
-# GUI usage:
-#   1. type the name into io0, io1, io2, ... — one ASCII character per cell.
-#   2. set `ready` (255) to the NUMBER of characters typed, via Edit.
-# The program busy-polls `ready`; once non-zero it reads `ready` as the length
-# N, copies io0..io(N-1) (the name) into a scratch area, then overwrites the io
-# cells with the greeting  "hallo " + NAME + "!"  starting at io0.
-#
-#   output layout:  io0..io5 = 'h','a','l','l','o',' '
-#                   io6..     = the N name characters
-#                   then      = '!'
-#
-# The name is copied to scratch FIRST, because writing "hallo " clobbers
-# io0..io5, which still hold the first name characters.
-#
-# (A '.'-terminated variant is possible — read until a '.' appears — but passing
-#  the length in `ready` is cleaner and needs no sentinel, so we use that.)
-#
-# Example: user types "Max" -> io0='M'(77), io1='a'(97), io2='x'(120), ready=3.
-# Result: io0..io9 = h,a,l,l,o,space,M,a,x,!  i.e. "hallo Max!".
-#
-# Self-modifying code (patched LOAD/STORE address bytes) indexes the io cells by
-# the runtime count N, same technique as sort_array_io.toys / sum_array.toys.
-#
+    Example("greet_name", ExampleKind.ASM, """# example: greet by name
+# description: Reads a name from the io cells and writes "hallo NAME!" back.
 # pytoy: output=ascii
 
-# ── 1. busy-poll until ready != 0, then n = ready ─────────────────
+# Input: type one character per cell into io0, io1, ..., then set ready (mem[255]) to the count.
+# The name goes to scratch first because writing "hallo " overwrites io0..io5.
+# The output needs 6 + n + 1 of the 15 io cells, so names fit up to 8 characters.
+
+        # busy-poll until ready != 0, then n = ready
 wait:   load  ready
         ifzero wait
         load  ready
-        store n              # n = number of name characters
+        store n              # number of name characters
 
-# ── 2. copy io0..io(n-1) into scratch[] ───────────────────────────
+        # copy io0..io[n-1] into scratch[]
         load  iobase
-        store rdarg          # read pointer over the io cells (starts at io0=240)
+        store rdarg          # read pointer over the io cells
         load  scraddr
         store wrarg          # write pointer over scratch[]
         load  n
-        store cnt            # cnt = how many chars still to copy
+        store cnt            # characters left to copy
 
 cploop: load  cnt
         ifzero cpdone
 
-        20                   # LOAD opcode
-rdarg:  240                  # ← io cell, patched each pass (io0, io1, ...)
-        21                   # STORE opcode
-wrarg:  scratch              # ← scratch slot, patched each pass
+        20                   # load opcode
+rdarg:  240                  # <- address of io[i], patched each pass
+        21                   # store opcode
+wrarg:  scratch              # <- address of scratch[i], patched each pass
 
-        load  rdarg          # advance io read pointer
+        load  rdarg
         add   one
-        store rdarg
-        load  wrarg          # advance scratch write pointer
+        store rdarg          # next io cell
+        load  wrarg
         add   one
-        store wrarg
+        store wrarg          # next scratch slot
         load  cnt
         sub   one
-        store cnt
+        store cnt            # cnt--
         goto  cploop
 
 cpdone:
 
-# ── 3. write "hallo " to io0..io5 ─────────────────────────────────
+        # write "hallo " to io0..io5
         load  gh
         store io0
         load  ga
@@ -1269,43 +1215,41 @@ cpdone:
         load  gsp
         store io5
 
-# ── 4. append the name: scratch[0..n-1] -> io6.. ──────────────────
+        # append the name: scratch[0..n-1] -> io6..
         load  scraddr
         store r2arg          # read pointer over scratch[]
-        load  nameout        # io6 = 246 = first name slot in the output
+        load  nameout
         store w2arg          # write pointer over the io cells
         load  n
-        store cnt            # reuse cnt as the remaining-name counter
+        store cnt            # characters left to write
 
 wrloop: load  cnt
         ifzero wrdone
 
-        20                   # LOAD opcode
-r2arg:  scratch              # ← scratch slot, patched each pass
-        21                   # STORE opcode
-w2arg:  246                  # ← io cell (io6..), patched each pass
+        20                   # load opcode
+r2arg:  scratch              # <- address of scratch[i], patched each pass
+        21                   # store opcode
+w2arg:  246                  # <- address of io[6+i], patched each pass
 
-        load  r2arg          # advance scratch read pointer
+        load  r2arg
         add   one
-        store r2arg
-        load  w2arg          # advance io write pointer
+        store r2arg          # next scratch slot
+        load  w2arg
         add   one
-        store w2arg
+        store w2arg          # next io cell
         load  cnt
         sub   one
-        store cnt
+        store cnt            # cnt--
         goto  wrloop
 
 wrdone:
 
-# ── 5. append "!" right after the name (at io(6+n)) ───────────────
-#   w2arg was advanced once per name char, so it now points one past the last
-#   name cell, i.e. io(6+n) — exactly where '!' goes. Copy it into the STORE.
+        # append "!" at io[6+n]: w2arg points one past the last name cell
         load  w2arg
-        store bangarg        # patch the '!' STORE address
+        store bangarg
         load  gbang
-        21                   # STORE opcode
-bangarg: 0                   # ← io(6+n), patched above
+        21                   # store opcode
+bangarg: 0                   # <- address of io[6+n], patched above
         stop
 
 # data
@@ -1313,11 +1257,11 @@ zero:    0
 one:     1
 n:       0
 cnt:     0
-iobase:  240          # io0 (numeric init for a self-modifying pointer)
+iobase:  240          # io0
 nameout: 246          # io6
-scraddr: scratch      # address constant: start of scratch[]
+scraddr: scratch      # address of scratch[0]
 
-# greeting "hallo " codes
+# "hallo " and "!" as ASCII codes
 gh:   104             # 'h'
 ga:    97             # 'a'
 gl:   108             # 'l'
@@ -1326,7 +1270,7 @@ go:   111             # 'o'
 gsp:   32             # ' '
 gbang: 33             # '!'
 
-# scratch area for the typed name (up to 15 chars)
+# scratch array for the typed name
 scratch: 0
          0
          0
@@ -1343,10 +1287,8 @@ scratch: 0
          0
          0
 """, subfolder = "04-io"),
-    Example("hello_world", ExampleKind.ASM, """# hello_world.toys — write "Hello world!" to the output cells as ASCII.
-# Each output cell holds one character code; the I/O widget (ascii mode) shows
-# them as letters.
-#
+    Example("hello_world", ExampleKind.ASM, """# example: hello world
+# description: Writes "Hello world!" to the io cells as ASCII codes.
 # pytoy: output=ascii
 
         load  H
@@ -1375,7 +1317,7 @@ scratch: 0
         store io11
         stop
 
-# data: ASCII codes for "Hello world!"
+# "Hello world!" as ASCII codes
 H:   72
 e:  101
 l:  108
@@ -1389,15 +1331,14 @@ l3: 108
 d:  100
 ex:  33
 """, subfolder = "04-io"),
-    Example("numbers", ExampleKind.ASM, """# numbers.toys — write 0,1,2,...,14 into the output cells io0..io14.
-# The simplest I/O program: just stores to the memory-mapped output region.
-#
-# Try the View → I/O format menu (decimal / binary / hex / ascii)
-# to see the same bytes displayed different ways. numbers_hex / numbers_ascii
-# are the same program opened in those other formats.
-#
+    Example("numbers", ExampleKind.ASM, """# example: numbers
+# description: Writes 0..14 to io0..io14.
 # pytoy: output=decimal
 
+# The io cells are memory-mapped, so a plain store writes them.
+# The View > I/O format menu shows the same bytes as decimal, binary, hex or ASCII.
+# numbers_hex.toys and numbers_ascii.toys are this program opened in those formats.
+
         load  c0
         store io0
         load  c1
@@ -1430,7 +1371,7 @@ ex:  33
         store io14
         stop
 
-# data: the constants 0..14
+# data
 c0:  0
 c1:  1
 c2:  2
@@ -1447,14 +1388,13 @@ c12: 12
 c13: 13
 c14: 14
 """, subfolder = "04-io"),
-    Example("numbers_ascii", ExampleKind.ASM, """# numbers_ascii.toys — write 0,1,2,...,14 into the output cells io0..io14.
-# Same bytes as numbers.toys, but the I/O panel opens in ascii mode. Codes 0..14
-# are control characters (no visible glyph) — this file is here to show that the
-# raw bytes are unchanged; only the display format differs. Switch the
-# View → I/O format menu to decimal/binary/hex to read them.
-#
+    Example("numbers_ascii", ExampleKind.ASM, """# example: numbers in ASCII
+# description: Writes 0..14 to io0..io14, displayed as ASCII.
 # pytoy: output=ascii
 
+# Same bytes as numbers.toys; codes 0..14 are control characters, so no cell shows a visible character.
+# Switch the View > I/O format menu to read them.
+
         load  c0
         store io0
         load  c1
@@ -1487,7 +1427,7 @@ c14: 14
         store io14
         stop
 
-# data: the constants 0..14
+# data
 c0:  0
 c1:  1
 c2:  2
@@ -1504,12 +1444,12 @@ c12: 12
 c13: 13
 c14: 14
 """, subfolder = "04-io"),
-    Example("numbers_hex", ExampleKind.ASM, """# numbers_hex.toys — write 0,1,2,...,14 into the output cells io0..io14.
-# Same bytes as numbers.toys, but the I/O panel opens in hex mode, so they show
-# as 0..9 then a..e. Switch the View → I/O format menu to see them any other way.
-#
+    Example("numbers_hex", ExampleKind.ASM, """# example: numbers in hex
+# description: Writes 0..14 to io0..io14, displayed in hex.
 # pytoy: output=hex
 
+# Same bytes as numbers.toys; they show as 00..09, then 0A..0E.
+
         load  c0
         store io0
         load  c1
@@ -1542,7 +1482,7 @@ c14: 14
         store io14
         stop
 
-# data: the constants 0..14
+# data
 c0:  0
 c1:  1
 c2:  2
@@ -1559,40 +1499,23 @@ c12: 12
 c13: 13
 c14: 14
 """, subfolder = "04-io"),
-    Example("pin_check", ExampleKind.ASM, """# pin_check.toys — ask for a 4-digit PIN and check it against 1337.
-#
-# GUI usage (input is ASCII):
-#   1. type the four PIN digits into io0, io1, io2, io3 — one character per cell
-#      (e.g. '1','3','3','7'). In ascii mode you type the characters directly.
-#   2. set `ready` (255) to any non-zero value to submit.
-# The program busy-polls `ready`; once non-zero it compares the four entered
-# characters against the PIN "1337" and overwrites io0..io3 with the result:
-#   right PIN -> "succ", acc = 42   (the secret: the Answer to Life, the
-#                                     Universe and Everything — Hitchhiker's)
-#   wrong PIN -> "fail", acc = 0
-#
-# So the PIN guards a secret: enter 1337 and the accumulator reveals 42. This
-# is the running example for the security slides — brute force, reading the
-# bytecode, side channels, fault injection. See doc/design/pin-security.md.
-#
-# The comparison is the classic one: for each digit, LOAD the entered character,
-# SUB the expected character; if the difference is 0 the digit matched, so
-# IFZERO jumps to the next check; otherwise the following GOTO bails to `fail`.
-#
-# Input is ASCII, so io0 holds the *code* of the typed character (e.g. '1' = 49),
-# and the expected values below are the ASCII codes of 1,3,3,7.
-#
+    Example("pin_check", ExampleKind.ASM, """# example: PIN check
+# description: Checks the PIN in io0..io3 against 1337 and writes "succ" or "fail".
 # pytoy: output=ascii
 
-# ── 1. busy-poll until the user submits (ready != 0) ──────────────
+# Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to non-zero.
+# The first wrong digit exits early, so step counts leak the PIN digit by digit
+# (4 * 10 tries instead of 10^4). See pin_check_hardened.toys and doc/design/pin-security.md.
+
+        # busy-poll until ready != 0
 wait:   load  ready
         ifzero wait
 
-# ── 2. compare io0..io3 against the PIN, one digit at a time ──────
+        # compare io0..io3 against the PIN, one digit at a time
         load  io0
         sub   pin0
         ifzero ok0         # matched -> check next digit
-        goto  fail         # mismatched -> fail
+        goto  fail
 ok0:    load  io1
         sub   pin1
         ifzero ok1
@@ -1606,7 +1529,7 @@ ok2:    load  io3
         ifzero ok3
         goto  fail
 
-# ── 3a. success: write "succ", reveal the answer (acc = 42), stop ─
+        # success: write "succ"
 ok3:    load  s_s
         store io0
         load  s_u
@@ -1615,10 +1538,10 @@ ok3:    load  s_s
         store io2
         load  s_c2
         store io3
-        load  answer       # acc = 42, the secret, now revealed
+        load  answer       # reveal the secret
         stop
 
-# ── 3b. failure: write "fail", acc = 0, stop ──────────────────────
+        # failure: write "fail"
 fail:   load  f_f
         store io0
         load  f_a
@@ -1630,11 +1553,11 @@ fail:   load  f_f
         load  zero         # acc = 0 signals failure
         stop
 
-# ── data ──────────────────────────────────────────────────────────
+# data
 zero:   0
 answer: 42             # the secret behind the PIN
 
-# expected PIN "1337" as ASCII codes
+# PIN "1337" as ASCII codes
 pin0:  49              # '1'
 pin1:  51              # '3'
 pin2:  51              # '3'
@@ -1652,42 +1575,21 @@ f_a:  97               # 'a'
 f_i: 105               # 'i'
 f_l: 108               # 'l'
 """, subfolder = "04-io"),
-    Example("pin_check_hardened", ExampleKind.ASM, """# pin_check_hardened.toys — the 1337 PIN check, made constant-time.
-#
-# The naive pin_check (see pin_check.toys) bails on the first wrong digit with
-# an IFZERO/GOTO per digit. That early-out leaks timing: a wrong first digit
-# stops sooner than a wrong last digit, so an attacker measuring steps can
-# recover the PIN digit by digit — 4*10 tries instead of 10^4. See the security
-# slides and doc/design/pin-security.md.
-#
-# Fix: never branch on a single digit. For each digit compute
-# (entered XOR expected) — which is 0 exactly when the digit matches — and OR
-# all four together into `diff`. `diff` is 0 iff every digit matched. Only ONE
-# conditional, at the very end. Up to that branch every run executes the same
-# instructions in the same order, so the timing no longer reveals which digit
-# was wrong.
-#
-#   right PIN -> "succ", acc = 42   (the Answer, revealed)
-#   wrong PIN -> "fail", acc = 0
-#
-# Residual weakness (slides): the single final `ifzero` is now the one spot a
-# fault-injection attack targets — before, skipping the check meant beating
-# four separate compares; now there is just one. Constant time kills the timing
-# channel, it does not make the check fault-proof.
-#
-# GUI usage (ASCII input): type the four digits into io0..io3, then set `ready`
-# (255) to any non-zero value to submit.
-#
+    Example("pin_check_hardened", ExampleKind.ASM, """# example: constant-time PIN check
+# description: Checks the PIN in io0..io3 against 1337 with no per-digit branch.
 # pytoy: output=ascii
 
-# ── 1. busy-poll until the user submits (ready != 0) ──────────────
+# Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to non-zero.
+# Every digit is always compared, so between polling and the final ifzero all runs take the same steps.
+# That one ifzero is the single target for fault injection. See doc/design/pin-security.md.
+
+        # busy-poll until ready != 0
 wait:   load  ready
         ifzero wait
 
-# ── 2. constant-time compare: diff = OR over (io[k] XOR pin[k]) ────
-#    No per-digit branch. Every digit is always compared and folded in.
+        # constant-time compare: diff = or over (io[k] xor pin[k])
         load  io0
-        xor   pin0         # 0 iff digit 0 matches
+        xor   pin0         # 0 exactly when digit 0 matches
         store diff         # diff = (io0 ^ pin0)
 
         load  io1
@@ -1705,12 +1607,12 @@ wait:   load  ready
         or    diff
         store diff         # diff |= (io3 ^ pin3)
 
-# ── 3. the ONE conditional: diff == 0 iff all four digits matched ──
+        # the only conditional: diff == 0 exactly when all four digits match
         load  diff
         ifzero succ
         goto  fail
 
-# ── 3a. success: write "succ", reveal the answer (acc = 42), stop ─
+        # success: write "succ"
 succ:   load  s_s
         store io0
         load  s_u
@@ -1719,10 +1621,10 @@ succ:   load  s_s
         store io2
         load  s_c2
         store io3
-        load  answer       # acc = 42, the secret, now revealed
+        load  answer       # reveal the secret
         stop
 
-# ── 3b. failure: write "fail", acc = 0, stop ──────────────────────
+        # failure: write "fail"
 fail:   load  f_f
         store io0
         load  f_a
@@ -1734,12 +1636,12 @@ fail:   load  f_f
         load  zero         # acc = 0 signals failure
         stop
 
-# ── data ──────────────────────────────────────────────────────────
+# data
 zero:   0
 answer: 42             # the secret behind the PIN
-diff:   0              # accumulated digit differences (0 iff PIN correct)
+diff:   0              # accumulated digit differences
 
-# expected PIN "1337" as ASCII codes
+# PIN "1337" as ASCII codes
 pin0:  49              # '1'
 pin1:  51              # '3'
 pin2:  51              # '3'
@@ -1757,115 +1659,85 @@ f_a:  97               # 'a'
 f_i: 105               # 'i'
 f_l: 108               # 'l'
 """, subfolder = "04-io"),
-    Example("poll_demo", ExampleKind.ASM, """# poll_demo.toys — the canonical BUSY-POLL input demo.
-#
-# The Toy CPU has no interrupts and no blocking read — the only test it has is
-# `ifzero`. So to wait for input the program busy-polls the `ready` register
-# (address 255): it loads `ready` and, while it is 0, jumps back and loads it
-# again. This tight loop is the busy-poll:
-#
-#   wait: load ready; ifzero wait   # spin while ready == 0
-#
-# In the GUI the user drives it: type a value into the io0 cell, then set
-# `ready` (e.g. to 1) via the Edit mechanism. On its next poll the program sees
-# ready != 0, reads io0, echoes it to io1 (just to show the byte moved), clears
-# `ready` back to 0 (so a next round could start), and stops.
-#
-# Note on the NATURE of polling: because the CPU just loops checking a flag, it
-# could equally well do OTHER work between polls, give up after a while (time
-# out), or take a different branch if input never arrives. Here it does none of
-# that — it waits forever. If the user never sets `ready` in the GUI, this
-# program spins indefinitely (and a headless `--run` hits the step cap). That is
-# expected: polling trades CPU cycles for simplicity.
-#
+    Example("poll_demo", ExampleKind.ASM, """# example: busy-poll input
+# description: Waits until ready is non-zero, then copies io0 to io1.
 # pytoy: output=decimal
 
-wait:   load  ready       # poll the ready register (255)
-        ifzero wait        # spin while 0  (GUI: user sets ready to proceed)
-        load  io0          # ready != 0 -> read the input value from io0
-        store io1          # echo it to io1 (just to show it moved)
+# The Toy CPU has no interrupts and no blocking read, so waiting for input means polling.
+# Input: type a value into io0, then set ready (mem[255]) to non-zero.
+
+wait:   load  ready
+        ifzero wait        # spin while 0
+        load  io0
+        store io1          # only to show the byte moved
         load  zero
-        store ready        # clear ready, ready for next
+        store ready        # so a next round could start
         stop
 
 zero:   0
 """, subfolder = "04-io"),
-    Example("sort_array_io", ExampleKind.ASM, """# sort_array_io.toys — read up to 15 numbers, sort them ascending, write them back.
-#
-# GUI usage:
-#   1. type the array values into io0, io1, io2, ... — one number per cell.
-#   2. set `ready` (255) to the COUNT N of values typed, via Edit.
-# The program busy-polls `ready`; once non-zero it reads `ready` as N, copies
-# io0..io(N-1) into a scratch array, bubble-sorts it ascending, then writes the
-# sorted values back to io0..io(N-1).
-#
-# Example: user types io0..io3 = 5,3,8,1 and ready=4.
-# Result: io0..io3 = 1,3,5,8.
-#
-# Compare trick (same as 03-programs/sort_array_inline.toys): (b - a) mod 256, bit 7
-# set  =>  b < a  =>  swap. Unambiguous as long as any two values differ by
-# less than 128 (true for the small inputs here).
-#
-# Self-modifying code (patched LOAD/STORE address bytes) indexes the io cells
-# and the scratch array by the runtime count N.
-#
+    Example("sort_array_io", ExampleKind.ASM, """# example: sort numbers from input
+# description: Reads up to 15 numbers from the io cells and writes them back sorted.
 # pytoy: output=decimal
 
-# ── 1. busy-poll until ready != 0, then n = ready ──────────────────────────
+# Input: type the values into io0, io1, ..., then set ready (mem[255]) to their count.
+# The most significant bit (MSB) of b - a acts as its sign: set means b < a.
+# Valid for values 0..127.
+
+        # busy-poll until ready != 0, then n = ready
 wait:   load  ready
         ifzero wait
         load  ready
-        store n              # n = how many values the user supplied
+        store n              # number of values
 
-# ── 2. copy io0..io(n-1) into arr[] ────────────────────────────────────────
+        # copy io0..io[n-1] into arr[]
         load  iobase
-        store rdarg          # read pointer over the io cells (io0=240..)
+        store rdarg          # read pointer over the io cells
         load  arrptr
         store wrarg          # write pointer over arr[]
         load  n
-        store cnt
+        store cnt            # values left to copy
 
 cploop: load  cnt
         ifzero cpdone
 
-        20                   # LOAD opcode
-rdarg:  240                  # ← io cell, patched each pass
-        21                   # STORE opcode
-wrarg:  0                    # ← arr slot, patched each pass
+        20                   # load opcode
+rdarg:  240                  # <- address of io[i], patched each pass
+        21                   # store opcode
+wrarg:  0                    # <- address of arr[i], patched each pass
 
         load  rdarg
         add   one
-        store rdarg
+        store rdarg          # next io cell
         load  wrarg
         add   one
-        store wrarg
+        store wrarg          # next element
         load  cnt
         sub   one
-        store cnt
+        store cnt            # cnt--
         goto  cploop
 
 cpdone:
 
-# ── 3. bubble sort arr[0..n-1] ascending ───────────────────────────────────
-# outer runs n-1 passes; each pass compares npass adjacent pairs (n-1, then
-# n-2, ..., 1), since every pass moves the largest remaining value to the end.
+        # bubble sort arr[0..n-1] ascending
+        # each pass moves the largest left to the end, so the next compares one pair less
         load  n
         sub   one
-        store npass          # npass = n - 1 outer passes
+        store npass          # n-1 outer passes
 
 outer:  load  npass
-        ifzero sorted        # all passes done
+        ifzero sorted
 
         load  arrptr
-        store jptr           # reset inner pointer j to arr[0]
+        store jptr           # reset j to arr[0]
 
         load  npass
-        store ninner         # ninner = npass comparisons this pass
+        store ninner         # npass compares this pass
 
 inner:  load  ninner
         ifzero next_pass
 
-        # patch the four indirect instructions from jptr (a[j]) and jptr+1
+        # patch the four indirect instructions from jptr (arr[j]) and jptr+1 (arr[j+1])
         load  jptr
         store ldj_arg
         store stj_arg
@@ -1873,24 +1745,25 @@ inner:  load  ninner
         store ldj1_arg
         store stj1_arg
 
-        20                   # LOAD opcode
-ldj_arg:  0                  # ← arr[j]
+        20                   # load opcode
+ldj_arg:  0                  # <- address of arr[j], patched each pass
         store a
 
-        20                   # LOAD opcode
-ldj1_arg: 0                  # ← arr[j+1]
+        20                   # load opcode
+ldj1_arg: 0                  # <- address of arr[j+1], patched each pass
         store b
 
         sub   a              # acc = b - a
-        and   mask           # isolate bit 7
-        ifzero no_swap       # bit clear -> b >= a -> ordered, skip swap
+        and   mask           # isolate the MSB
+        ifzero no_swap       # MSB clear -> b >= a -> no swap
 
-        load  b              # swap: arr[j] = b
-        21                   # STORE opcode
-stj_arg:  0                  # ← arr[j]
-        load  a              # arr[j+1] = a
-        21                   # STORE opcode
-stj1_arg: 0                  # ← arr[j+1]
+        # swap: arr[j] = b; arr[j+1] = a
+        load  b
+        21                   # store opcode
+stj_arg:  0                  # <- address of arr[j], patched each pass
+        load  a
+        21                   # store opcode
+stj1_arg: 0                  # <- address of arr[j+1], patched each pass
 
 no_swap:
         load  jptr
@@ -1899,56 +1772,56 @@ no_swap:
 
         load  ninner
         sub   one
-        store ninner
+        store ninner         # ninner--
         goto  inner
 
 next_pass:
         load  npass
         sub   one
-        store npass
+        store npass          # npass--
         goto  outer
 
-# ── 4. write arr[0..n-1] back to io0.. in order ────────────────────────────
+        # write arr[0..n-1] back to io0..
 sorted:
         load  arrptr
-        store rptr           # read pointer over arr
+        store rptr           # read pointer over arr[]
         load  outbase
-        store optr           # out pointer, starts at io0 (240)
+        store optr           # write pointer over the io cells
         load  n
-        store left           # how many still to write
+        store left           # values left to write
 
 wloop:  load  left
         ifzero done
 
-        load  rptr           # patch the LOAD/STORE addresses
+        load  rptr           # patch the load/store addresses
         store rd_arg
         load  optr
         store ot_arg
 
-        20                   # LOAD opcode
-rd_arg:  0                   # ← arr[i]
-        21                   # STORE opcode
-ot_arg:  240                 # ← io[i]
+        20                   # load opcode
+rd_arg:  0                   # <- address of arr[i], patched each pass
+        21                   # store opcode
+ot_arg:  240                 # <- address of io[i], patched each pass
 
         load  rptr
         add   one
-        store rptr           # i++
+        store rptr           # next element
         load  optr
         add   one
-        store optr           # out pointer++
+        store optr           # next io cell
         load  left
         sub   one
-        store left
+        store left           # left--
         goto  wloop
 
-done:   load  arr            # arr[0] = smallest, left in ACC
+done:   load  arr            # smallest value
         stop
 
 # data
 zero:     0
 one:      1
-mask:     128
-iobase:   240          # io0 (numeric init for a self-modifying pointer)
+mask:     128          # 10000000
+iobase:   240          # io0
 outbase:  240          # io0
 n:        0
 cnt:      0
@@ -1960,9 +1833,9 @@ b:        0
 rptr:     0
 optr:     0
 left:     0
-arrptr:   arr          # address constant: start of the array
+arrptr:   arr          # address of arr[0]
 
-# scratch array (contiguous), up to 15 values
+# scratch array for up to 15 values
 arr:    0
         0
         0
@@ -1983,46 +1856,33 @@ arr:    0
 #
 # ADDR  BYTES                   SOURCE
 # ────────────────────────────────────────────────────────
-#                                # result: 13
+#                                # example: iterative Fibonacci
+#                                # description: Computes fib(7) in a loop.
 #                                # steps: 81
-#                                # fibonacci_iter.toys
-#                                # Computes the n-th Fibonacci number
-#                                # Result ends up in the accumulator
-#                                #
-#                                # Algorithm:
-#                                #   a, b = 0, 1
-#                                #   for i in range(n):
-#                                #       b = a + b
-#                                #       a = b - a   (= old b, no temp needed)
-#                                #
-#                                # The sequence: fib(0)=0, fib(1)=1, fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5,
-#                                # fib(6)=8, fib(7)=13. Here n = 7, so ACC = 13.
-#                                #
-#                                # Note: fib(14) = 377 > 255, so n > 13 causes overflow
-#                                #
-#                                # Set before running:
-#                                #   n   = desired position (e.g. 10 -> fib(10) = 55)
-#                                #   b   = 1
-#                                #   one = 1
+#                                # result: 13
 #                                
-     0   00010100  00011011              load  n         # acc = n (loop counter)
-     2   00011001  00011000      loop:   ifzero end      # n == 0 -> done
+#                                # a = b - a recovers the old b, so no temporary variable is needed.
+#                                # fib(14) = 377 does not fit in a byte, so n > 13 overflows.
+#                                # Recursive version: fibonacci_rec.toys.
 #                                
-     4   00010100  00011100              load  a         # acc = a
-     6   00010110  00011101              add   b         # acc = a + b
-     8   00010101  00011101              store b         # b = a + b  (new b)
+     0   00010100  00011011              load  n         # loop counter
+     2   00011001  00011000      loop:   ifzero end      # n == 0
 #                                
-    10   00010100  00011101              load  b         # acc = new b
-    12   00010111  00011100              sub   a         # acc = (a+b) - a = old b
-    14   00010101  00011100              store a         # a = old b
+     4   00010100  00011100              load  a
+     6   00010110  00011101              add   b
+     8   00010101  00011101              store b         # b = a + b
 #                                
-    16   00010100  00011011              load  n         # acc = n
-    18   00010111  00011110              sub   one       # acc = n - 1
+    10   00010100  00011101              load  b
+    12   00010111  00011100              sub   a         # acc = (a + b) - a = old b
+    14   00010101  00011100              store a
+#                                
+    16   00010100  00011011              load  n
+    18   00010111  00011110              sub   one
     20   00010101  00011011              store n         # n--
 #                                
     22   00011000  00000010              goto  loop
 #                                
-    24   00010100  00011100      end:    load  a         # result: fib(n) in accumulator
+    24   00010100  00011100      end:    load  a         # fib(n)
     26   00000000                        stop
 #                                
 #                                # data
@@ -2059,11 +1919,15 @@ arr:    0
 #
 # ADDR  BYTES                   SOURCE
 # ────────────────────────────────────────────────────────
-#                                # result: 42
+#                                # example: multiply by repeated addition
+#                                # description: Computes a * b by adding a to res, b times.
 #                                # steps: 60
-#                                # multiply: a * b by adding a to itself b times  (6 * 7 = 42)
+#                                # result: 42
+#                                
+#                                # 255 * 255 would take 255 passes, multiply_doubling.toys at most 8.
+#                                
      0   00010100  00010110              load  b
-     2   00011001  00010010      loop:   ifzero done       # b == 0 -> done
+     2   00011001  00010010      loop:   ifzero done       # b == 0
      4   00010100  00010111              load  res
      6   00010110  00010101              add   a
      8   00010101  00010111              store res         # res += a
@@ -2107,21 +1971,17 @@ arr:    0
 #
 # ADDR  BYTES                   SOURCE
 # ────────────────────────────────────────────────────────
-#                                # result: 8
+#                                # example: sum of three values
+#                                # description: Adds a, b and c.
 #                                # steps: 4
-#                                # sum3.toys
-#                                # Adds three named values: a + b + c.
-#                                #
-#                                # The three values are the first three digits of pi (a=3, b=1, c=4),
-#                                # so the expected result is 3 + 1 + 4 = 8.
-#                                #
-#                                # No loop needed -- just load the first, add the other two.
-#                                # (For summing a whole array, see sum_array.toys.)
+#                                # result: 8
 #                                
-     0   00010100  00000111              load  a         # acc = a
-     2   00010110  00001000              add   b         # acc = a + b
-     4   00010110  00001001              add   c         # acc = a + b + c
-     6   00000000                        stop            # result 8 in accumulator
+#                                # Whole array: sum_array.toys.
+#                                
+     0   00010100  00000111              load  a
+     2   00010110  00001000              add   b
+     4   00010110  00001001              add   c
+     6   00000000                        stop
 #                                
 #                                # data
      7   00000011                a:      3
@@ -2149,41 +2009,26 @@ arr:    0
 #   io14            = 254  (11111110)
 #   ready           = 255  (11111111)
 """),
-    Example("bit_operators.toyc", ExampleKind.C, """// expect: 36
+    Example("bit_operators.toyc", ExampleKind.C, """// example: bitwise operators and shifts
+// description: Applies &, ^, >> and <<, which map to and, xor, right and left.
 // steps: toycc 27, minicc 30
-/*
- * bit_operators.toyc - showcase the bitwise operators and shifts, which map directly
- * to Toy CPU opcodes (and, or, xor, not, left, right).
- *
- *   x    = 0xF0            = 11110000
- *   y    = 0x3C            = 00111100
- *   a = x & y             = 00110000 = 0x30 = 48
- *   c = x ^ y             = 11001100 = 0xCC = 204
- *   a = a >> 2            = 00001100 = 12
- *   a = a << 1            = 00011000 = 24
- *   result = a + (c & 0x0F)   c & 0x0F = 00001100 = 12; 24 + 12 = 36
- *
- * Expected result: ACC = 36
- */
+// result: 36
+
 int main(void) {
-    int x = 0xF0;
-    int y = 0x3C;
-    int a = x & y;
-    int c = x ^ y;
-    a = a >> 2;
-    a = a << 1;
-    return a + (c & 0x0F);
+    int x = 0xF0;              // 11110000
+    int y = 0x3C;              // 00111100
+    int a = x & y;             // 00110000
+    int c = x ^ y;             // 11001100
+    a = a >> 2;                // 00001100
+    a = a << 1;                // 00011000
+    return a + (c & 0x0F);     // 24 + 12
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
-    Example("if_then_else.toyc", ExampleKind.C, """// expect: 5
+    Example("if_then_else.toyc", ExampleKind.C, """// example: if/else
+// description: Subtracts the smaller of a and b from the larger with if/else.
 // steps: toycc 15, minicc 24
-/*
- * if_then_else.toyc - simple if/else demonstration.
- *
- * a = 7, b = 12. Since a < b, the result is b - a = 5.
- *
- * Expected result: ACC = 5
- */
+// result: 5
+
 int main(void) {
     int a = 7;
     int b = 12;
@@ -2196,49 +2041,37 @@ int main(void) {
     return r;
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
-    Example("msb_shift_vs_mask.toyc", ExampleKind.C, """// expect: 0
+    Example("msb_shift_vs_mask.toyc", ExampleKind.C, """// example: most significant bit (MSB), shift vs mask
+// description: Extracts the MSB of x by shifting and by masking, then compares the two.
 // steps: toycc 24, minicc 27
-/*
- * msb_shift_vs_mask.toyc - two ways to read the top bit (bit 7) of a byte.
- *
- * Same result, different cost on the Toy CPU:
- *   x >> 7      shifts right seven times -> seven RIGHT instructions
- *   x & 128     one AND, then test -> much shorter
- *
- * Many tasks have several correct solutions; the cheaper one matters here
- * because code and data share the same 256 bytes.
- *
- * Returns 0 when both methods agree.
- */
+// result: 0
+
+// x >> 7 takes seven right instructions, x & 128 takes one and.
+// The shorter form matters because code and data share the same 256 bytes.
 
 int main(void) {
-    int x = 200;              // 11001000, top bit set
+    int x = 200;              // 11001000, MSB set
 
-    int msb1 = x >> 7;        // via shift
+    int msb1 = x >> 7;
 
-    int msb2 = 0;             // via mask
+    int msb2 = 0;
     if (x & 128) msb2 = 1;
 
     return msb1 ^ msb2;       // 0 -> both agree
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
-    Example("multiply_doubling.toyc", ExampleKind.C, """// expect: 42
+    Example("multiply_doubling.toyc", ExampleKind.C, """// example: multiply by double-and-add
+// description: Computes a * b by adding shifted copies of a.
 // steps: toycc 76, minicc 98
-/*
- * multiply_doubling.toyc - a * b by double-and-add, using +, shifts and a bit test.
- *
- * One step per BIT of b instead of per unit: add a when b's low bit is set,
- * then double a and halve b. b has at most 8 bits, so at most 8 steps -- so
- * 255 * 255 no longer explodes the way repeated addition does.
- *
- * b = 110 binary = 4 + 2, so 7*6 = 7*4 + 7*2 = 28 + 14 = 42.
- *
- * This is the method toycc compiles '*' to (minicc uses repeated addition). C analogue of
- * examples/asm/02-extended/multiply_doubling.toys.
- */
+// result: 42
+
+// One pass per bit of b: add a if the least significant bit (LSB) of b is set, then
+// double a and halve b. An 8-bit b needs at most 8 passes, repeated addition up to 255.
+// toycc compiles * to this method.
+
 int main(void) {
     int a = 7;
-    int b = 6;
+    int b = 6;         // 110 in binary, so 7 * 6 = 7 * 4 + 7 * 2
     int res = 0;
     while (b != 0) {
         if (b & 1) {
@@ -2250,38 +2083,29 @@ int main(void) {
     return res;
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
-    Example("multiply_operator.toyc", ExampleKind.C, """// expect: 42
+    Example("multiply_operator.toyc", ExampleKind.C, """// example: multiply with the * operator
+// description: Computes a * b with the * operator.
 // steps: toycc 56, minicc 69
-/*
- * multiply_operator.toyc - compute a * b with the '*' operator.
- *
- * The Toy CPU has no multiply instruction, so toycc expands '*' to a
- * double-and-add loop (one step per bit of b); minicc to a repeated-addition
- * loop (one step per unit of b). See multiply_repeated.toyc and
- * multiply_doubling.toyc for the same two methods written out by hand with only
- * +, -, and shifts.
- *
- * With a = 7, b = 6: result = 42.
- */
+// result: 42
+
+// The Toy CPU has no multiply instruction. toycc compiles * to double-and-add (one pass
+// per bit of b), minicc to repeated addition (one pass per unit of b).
+// By hand: multiply_doubling.toyc, multiply_repeated.toyc.
+
 int main(void) {
     int a = 7;
     int b = 6;
     return a * b;
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
-    Example("multiply_repeated.toyc", ExampleKind.C, """// expect: 42
+    Example("multiply_repeated.toyc", ExampleKind.C, """// example: multiply by repeated addition
+// description: Computes a * b by adding a to res, b times.
 // steps: toycc 79, minicc 145
-/*
- * multiply_repeated.toyc - a * b by repeated addition, using only '+'.
- *
- * Add a to the result b times. Simple, but slow: the loop runs b times, so
- * 255 * 255 would do 255 additions. multiply_doubling.toyc does the same in
- * at most 8 loop passes. (toycc compiles '*' to the doubling method, minicc to
- * this naive one; this file spells it out by hand.)
- *
- * C analogue of examples/asm/02-extended/multiply_repeated.toys.
- * With a = 7, b = 6: result = 42.
- */
+// result: 42
+
+// 255 * 255 would take 255 passes, multiply_doubling.toyc at most 8.
+// minicc compiles * to this method.
+
 int main(void) {
     int a = 7;
     int b = 6;
@@ -2293,25 +2117,18 @@ int main(void) {
     return res;
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
-    Example("popcount.toyc", ExampleKind.C, """// expect: 3
+    Example("popcount.toyc", ExampleKind.C, """// example: popcount
+// description: Counts the set bits of 37 (100101 in binary).
 // steps: toycc 120, minicc 163
-/*
- * popcount.toyc - count the set bits (1-bits) of a number.
- *
- * Look at the lowest bit, add it to the count, then shift right; repeat until
- * the number is zero. The lowest bit is x & 1 (the Toy CPU has no `%`, but
- * `x & 1` is exactly `x % 2` for the low bit).
- *
- * x = 37 = 32 + 4 + 1 = 100101 in binary -> 3 bits set.
- *
- * Expected result: ACC = 3
- */
+// result: 3
+
+// The Toy CPU has no %, but x & 1 equals x % 2: the least significant bit (LSB).
 
 int popcount(int x) {
     int count = 0;
     while (x != 0) {
-        count = count + (x & 1);   /* add the lowest bit */
-        x = x >> 1;                /* drop it */
+        count = count + (x & 1);   // add the LSB
+        x = x >> 1;                // drop it
     }
     return count;
 }
@@ -2320,41 +2137,26 @@ int main(void) {
     return popcount(37);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
-    Example("times7_operator.toyc", ExampleKind.C, """// expect: 28
+    Example("times7_operator.toyc", ExampleKind.C, """// example: times 7 with the * operator
+// description: Computes 7 * a with the * operator.
 // steps: toycc 51, minicc 49
-/*
- * times7_operator.toyc - compute 7 * a.
- *
- * C counterpart of examples/asm/03-programs/times7_doubling.toys, but with the
- * '*' operator (toycc: double-and-add, minicc: repeated addition).
- * With a = 4: result = 28.
- *
- * Expected result: ACC = 28
- */
+// result: 28
+
+// toycc compiles * to double-and-add, minicc to repeated addition.
+
 int main(void) {
     int a = 4;
     return 7 * a;
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
-    Example("bigint_add.toyc", ExampleKind.C, """// expect: 0
+    Example("bigint_add.toyc", ExampleKind.C, """// example: bigint add
+// description: Adds two 32-bit numbers stored as four bytes each, lowest byte first.
 // steps: toycc 99
-/*
- * bigint_add.toyc - add two numbers wider than one byte.
- *
- * The Toy CPU is 8-bit, so a 32-bit value is kept as four bytes (little-endian,
- * least significant first). Addition goes byte by byte, carrying into the next
- * byte when a sum overflows past 255.
- *
- * Carry is detected with the top-bit mask (x & 128), not a 7-step shift:
- *   carry out of a+b = bit 7 of  (a & b) | ((a ^ b) & ~sum)
- *
- * A = 123456789  -> bytes [21, 205, 91, 7]
- * B = 314159265  -> bytes [161, 176, 185, 18]
- * C = A + B = 437616054 -> bytes [182, 125, 21, 26]
- *
- * Returns 0: C is checked against the expected bytes by XOR-ing the differences
- * together (0 only if every byte matches).
- */
+// result: 0
+
+// 123456789 + 314159265 = 437616054, whose bytes are [182, 125, 21, 26].
+// Carry out of a+b is the most significant bit (MSB) of (a & b) | ((a ^ b) & ~sum).
+// Returns 0 if all four bytes match: xor finds the differences, or collects them.
 
 int main(void) {
     int a0 = 21;  int a1 = 205; int a2 = 91;  int a3 = 7;
@@ -2375,16 +2177,12 @@ int main(void) {
     return (c0 ^ 182) | (c1 ^ 125) | (c2 ^ 21) | (c3 ^ 26);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("count_iter.toyc", ExampleKind.C, """// expect: 10
+    Example("count_iter.toyc", ExampleKind.C, """// example: iterative count
+// description: Counts from 1 to 10 in a loop.
 // steps: toycc 91, minicc 169
-/*
- * count_iter.toyc - count up to 10 ITERATIVELY.
- *
- * Start at 1 and increment while x < 10, so x ends at 10.
- * The recursive version is in count_rec.toyc; both return 10.
- *
- * Expected result: ACC = 10
- */
+// result: 10
+
+// Recursive version: count_rec.toyc.
 
 int main(void) {
     int x = 1;
@@ -2394,21 +2192,13 @@ int main(void) {
     return x;
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("count_rec.toyc", ExampleKind.C, """// expect: 10
+    Example("count_rec.toyc", ExampleKind.C, """// example: recursive count
+// description: Counts to 10 recursively with f(n) = f(n - 1) + 1 and f(0) = 0.
 // steps: toycc 421
-/*
- * count_rec.toyc - count up to 10 RECURSIVELY.
- *
- * f(n) = 0            if n == 0
- *      = f(n - 1) + 1 otherwise
- * so f(10) = 10.
- *
- * The iterative version is in count_iter.toyc; both return 10.
- * toycc compiles the recursion with a self-modifying-code stack (see the
- * manual).
- *
- * Expected result: ACC = 10
- */
+// result: 10
+
+// toycc compiles recursion with a self-modifying-code stack (see the manual).
+// Iterative version: count_iter.toyc.
 
 int f(int n) {
     if (n == 0) {
@@ -2421,18 +2211,12 @@ int main(void) {
     return f(10);
 }
 """, compilers = listOf("toycc"), subfolder = "03-programs"),
-    Example("fibonacci_array.toyc", ExampleKind.C, """// expect: 34
+    Example("fibonacci_array.toyc", ExampleKind.C, """// example: Fibonacci numbers in an array
+// description: Fills an array with the first 10 Fibonacci numbers and returns the last.
 // steps: toycc 278, minicc 392
-/*
- * fibonacci_array.toyc - fill an array with the first 10 Fibonacci numbers.
- *
- * a[0]=0, a[1]=1, then a[i] = a[i-1] + a[i-2]. The array ends up holding
- * 0 1 1 2 3 5 8 13 21 34, and main returns the last one, a[9] = 34.
- *
- * Shows arrays with a computed index (a[i], a[i-1], a[i-2]) built from a loop.
- *
- * Expected result: ACC = 34
- */
+// result: 34
+
+// The array ends up as 0 1 1 2 3 5 8 13 21 34.
 
 int main(void) {
     int a[10];
@@ -2447,27 +2231,21 @@ int main(void) {
     return a[9];
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("fibonacci_iter.toyc", ExampleKind.C, """// expect: 13
+    Example("fibonacci_iter.toyc", ExampleKind.C, """// example: iterative Fibonacci
+// description: Computes fib(7) in a loop.
 // steps: toycc 117, minicc 215
-/*
- * fibonacci_iter.toyc - the n-th Fibonacci number, ITERATIVE.
- *
- * fib(0) = 0, fib(1) = 1, fib(n) = fib(n-1) + fib(n-2).
- * The sequence: fib(0)=0, fib(1)=1, fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5,
- * fib(6)=8, fib(7)=13.
- *
- * The recursive version is in fibonacci_rec.toyc; both compute fib(7) = 13.
- * (8-bit values wrap mod 256, so fib(14) = 377 would overflow.)
- *
- * Expected result: ACC = 13
- */
+// result: 13
+
+// Sequence from fib(0): 0 1 1 2 3 5 8 13.
+// fib(14) = 377 does not fit in a byte, so n > 13 overflows.
+// Recursive version: fibonacci_rec.toyc.
 
 int fibonacci_iter(int n) {
     int a = 0;
     int b = 1;
     while (n != 0) {
-        b = a + b;   /* new b = a + old b */
-        a = b - a;   /* a = old b */
+        b = a + b;
+        a = b - a;   // a = old b
         n = n - 1;
     }
     return a;
@@ -2477,26 +2255,14 @@ int main(void) {
     return fibonacci_iter(7);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("fibonacci_rec.toyc", ExampleKind.C, """// expect: 13
+    Example("fibonacci_rec.toyc", ExampleKind.C, """// example: recursive Fibonacci
+// description: Computes fib(7) recursively on a self-modifying-code stack.
 // steps: toycc 2121
-/*
- * fibonacci_rec.toyc - the n-th Fibonacci number, RECURSIVE.
- *
- * fibonacci_rec(n) = n                              if n < 2
- *                  = fibonacci_rec(n-1) + fibonacci_rec(n-2)   otherwise
- *
- * The sequence: fib(0)=0, fib(1)=1, fib(2)=1, fib(3)=2, fib(4)=3, fib(5)=5,
- * fib(6)=8, fib(7)=13.
- *
- * The iterative version is in fibonacci_iter.toyc; both compute fib(7) = 13.
- *
- * The Toy CPU has no call/return and no stack, yet toycc compiles this real
- * recursion by giving each function fixed global slots and bracketing every
- * call with save/restore of the caller's live-across slots on a stack that
- * grows down from address 239, just below the I/O region (see the manual).
- *
- * Expected result: ACC = 13
- */
+// result: 13
+
+// The Toy CPU has no call/return and no stack: toycc gives each function fixed global slots and
+// saves the caller's live slots around each call on a self-modifying-code stack, growing down
+// from address 239 just below the io cells (see the manual). Iterative version: fibonacci_iter.toyc.
 
 int fibonacci_rec(int n) {
     if (n < 2) {
@@ -2509,17 +2275,13 @@ int main(void) {
     return fibonacci_rec(7);
 }
 """, compilers = listOf("toycc"), subfolder = "03-programs"),
-    Example("gcd_iter.toyc", ExampleKind.C, """// expect: 12
+    Example("gcd_iter.toyc", ExampleKind.C, """// example: iterative GCD by subtraction
+// description: Computes gcd(48, 36) in a loop with Euclid's subtraction algorithm.
 // steps: toycc 69, minicc 115
-/*
- * gcd_iter.toyc - greatest common divisor, ITERATIVE (subtraction algorithm).
- *
- * The recursive version is in gcd_rec.toyc; both compute the same result.
- *
- * gcd(48, 36): 48-36=12, 36-12=24, 24-12=12, now a == b -> gcd = 12.
- *
- * Expected result: ACC = 12
- */
+// result: 12
+
+// Trace: (48, 36) -> (12, 36) -> (12, 24) -> (12, 12), then a == b.
+// Recursive version: gcd_rec.toyc.
 
 int gcd_iter(int a, int b) {
     while (a != b) {
@@ -2536,18 +2298,14 @@ int main(void) {
     return gcd_iter(48, 36);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("gcd_rec.toyc", ExampleKind.C, """// expect: 12
+    Example("gcd_rec.toyc", ExampleKind.C, """// example: recursive GCD by subtraction
+// description: Computes gcd(48, 36) recursively with Euclid's subtraction algorithm.
 // steps: toycc 175
-/*
- * gcd_rec.toyc - greatest common divisor, RECURSIVE (subtraction algorithm).
- *
- * The iterative version is in gcd_iter.toyc; both compute the same result.
- * toycc compiles recursion with a self-modifying-code stack (see the manual).
- *
- * gcd(48, 36) = gcd(12, 36) = gcd(12, 24) = gcd(12, 12) = 12.
- *
- * Expected result: ACC = 12
- */
+// result: 12
+
+// Trace: (48, 36) -> (12, 36) -> (12, 24) -> (12, 12), then a == b.
+// toycc compiles recursion with a self-modifying-code stack (see the manual).
+// Iterative version: gcd_iter.toyc.
 
 int gcd_rec(int a, int b) {
     if (a == b) {
@@ -2563,19 +2321,12 @@ int main(void) {
     return gcd_rec(48, 36);
 }
 """, compilers = listOf("toycc"), subfolder = "03-programs"),
-    Example("max3.toyc", ExampleKind.C, """// expect: 4
+    Example("max3.toyc", ExampleKind.C, """// example: largest of three values
+// description: Finds the largest of a, b and c.
 // steps: toycc 39, minicc 52
-/*
- * max3.toyc - the largest of three values a, b, c.
- *
- * A helper function max3(a, b, c) using only the `>` comparison. The three
- * values are the first three digits of pi (3, 1, 4). For the maximum of a whole
- * array, see max_array.toyc.
- *
- * max(3, 1, 4) = 4.
- *
- * Expected result: ACC = 4
- */
+// result: 4
+
+// Whole array: max_array.toyc.
 
 int max3(int a, int b, int c) {
     int m = a;
@@ -2588,20 +2339,13 @@ int main(void) {
     return max3(3, 1, 4);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("max_array.toyc", ExampleKind.C, """// expect: 9
+    Example("max_array.toyc", ExampleKind.C, """// example: largest value in an array
+// description: Finds the largest value in an array with a loop.
 // steps: toycc 222, minicc 332
-/*
- * max_array.toyc - the largest element of an array.
- *
- * The array holds the 10 digits of pi (3 1 4 1 5 9 2 6 5 3). A loop walks it,
- * keeping the largest seen so far, using the `>` comparison. This is the C
- * version of examples/asm/03-programs/max_array.toys (self-modifying code by hand). See
- * max3.toyc for the simpler three-value version.
- *
- * max(3,1,4,1,5,9,2,6,5,3) = 9.
- *
- * Expected result: ACC = 9
- */
+// result: 9
+
+// Three values: max3.toyc.
+// a[i] compiles to self-modifying code; by hand: examples/asm/03-programs/max_array.toys.
 
 int main(void) {
     int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
@@ -2617,49 +2361,34 @@ int main(void) {
     return m;
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("sort3.toyc", ExampleKind.C, """// expect: 1
+    Example("sort3.toyc", ExampleKind.C, """// example: sort three values
+// description: Sorts a, b and c; the result is the smallest.
 // steps: toycc 47, minicc 64
-/*
- * sort3.toyc - sort three values and return the smallest.
- *
- * sort3(a, b, c) orders a <= b <= c with a few compare-and-swap steps (the same
- * idea as bubble sort, but on three named variables instead of an array), then
- * returns the smallest, a. The three values are the first three digits of pi
- * (3, 1, 4). For sorting a whole array, see sort_array_inline.toyc.
- *
- * sorted(3, 1, 4) = 1, 3, 4  ->  smallest = 1.
- *
- * Expected result: ACC = 1
- */
+// result: 1
+
+// Same idea as bubble sort, on three named variables instead of an array.
+// Whole array: sort_array_inline.toyc.
 
 int sort3(int a, int b, int c) {
     int t;
     if (a > b) { t = a; a = b; b = t; }   // a <= b
     if (b > c) { t = b; b = c; c = t; }   // b <= c
-    if (a > b) { t = a; a = b; b = t; }   // a <= b again
-    return a;                             // smallest
+    if (a > b) { t = a; a = b; b = t; }   // a <= b <= c
+    return a;
 }
 
 int main(void) {
     return sort3(3, 1, 4);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("sort_array_fn.toyc", ExampleKind.C, """// expect: 1
+    Example("sort_array_fn.toyc", ExampleKind.C, """// example: bubble sort of an array in a function
+// description: Sorts an array in place with bubble sort in a function; the result is the smallest.
 // steps: toycc 2116
-/*
- * sort_array_fn.toyc - bubble sort where the array is passed to a FUNCTION
- * (see sort_array_inline.toyc for the version that sorts inline in main).
- *
- * The array decays to a pointer at the call: bubblesort() receives main's
- * array by its base address and sorts it IN PLACE through indirect element
- * access (a[i] == *(a + i), reached with self-modifying code). main then reads
- * a[0], the smallest element.
- *
- * Array = the 10 digits of pi:  3 1 4 1 5 9 2 6 5 3
- * After sorting:                1 1 2 3 3 4 5 5 6 9
- *
- * Expected result: ACC = 1
- */
+// result: 1
+
+// The array decays to a pointer: bubblesort() gets main's base address and sorts in place
+// through a[i] == *(a + i), reached with self-modifying code.
+// Sorted: 1 1 2 3 3 4 5 5 6 9. Inline version: sort_array_inline.toyc.
 
 int bubblesort(int a[], int n) {
     int i;
@@ -2687,29 +2416,14 @@ int main(void) {
     return a[0];
 }
 """, compilers = listOf("toycc"), subfolder = "03-programs"),
-    Example("sort_array_inline.toyc", ExampleKind.C, """// expect: 1
+    Example("sort_array_inline.toyc", ExampleKind.C, """// example: bubble sort of an array
+// description: Sorts an array in place with bubble sort; the result is the smallest.
 // steps: toycc 2097
-/*
- * sort_array_inline.toyc - iterative bubble sort of a fixed 10-element array,
- * done inline in main (see sort_array_fn.toyc for the version that
- * passes the array to a function).
- *
- * Port of examples/asm/03-programs/sort_array_inline.toys to C. The array holds the 10 digits of pi
- * (3 1 4 1 5 9 2 6 5 3); after sorting it is 1 1 2 3 3 4 5 5 6 9, so main
- * returns a[0] = 1.
- *
- * toycc compiles the array as a contiguous block of data bytes plus a
- * base-pointer byte, and reaches a[i] with self-modifying code: it computes
- * the element address (base + i), patches it into a raw LOAD/STORE address
- * byte, and executes that instruction (the sum_array.toys / sort_array_inline.toys
- * trick).
- *
- * The // expect annotation only checks ACC (= a[0] = 1); the full sorted array
- * is verified from memory by scripts/verify_bubblesort_c.py and by
- * tests/test_toycc.py::test_bubblesort_full_array.
- *
- * Expected result: ACC = 1
- */
+// result: 1
+
+// a[i] compiles to self-modifying code; by hand: examples/asm/03-programs/sort_array_inline.toys.
+// Sorted: 1 1 2 3 3 4 5 5 6 9. Function version: sort_array_fn.toyc.
+
 int main(void) {
     int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
     int n = 10;
@@ -2719,7 +2433,7 @@ int main(void) {
     i = 0;
     while (i < n) {
         j = 0;
-        while (j < n - 1 - i) {   /* after pass i the last i are in place */
+        while (j < n - 1 - i) {   // the last i are already in place
             if (a[j] > a[j + 1]) {
                 t = a[j];
                 a[j] = a[j + 1];
@@ -2732,19 +2446,12 @@ int main(void) {
     return a[0];
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("sum3.toyc", ExampleKind.C, """// expect: 8
+    Example("sum3.toyc", ExampleKind.C, """// example: sum of three values
+// description: Adds a, b and c.
 // steps: toycc 28, minicc 33
-/*
- * sum3.toyc - add three values a + b + c.
- *
- * The simplest possible use of a helper function: sum3(a, b, c) returns their
- * sum. The three values are the first three digits of pi (3, 1, 4). For summing
- * a whole array, see sum_array.toyc.
- *
- * 3 + 1 + 4 = 8.
- *
- * Expected result: ACC = 8
- */
+// result: 8
+
+// Whole array: sum_array.toyc.
 
 int sum3(int a, int b, int c) {
     return a + b + c;
@@ -2754,20 +2461,13 @@ int main(void) {
     return sum3(3, 1, 4);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("sum_array.toyc", ExampleKind.C, """// expect: 39
+    Example("sum_array.toyc", ExampleKind.C, """// example: sum of an array
+// description: Sums an array with a loop.
 // steps: toycc 202, minicc 288
-/*
- * sum_array.toyc - sum the elements of an array.
- *
- * The array holds the 10 digits of pi (3 1 4 1 5 9 2 6 5 3). A loop walks it
- * with a running index, adding each element. This is the C version of
- * examples/asm/03-programs/sum_array.toys (which does the same with hand-written self-modifying
- * code). See sum3.toyc for the simpler three-value version.
- *
- * 3+1+4+1+5+9+2+6+5+3 = 39.
- *
- * Expected result: ACC = 39
- */
+// result: 39
+
+// Three values: sum3.toyc.
+// a[i] compiles to self-modifying code; by hand: examples/asm/03-programs/sum_array.toys.
 
 int main(void) {
     int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
@@ -2782,16 +2482,11 @@ int main(void) {
     return s;
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("sum_countdown.toyc", ExampleKind.C, """// expect: 15
+    Example("sum_countdown.toyc", ExampleKind.C, """// example: countdown sum
+// description: Sums 5 + 4 + 3 + 2 + 1 with += and -=.
 // steps: toycc 66
-/*
- * sum_countdown.toyc - count down from 5 and accumulate the sum 5+4+3+2+1.
- *
- * Demonstrates a while loop with a decrementing counter and +=.
- * 5 + 4 + 3 + 2 + 1 = 15.
- *
- * Expected result: ACC = 15
- */
+// result: 15
+
 int main(void) {
     int i = 5;
     int total = 0;
@@ -2802,22 +2497,14 @@ int main(void) {
     return total;
 }
 """, compilers = listOf("toycc"), subfolder = "03-programs"),
-    Example("sum_of_squares.toyc", ExampleKind.C, """// expect: 25
+    Example("sum_of_squares.toyc", ExampleKind.C, """// example: sum of squares
+// description: Computes 3 * 3 + 4 * 4 with a helper function that calls another.
 // steps: toycc 143, minicc 140
-/*
- * sum_of_squares.toyc - small helper functions that call each other.
- *
- * Demonstrates toycc's function support: functions with parameters, called
- * from main and from one another. The Toy CPU has no call/return instruction,
- * so toycc gives each non-recursive function fixed global slots for its
- * parameters and return value, emits one copy of its body, and jumps back to
- * the right call site with a marker (see the compiler README and doc).
- *
- * square(x) = x * x;  sum_of_squares(a, b) = square(a) + square(b).
- * With a = 3, b = 4:  square(3) + square(4) = 9 + 16 = 25.
- *
- * Expected result: ACC = 25
- */
+// result: 25
+
+// The Toy CPU has no call/return, so toycc gives each non-recursive function fixed global slots
+// for parameters and return value, emits one copy of its body, and jumps back to the right
+// call site with a marker (see the manual).
 
 int square(int x) {
     return x * x;
@@ -2831,17 +2518,12 @@ int main(void) {
     return sum_of_squares(3, 4);
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
-    Example("greet_name.toyc", ExampleKind.C, """// greet_name — read a name, write back "Hallo NAME".
-//
-// The greeting "Hallo " (6 characters) is placed at the front of the buffer.
-// read(data + 6) busy-polls `ready`, then reads the name into data[6..] and
-// returns its length k. We write k + 6 bytes out, so the greeting and the name
-// go to the io cells. No '!' is appended (unlike greet_name.toys).
-//
-// In the GUI: type one character per cell (io0, io1, ...), set `ready` to the
-// number of characters, and the program greets you. ascii view by default.
-//
+    Example("greet_name.toyc", ExampleKind.C, """// example: greet by name
+// description: Reads a name from the io cells and writes "Hallo NAME" back.
 // pytoy: output=ascii
+
+// Input: type one character per cell into io0, io1, ..., then set ready (mem[255]) to the count.
+// The output needs 6 + n of the 15 io cells, so names fit up to 9 characters.
 
 int main(void) {
     int data[16];
@@ -2852,46 +2534,30 @@ int main(void) {
     data[4] = 'o';
     data[5] = ' ';
     int k = read(data + 6);   // name goes into data[6..], k = its length
-    write(data, k + 6);       // "Hallo " + the name, all out to io0..
+    write(data, k + 6);       // "Hallo " + the name, to io0..
     return 0;
 }
 """, compilers = listOf("toycc"), subfolder = "04-io"),
-    Example("hello_world.toyc", ExampleKind.C, """// hello_world — write "Hello world!" out to the io cells.
-//
-// Each character is stored into a buffer, then write(data, 12) sends all 12
-// bytes out to io0..io11. Pick ascii in the GUI (View -> I/O format) to read
-// them as letters; it is the default for compiled I/O programs.
-//
+    Example("hello_world.toyc", ExampleKind.C, """// example: hello world
+// description: Writes "Hello world!" to the io cells as ASCII codes.
 // pytoy: output=ascii
 
 int main(void) {
-    // A constant initializer list: these become the array's initial data bytes
-    // at compile time, far smaller than twelve runtime stores (which overflow
-    // the 256-byte machine).
+    // A constant initializer list becomes initial data bytes at compile time,
+    // far smaller than twelve runtime stores.
     int data[12] = {'H', 'e', 'l', 'l', 'o', ' ',
                     'w', 'o', 'r', 'l', 'd', '!'};
     write(data, 12);
     return 0;
 }
 """, compilers = listOf("toycc"), subfolder = "04-io"),
-    Example("pin_check.toyc", ExampleKind.C, """// pin_check — read a 4-digit PIN and check it against 1337.
-//
-// The PIN guards a secret: get it right and the program returns 42 — the
-// Answer to Life, the Universe and Everything (Hitchhiker's Guide). Wrong PIN
-// returns 0. This is the running example for the security slides (brute force,
-// reading the bytecode, side channels, fault injection). See
-// doc/design/pin-security.md.
-//
-// GUI usage (ascii input): type the four digits into io0..io3 (e.g. '1','3',
-// '3','7'), then set `ready` to 4 (read() takes it as the count) to submit. The program reads
-// the digits, compares them to "1337", and writes back "succ" or "fail" while
-// the return value (the accumulator at STOP) is 42 on success, 0 on failure.
-//
-// The digits are checked one at a time; the first mismatch falls through to
-// "fail". Only when all four match does it reach "succ". (Nested ifs rather
-// than one && chain keep the program inside the 240 usable bytes.)
-//
+    Example("pin_check.toyc", ExampleKind.C, """// example: PIN check
+// description: Checks the PIN in io0..io3 against 1337 and writes "succ" or "fail".
 // pytoy: output=ascii
+
+// Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to 4.
+// The first wrong digit exits early, so step counts leak the PIN digit by digit
+// (4 * 10 tries instead of 10^4). See pin_check_hardened.toyc and doc/design/pin-security.md.
 
 int main(void) {
     int data[4];
@@ -2900,12 +2566,13 @@ int main(void) {
 
     read(data);
 
+    // Nested ifs keep it inside the 240 usable bytes; one && chain does not fit.
     if (data[0] == '1') {
         if (data[1] == '3') {
             if (data[2] == '3') {
                 if (data[3] == '7') {
                     write(succ, 4);
-                    return 42;   // the secret, revealed
+                    return 42;   // the secret
                 }
             }
         }
@@ -2914,25 +2581,13 @@ int main(void) {
     return 0;
 }
 """, compilers = listOf("toycc"), subfolder = "04-io"),
-    Example("pin_check_hardened.toyc", ExampleKind.C, """// pin_check_hardened — the same 1337 PIN check, but constant-time.
-//
-// The naive pin_check bails on the first wrong digit. That early-out is a
-// timing side channel: a wrong first digit stops sooner than a wrong last
-// digit, so an attacker measuring run time (steps in pytoy) can recover the
-// PIN one digit at a time — 4*10 tries instead of 10^4. See the security
-// slides and doc/design/pin-security.md.
-//
-// Fix: never branch on a single digit. OR the differences together and test
-// once at the end. Every digit is always compared, so the work — and the
-// timing — is the same whatever the input. `diff` is 0 exactly when all four
-// digits match (XOR is 0 iff equal; OR stays 0 only if every XOR was 0).
-//
-// Residual weakness (covered in the slides): the single final `diff == 0` is
-// now the one place a fault-injection attack can target. Constant time closes
-// the timing channel; it does not make the check fault-proof. Security needs
-// both a safe program AND safe hardware.
-//
+    Example("pin_check_hardened.toyc", ExampleKind.C, """// example: constant-time PIN check
+// description: Checks the PIN in io0..io3 against 1337 with no per-digit branch.
 // pytoy: output=ascii
+
+// Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to 4.
+// Every digit is always compared, so up to the final if all runs take the same steps.
+// That one if is the single target for fault injection. See doc/design/pin-security.md.
 
 int main(void) {
     int data[4];
@@ -2942,16 +2597,13 @@ int main(void) {
 
     read(data);
 
-    // Constant-time compare: always touch all four digits, no early-out.
-    // Each (digit ^ expected) is 0 iff that digit matches; OR them together so
-    // diff is 0 exactly when all four match. One expression, no per-digit
-    // branch — the work (and the timing) is the same whatever the input. The
-    // compare is unrolled by hand (no pin[] array, no for) to fit 240 bytes.
+    // Each (digit ^ expected) is 0 exactly when that digit matches, so the or is 0 exactly
+    // when all four match. Unrolled by hand (no pin[] array, no for) to fit 240 bytes.
     diff = (data[0] ^ '1') | (data[1] ^ '3') | (data[2] ^ '3') | (data[3] ^ '7');
 
     if (diff == 0) {
         write(succ, 4);
-        return 42;   // the secret, revealed
+        return 42;   // the secret
     }
     write(fail, 4);
     return 0;

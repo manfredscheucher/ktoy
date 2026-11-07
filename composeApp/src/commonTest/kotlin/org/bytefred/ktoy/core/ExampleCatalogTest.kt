@@ -13,14 +13,14 @@ import kotlin.test.assertTrue
  *      example's compiler tags are right (a recursive one is toycc-only; a
  *      simple one lists both minicc and toycc).
  *   2. Every embedded C example compiles with ktoy's toycc and assembles
- *      cleanly, and where it declares `// expect: N`, running the compiled
+ *      cleanly, and where it declares `// result: N`, running the compiled
  *      program to STOP leaves that value in ACC. This both verifies the
  *      embedded C sources and gives the C|asm feature verified data.
  */
 class ExampleCatalogTest {
 
     private val SAFETY_CAP = 2_000_000
-    private val EXPECT = Regex("""//\s*expect:\s*(\d+)""", RegexOption.IGNORE_CASE)
+    private val EXPECT = Regex("""//\s*result:\s*(\d+)""", RegexOption.IGNORE_CASE)
 
     private fun runToStop(machine: Machine, name: String) {
         var iterations = 0
@@ -161,20 +161,20 @@ class ExampleCatalogTest {
             )
 
             // 04-io examples are I/O demos: most wait on `ready` for user input,
-            // so they never halt headless and carry no `// expect:` marker. They
+            // so they never halt headless and carry no `// result:` marker. They
             // must still compile and assemble (checked above); running them is
             // covered by pytoy's I/O tests.
             if (ex.subfolder == "04-io") continue
 
             val expect = EXPECT.find(ex.source)
-            assertNotNull(expect, "'${ex.name}': no '// expect: N' marker in C source")
+            assertNotNull(expect, "'${ex.name}': no '// result: N' marker in C source")
             val expectedAcc = expect.groupValues[1].toInt()
 
             val machine = Machine(result.mem, result.dataAddrs)
             runToStop(machine, ex.name)
             assertEquals(
                 expectedAcc, machine.acc,
-                "'${ex.name}': final ACC mismatch vs '// expect:'",
+                "'${ex.name}': final ACC mismatch vs '// result:'",
             )
         }
     }

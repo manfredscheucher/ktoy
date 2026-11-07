@@ -33,7 +33,7 @@ class CLineAnnotationTest {
     @Test
     fun defaultOutputHasNoMarkers() {
         val src = """
-            // expect: 7
+            // result: 7
             int main() {
                 int x = 3;
                 int y = 4;
@@ -63,14 +63,14 @@ class CLineAnnotationTest {
     @Test
     fun annotatedLinesCarryCorrectCLine() {
         // Line numbers (1-based):
-        //   1: // expect: 7
+        //   1: // result: 7
         //   2: int main() {
         //   3:     int x = 3;
         //   4:     int y = 4;
         //   5:     return x + y;
         //   6: }
         val src = """
-            // expect: 7
+            // result: 7
             int main() {
                 int x = 3;
                 int y = 4;
@@ -108,7 +108,7 @@ class CLineAnnotationTest {
     @Test
     fun nestedIfWhileKeepTheirOwnLine() {
         // Line numbers (1-based):
-        //   1: // expect: 10
+        //   1: // result: 10
         //   2: int main() {
         //   3:     int i = 0;
         //   4:     int s = 0;
@@ -121,7 +121,7 @@ class CLineAnnotationTest {
         //  11:     return s;
         //  12: }
         val src = """
-            // expect: 7
+            // result: 7
             int main() {
                 int i = 0;
                 int s = 0;
@@ -148,7 +148,7 @@ class CLineAnnotationTest {
     @Test
     fun annotationIsInertSameMemImage() {
         val src = """
-            // expect: 7
+            // result: 7
             int main() {
                 int i = 0;
                 int s = 0;

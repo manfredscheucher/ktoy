@@ -7,7 +7,7 @@ import kotlin.test.assertTrue
 
 /**
  * Every bundled example's header numbers hold in ktoy too: `# result:` /
- * `# steps:` (asm) and `// expect:` / `// steps: toycc N, minicc M` (C). pytoy
+ * `# steps:` (asm) and `// result:` / `// steps: toycc N, minicc M` (C). pytoy
  * checks the same headers with scripts/example_steps.py, so both
  * implementations are held to the same numbers. The I/O examples wait for
  * input and have no step count.
@@ -56,7 +56,7 @@ class ExampleStepsTest {
         assertTrue(c.size > 20)
         for ((name, variants) in c) {
             val src = variants.first().source
-            val expect = assertNotNull(header(src, """//\s*expect:\s*(\d+)"""), "$name: no expect line").toInt()
+            val expect = assertNotNull(header(src, """//\s*result:\s*(\d+)"""), "$name: no expect line").toInt()
             val per = mutableListOf<String>()
             for (compiler in listOf("toycc", "minicc")) {
                 // a compiler that rejects the source, or whose output does not

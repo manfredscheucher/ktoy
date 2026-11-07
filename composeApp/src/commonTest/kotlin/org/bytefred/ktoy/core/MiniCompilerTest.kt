@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  *   1. compileSourceMini(cSource, name) must equal pytoy minicc's golden .toys
  *      byte-for-byte.
  *   2. The compiled program, assembled and run to STOP, must leave ACC equal to
- *      the `// expect: N` value declared in the C source.
+ *      the `// result: N` value declared in the C source.
  *
  * Plus: recursion is rejected (MiniError), matching pytoy, and a handful of
  * focused unit tests for the core language.
@@ -23,7 +23,7 @@ import kotlin.test.assertTrue
 class MiniCompilerTest {
 
     private val safetyCap = 2_000_000
-    private val expect = Regex("""//\s*expect:\s*(\d+)""", RegexOption.IGNORE_CASE)
+    private val expect = Regex("""//\s*result:\s*(\d+)""", RegexOption.IGNORE_CASE)
 
     /** Run a machine to completion (or the safety cap). */
     private fun runToStop(machine: Machine, name: String) {
@@ -64,11 +64,11 @@ class MiniCompilerTest {
         for (ex in MINICC_EXAMPLES) {
             val match = assertNotNull(
                 expect.find(ex.cSource),
-                "'${ex.name}': no '// expect: N' marker in C source",
+                "'${ex.name}': no '// result: N' marker in C source",
             )
             val expectedAcc = match.groupValues[1].toInt()
             val acc = run(ex.cSource, ex.name)
-            assertEquals(expectedAcc, acc, "'${ex.name}': final ACC mismatch vs '// expect:'")
+            assertEquals(expectedAcc, acc, "'${ex.name}': final ACC mismatch vs '// result:'")
         }
     }
 

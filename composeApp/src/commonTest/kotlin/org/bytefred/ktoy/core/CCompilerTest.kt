@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
  *
  *   1. compileSource(cSource, name) must equal pytoy's golden .toys byte-for-byte.
  *   2. The compiled program, assembled and run to STOP, must leave ACC equal to
- *      the `// expect: N` value declared in the C source.
+ *      the `// result: N` value declared in the C source.
  *
  * A failure of (1) is a real compiler divergence from pytoy; a failure of (2)
  * (when (1) passed) points at the assemble/run harness, not the compiler.
@@ -20,7 +20,7 @@ import kotlin.test.assertTrue
 class CCompilerTest {
 
     private val SAFETY_CAP = 2_000_000
-    private val EXPECT = Regex("""//\s*expect:\s*(\d+)""", RegexOption.IGNORE_CASE)
+    private val EXPECT = Regex("""//\s*result:\s*(\d+)""", RegexOption.IGNORE_CASE)
 
     /** Run a machine to completion (or the safety cap). */
     private fun runToStop(machine: Machine, name: String) {
@@ -50,7 +50,7 @@ class CCompilerTest {
         for (ex in C_EXAMPLES) {
             val match = assertNotNull(
                 EXPECT.find(ex.cSource),
-                "'${ex.name}': no '// expect: N' marker in C source",
+                "'${ex.name}': no '// result: N' marker in C source",
             )
             val expectedAcc = match.groupValues[1].toInt()
 
@@ -69,7 +69,7 @@ class CCompilerTest {
 
             assertEquals(
                 expectedAcc, machine.acc,
-                "'${ex.name}': final ACC mismatch vs '// expect:'",
+                "'${ex.name}': final ACC mismatch vs '// result:'",
             )
         }
     }
