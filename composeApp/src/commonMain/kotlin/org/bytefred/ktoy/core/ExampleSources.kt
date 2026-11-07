@@ -393,7 +393,7 @@ m2:     0
 """, subfolder = "02-extended"),
     Example("multiply_doubling", ExampleKind.ASM, """# example: multiply by double-and-add
 # description: Computes a * b by adding shifted copies of a.
-# steps: 43
+# steps: 40
 # result: 42
 
 # One pass per bit of b: add a if the least significant bit (LSB) of b is set, then
@@ -416,14 +416,14 @@ skip:   load  a
 done:   load  res
         stop
 
-a:      6
-b:      7
+a:      7
+b:      6         # 110 in binary, so 7 * 6 = 7 * 4 + 7 * 2
 res:    0
 one:    1
 """, subfolder = "02-extended"),
     Example("multiply_repeated", ExampleKind.ASM, """# example: multiply by repeated addition
 # description: Computes a * b by adding a to res, b times.
-# steps: 60
+# steps: 52
 # result: 42
 
 # 255 * 255 would take 255 passes, multiply_doubling.toys at most 8.
@@ -440,8 +440,8 @@ loop:   ifzero done       # b == 0
 done:   load  res
         stop
 
-a:      6
-b:      7
+a:      7
+b:      6
 res:    0
 one:    1
 """, subfolder = "02-extended"),
@@ -517,6 +517,29 @@ zero:   0
 one:    1
 two:    2
 three:  3
+""", subfolder = "02-extended"),
+    Example("times7_doubling", ExampleKind.ASM, """# example: times 7 by doubling
+# description: Computes 7 * a by doubling and adding.
+# steps: 10
+# result: 28
+
+        load  a
+        add   a
+        store b         # b = 2a
+
+        load  b
+        add   b
+        store c         # c = 4a
+
+        load  a
+        add   b
+        add   c
+        stop            # acc = a + 2a + 4a = 7a
+
+# data
+a:      4
+b:      0
+c:      0
 """, subfolder = "02-extended"),
     Example("fibonacci_iter", ExampleKind.ASM, """# example: iterative Fibonacci
 # description: Computes fib(7) in a loop.
@@ -788,7 +811,7 @@ c:      4
 """, subfolder = "03-programs"),
     Example("max_array", ExampleKind.ASM, """# example: largest value in an array
 # description: Finds the largest value in an array with a loop.
-# steps: 115
+# steps: 160
 # result: 9
 
 # Self-modifying code: the load is written as raw bytes so its address byte can have a label.
@@ -828,7 +851,7 @@ done:   load  best
         stop
 
 # data
-count:  7
+count:  10
 one:    1
 mask:   128               # 10000000
 best:   0
@@ -842,6 +865,9 @@ arr:    3
         5
         9
         2
+        6
+        5
+        3
 """, subfolder = "03-programs"),
     Example("sort3", ExampleKind.ASM, """# example: sort three values
 # description: Sorts a, b and c; the result is the smallest.
@@ -1011,8 +1037,8 @@ c:      4
 """, subfolder = "03-programs"),
     Example("sum_array", ExampleKind.ASM, """# example: sum of an array
 # description: Sums an array with a loop.
-# steps: 90
-# result: 25
+# steps: 126
+# result: 39
 
 # Self-modifying code: the load is written as raw bytes so its address byte can have a label.
 # Three values: sum3.toys.
@@ -1042,7 +1068,7 @@ done:   load  result
         stop
 
 # data
-count:  7
+count:  10
 one:    1
 result: 0
 ptr:    arr               # address of arr[0]
@@ -1054,29 +1080,9 @@ arr:    3
         5
         9
         2
-""", subfolder = "03-programs"),
-    Example("times7_doubling", ExampleKind.ASM, """# example: times 7 by doubling
-# description: Computes 7 * a by doubling and adding.
-# steps: 10
-# result: 28
-
-        load  a
-        add   a
-        store b         # b = 2a
-
-        load  b
-        add   b
-        store c         # c = 4a
-
-        load  a
-        add   b
-        add   c
-        stop            # acc = a + 2a + 4a = 7a
-
-# data
-a:      4
-b:      0
-c:      0
+        6
+        5
+        3
 """, subfolder = "03-programs"),
     Example("countdown", ExampleKind.ASM, """# example: countdown
 # description: Counts down from 10 to 1, writing each value to io0..io9.
@@ -1149,11 +1155,11 @@ count: 14           # values left to write
 one:   1
 """, subfolder = "04-io"),
     Example("greet_name", ExampleKind.ASM, """# example: greet by name
-# description: Reads a name and writes "hallo NAME!" back. Names over 8 characters overflow.
+# description: Reads a name and writes "Hallo NAME" back. Names over 9 characters overflow.
 # pytoy: output=ascii
 
 # Input: type one character per cell into io0, io1, ..., then set ready (mem[255]) to the count.
-# The name goes to scratch first because writing "hallo " overwrites io0..io5.
+# The name goes to scratch first because writing "Hallo " overwrites io0..io5.
 
         # busy-poll until ready != 0, then n = ready
 wait:   load  ready
@@ -1190,7 +1196,7 @@ wrarg:  scratch              # <- address of scratch[i], patched each pass
 
 cpdone:
 
-        # write "hallo " to io0..io5
+        # write "Hallo " to io0..io5
         load  gh
         store io0
         load  ga
@@ -1231,15 +1237,7 @@ w2arg:  246                  # <- address of io[6+i], patched each pass
         store cnt            # cnt--
         goto  wrloop
 
-wrdone:
-
-        # append "!" at io[6+n]: w2arg points one past the last name cell
-        load  w2arg
-        store bangarg
-        load  gbang
-        21                   # store opcode
-bangarg: 0                   # <- address of io[6+n], patched above
-        stop
+wrdone: stop
 
 # data
 one:     1
@@ -1249,14 +1247,13 @@ iobase:  240          # io0
 nameout: 246          # io6
 scraddr: scratch      # address of scratch[0]
 
-# "hallo " and "!" as ASCII codes
-gh:   104             # 'h'
+# "Hallo " as ASCII codes
+gh:    72             # 'H'
 ga:    97             # 'a'
 gl:   108             # 'l'
 gl2:  108             # 'l'
 go:   111             # 'o'
 gsp:   32             # ' '
-gbang: 33             # '!'
 
 # scratch array for the typed name
 scratch: 0
@@ -1908,7 +1905,7 @@ arr:    0
 # ────────────────────────────────────────────────────────
 #                                # example: multiply by repeated addition
 #                                # description: Computes a * b by adding a to res, b times.
-#                                # steps: 60
+#                                # steps: 52
 #                                # result: 42
 #                                
 #                                # 255 * 255 would take 255 passes, multiply_doubling.toys at most 8.
@@ -1925,8 +1922,8 @@ arr:    0
     18   00010100  00010111      done:   load  res
     20   00000000                        stop
 #                                
-    21   00000110                a:      6
-    22   00000111                b:      7
+    21   00000111                a:      7
+    22   00000110                b:      6
     23   00000000                res:    0
     24   00000001                one:    1
 

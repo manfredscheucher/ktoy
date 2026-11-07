@@ -21,17 +21,18 @@ class SnapshotTest {
     // STOP counts as a step in both pytoy and Machine.step(), so the numbers
     // transfer directly.
     private val snapshot = mapOf(
+        // examples/asm/02-extended/
+        "times7_doubling" to Snapshot(acc = 28, steps = 10),
         // examples/asm/03-programs/
         "fibonacci_iter" to Snapshot(acc = 13, steps = 81),
         "fibonacci_rec" to Snapshot(acc = 13, steps = 2004),
         "gcd_iter" to Snapshot(acc = 12, steps = 32),
         "max3" to Snapshot(acc = 4, steps = 15),
-        "max_array" to Snapshot(acc = 9, steps = 115),
+        "max_array" to Snapshot(acc = 9, steps = 160),
         "sort3" to Snapshot(acc = 1, steps = 20),
         "sort_array_inline" to Snapshot(acc = 1, steps = 1956),
         "sum3" to Snapshot(acc = 8, steps = 4),
-        "sum_array" to Snapshot(acc = 25, steps = 90),
-        "times7_doubling" to Snapshot(acc = 28, steps = 10),
+        "sum_array" to Snapshot(acc = 39, steps = 126),
         // examples/asm/04-io/ (deterministic demos only)
         "countdown" to Snapshot(acc = 0, steps = 114),
         "fibonacci_io" to Snapshot(acc = 121, steps = 256),
