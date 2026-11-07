@@ -392,7 +392,7 @@ private fun SourcePanel(
     // (like pytoy's ensureCursorVisible; View -> Auto-scroll to PC). Fires only
     // when the line changes, so tapping doesn't fight the view.
     val focusLine = selAsmRows.minOrNull() ?: pcLines.minOrNull()?.takeIf { vm.autoScroll }
-    scrollToLine(vScroll, focusLine)
+    scrollToLine(vScroll, focusLine, vm.scrollHeld("asm"))
     // display-only line-number gutter (pytoy's _refresh_source), toggled from
     // View -> Line numbers. Never part of any saved file; labels, not numbers,
     // are how asm refers to lines.
@@ -434,7 +434,7 @@ private fun SourcePanel(
             // line of the assembly source.
             val rowMod = Modifier.editableRow(
                 menu, gestures, i to line.addr, { line.addr?.let { vm.select(it) } },
-                { line.addr?.let { vm.select(it) } ?: vm.markRow("asm", i) }, onEdit,
+                { line.addr?.let { vm.select(it); vm.holdScroll("asm") } ?: vm.markRow("asm", i) }, onEdit,
             ) { onEditLine(i) }
             HighlightRow(gutter + text, colours, rowMod)
         }
@@ -509,7 +509,7 @@ private fun MemoryPanel(
     // scroll so a selected cell (or, failing that, the PC if View -> Auto-scroll
     // to PC is on) is centred. +1 for the header row above address 0.
     val focusAddr = selAddrs.minOrNull() ?: m.pc.takeIf { vm.autoScroll }
-    scrollToLine(vScroll, focusAddr?.plus(1))
+    scrollToLine(vScroll, focusAddr?.plus(1), vm.scrollHeld("mem"))
     val hScroll = rememberScrollState()
     val menu = rememberEditMenu()
     val gestures = LocalEditGestures.current
@@ -542,7 +542,7 @@ private fun MemoryPanel(
             // tap selects the cell; right-click / long-press opens the edit menu
             Box(
                 Modifier.fillMaxWidth().editableRow(
-                    menu, gestures, a, { vm.select(a, fromMemory = true) }, { vm.select(a, fromMemory = true) }, onEdit,
+                    menu, gestures, a, { vm.select(a, fromMemory = true) }, { vm.select(a, fromMemory = true); vm.holdScroll("mem") }, onEdit,
                 ) { onEditLine(a) }
             ) {
                 HighlightRow(text, colours, textColor = textColor)
@@ -591,7 +591,7 @@ private fun CSourcePanel(
         // keep the selected C line visible (centred) when a click in another
         // column resolves to a C statement here; falls back to the PC's C line.
         val pcLine = pcCLine?.takeIf { vm.autoScroll }
-        scrollToLine(vScroll, if (draft != null) null else selCLines.minOrNull()?.minus(1) ?: pcLine?.minus(1))
+        scrollToLine(vScroll, if (draft != null) null else selCLines.minOrNull()?.minus(1) ?: pcLine?.minus(1), vm.scrollHeld("c"))
         val hScroll = rememberScrollState()
         val menu = rememberEditMenu()
         val gestures = LocalEditGestures.current
@@ -615,7 +615,7 @@ private fun CSourcePanel(
                     colours,
                     Modifier.editableRow(
                         menu, gestures, cLine to draft, { if (draft == null) vm.selectCLine(cLine) },
-                        { if (draft == null && vm.cLineHasCode(cLine)) vm.selectCLine(cLine) else vm.markRow("c", cLine) }, onEditC,
+                        { if (draft == null && vm.cLineHasCode(cLine)) { vm.selectCLine(cLine); vm.holdScroll("c") } else vm.markRow("c", cLine) }, onEditC,
                     ) { onEditLine(cLine - 1) },
                 )
             }
@@ -632,11 +632,11 @@ private fun CSourcePanel(
  * top padding is added; null leaves the scroll untouched.
  */
 @Composable
-private fun scrollToLine(state: androidx.compose.foundation.ScrollState, lineIndex: Int?) {
+private fun scrollToLine(state: androidx.compose.foundation.ScrollState, lineIndex: Int?, held: Boolean = false) {
     val rowPx = rememberTextMeasurer().measure("0", MonoStyle).size.height
     val topPx = with(LocalDensity.current) { 4.dp.roundToPx() }
     LaunchedEffect(lineIndex) {
-        if (lineIndex != null) {
+        if (lineIndex != null && !held) {
             val target = topPx + lineIndex * rowPx + rowPx / 2 - state.viewportSize / 2
             state.animateScrollTo(target.coerceIn(0, state.maxValue))
         }

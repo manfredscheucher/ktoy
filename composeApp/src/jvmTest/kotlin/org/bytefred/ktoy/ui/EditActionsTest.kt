@@ -541,4 +541,96 @@ class EditActionsTest {
         onNodeWithTag("context-edit-line").assertExists()
         assertColour("second", HL_SELECTED)
     }
+
+    private fun longAsm() = (0 until 60).joinToString("") { "        load  x$it\n" } + "        stop\n" +
+        (0 until 60).joinToString("") { "x$it:  $it\n" }
+
+    private fun ComposeUiTest.top(text: String) =
+        onNodeWithText(text, substring = true).fetchSemanticsNode().boundsInRoot.top
+
+    @Test
+    fun aRightClickDoesNotScrollAsm() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
+        show(vm)
+        val row = "load  x12"
+        val before = top(row)
+        onNodeWithText(row, substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        onNodeWithTag("context-edit-line").assertExists()
+        assertEquals(before, top(row))
+        assertColour(row, HL_SELECTED)
+    }
+
+    @Test
+    fun aTapOnTheSameRowScrollsAsm() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
+        show(vm)
+        val row = "load  x12"
+        val before = top(row)
+        onNodeWithText(row, substring = true).performClick()
+        waitForIdle()
+        assertNotEquals(before, top(row))
+    }
+
+    @Test
+    fun aMemoryRightClickDoesNotScrollItsPanel() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
+        show(vm)
+        val row = "12 (00001100) ->"
+        val before = top(row)
+        onNodeWithText(row, substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        onNodeWithTag("context-edit-line").assertExists()
+        assertEquals(before, top(row))
+        assertColour(row, HL_SELECTED)
+    }
+
+    @Test
+    fun aMemoryTapScrollsItsPanel() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
+        show(vm)
+        val row = "12 (00001100) ->"
+        val before = top(row)
+        onNodeWithText(row, substring = true).performClick()
+        waitForIdle()
+        assertNotEquals(before, top(row))
+    }
+
+    @Test
+    fun aStepOrTapEndsTheScrollHold() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
+        show(vm)
+        vm.markRow("asm", 5)
+        assertTrue(vm.scrollHeld("asm"))
+        assertFalse(vm.scrollHeld("mem"))
+        vm.machine!!.step()
+        assertFalse(vm.scrollHeld("asm"))
+        vm.markRow("asm", 5)
+        vm.select(3)
+        assertFalse(vm.scrollHeld("asm"))
+    }
+
+    @Test
+    fun blankAndCommentLinesInTheBytecodeEditKeepTheAddresses() {
+        val vm = bytecode()
+        vm.saveBytecode("1\n\n# note\n4\n\n# end\n")
+        assertEquals(listOf(1, 0, 0, 4, 0), vm.machine!!.mem.take(5))
+        assertEquals(null, vm.bytecodeError("1\n".repeat(256) + "\n# trailing\n\n"))
+        assertTrue(vm.bytecodeError("\n".repeat(256) + "1\n")!!.contains("at most 256"))
+    }
+
+    @Test
+    fun disassembleWarnsAboutValuesInTheIoCells() = runComposeUiTest {
+        val vm = bytecode()
+        show(vm)
+        assertTrue(vm.lossesFor(SimViewModel.BuildAction.Disassemble).none { "I/O" in it })
+        menu("Bytecode", "Edit…")
+        type((0 until 256).joinToString("\n") { if (it == 241) "7" else "0" })
+        press("Save & Disassemble")
+        assertNotEquals(null, vm.pendingAction)
+        onNodeWithText("I/O cells", substring = true).assertExists()
+        onNode(hasText("Disassemble")).performClick()
+        waitForIdle()
+        assertEquals(0, vm.machine!!.mem[241])
+    }
 }

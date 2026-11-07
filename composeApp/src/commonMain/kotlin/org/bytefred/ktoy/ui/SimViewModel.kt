@@ -541,6 +541,8 @@ class SimViewModel : ViewModel() {
     // sets) so the Edit button is enabled only for a memory selection.
     var memSelectedAddr: Int? = null; private set
     private var markedRow by mutableStateOf<Pair<String, Int>?>(null)
+    // the panel whose right-clicked row stays under the open menu, and the PC then
+    private var heldScroll: Pair<String, Int?>? = null
 
     /**
      * Set the shared cross-column selection from a clicked byte address (an asm
@@ -557,6 +559,7 @@ class SimViewModel : ViewModel() {
         markedRow = null
         selectedAddr = addr
         selectedCLine = addrToCLine(addr, addrToLine, asmToC)
+        heldScroll = null
         selectedFromC = false   // asm/mem click: single row, no sibling fan-out
         memSelectedAddr = if (fromMemory) addr else null
         bump()
@@ -576,6 +579,7 @@ class SimViewModel : ViewModel() {
         }
         val addrs = asmRowsToAddrs(rows.toSet(), lineToAddr)
         markedRow = null
+        heldScroll = null
         selectedCLine = cLine
         selectedAddr = addrs.minOrNull()
         selectedFromC = true   // C click: fan DOWN to all the statement's rows
@@ -590,8 +594,14 @@ class SimViewModel : ViewModel() {
     fun markRow(panel: String, row: Int) {
         clearSelection()
         markedRow = panel to row
+        holdScroll(panel)
         bump()
     }
+
+    /** A right-click selected in [panel]: it does not scroll until the next tap or step. */
+    fun holdScroll(panel: String) { heldScroll = panel to machine?.pc }
+
+    fun scrollHeld(panel: String) = heldScroll == panel to machine?.pc
 
     fun isMarked(panel: String, row: Int) = markedRow == panel to row
 
@@ -600,6 +610,7 @@ class SimViewModel : ViewModel() {
 
     private fun clearSelection() {
         markedRow = null
+        heldScroll = null
         selectedCLine = null
         selectedAddr = null
         selectedFromC = true   // back to the neutral default
@@ -709,6 +720,7 @@ class SimViewModel : ViewModel() {
         if (action != BuildAction.Assemble && asmDraft != null)
             add("Your assembly edits that are not assembled yet are lost.")
         if (m != null && action == BuildAction.Disassemble) {
+            if ((240..255).any { m.mem[it] != 0 }) add("The values in the I/O cells 240..255 are lost.")
             if (m.stepCount > 0) add("The run starts over at PC 0 (the program bytes 0..239 are kept as they are now).")
         } else if (m != null) {
             if (m.stepCount > 0) add("The current run is discarded.")

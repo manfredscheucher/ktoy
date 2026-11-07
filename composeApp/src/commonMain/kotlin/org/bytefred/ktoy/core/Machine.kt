@@ -190,14 +190,15 @@ class Machine(
 fun parseCellValue(s: String): Int = parseVal(if (s.trim().startsWith("b")) "0" + s.trim() else s)
 
 /**
- * The text of the whole-bytecode edit: one value per line ([parseCellValue], not
- * wrapped), at most 256, cells after the last line are 0, # starts a comment.
+ * The text of the whole-bytecode edit: line i is cell i, one value per line
+ * ([parseCellValue], not wrapped), at most 256, # starts a comment. A blank or
+ * comment line is a 0, except at the end: cells after the last value are 0 anyway.
  */
 fun parseBytecodeEdit(text: String): IntArray {
-    val rows = text.lines().map { it.substringBefore('#').trim() }.filter { it.isNotEmpty() }
+    val rows = text.lines().map { it.substringBefore('#').trim() }.dropLastWhile { it.isEmpty() }
     require(rows.size <= 256) { "expected at most 256 lines, got ${rows.size}" }
     val values = rows.map { r ->
-        runCatching { parseCellValue(r) }.getOrNull()?.takeIf { it in 0..255 }
+        if (r.isEmpty()) 0 else runCatching { parseCellValue(r) }.getOrNull()?.takeIf { it in 0..255 }
             ?: throw IllegalArgumentException("not a value 0..255: '$r'")
     }
     return values.toIntArray() + IntArray(256 - values.size)

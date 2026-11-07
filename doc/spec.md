@@ -1074,3 +1074,9 @@ Manfred: keep the code simple.
 - Examples are demos, not hardened code: no dead code or unused labels, except where unreachable code
   is the point (`00_stop`, `11_goto`). Input limits are stated in the description, not checked:
   longer input may overflow (`greet_name`, `sort_array_io`).
+- A right-click or long-press does not scroll the clicked panel, so the row stays under the menu;
+  the next tap or step scrolls as usual. Other panels still scroll to the selection.
+- Whole-bytecode edit: line i is cell i. A blank or comment line is a 0, trailing ones are dropped.
+- Disassemble warns when cells 240..255 hold values: the disassembly covers 0..239 only.
+- Same program, same data in assembly and C: `greet_name` writes "Hallo NAME" (up to 9 characters),
+  `multiply_*` 7 * 6, `sum_array`/`max_array` 10 values, `times7_*` in `02-extended`.
