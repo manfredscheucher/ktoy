@@ -23,7 +23,7 @@ class SnapshotTest {
     private val snapshot = mapOf(
         // examples/asm/03-programs/
         "fibonacci_iter" to Snapshot(acc = 13, steps = 81),
-        "fibonacci_rec" to Snapshot(acc = 13, steps = 2145),
+        "fibonacci_rec" to Snapshot(acc = 13, steps = 2004),
         "gcd_iter" to Snapshot(acc = 12, steps = 32),
         "max3" to Snapshot(acc = 4, steps = 15),
         "max_array" to Snapshot(acc = 9, steps = 115),
@@ -34,7 +34,7 @@ class SnapshotTest {
         "times7_doubling" to Snapshot(acc = 28, steps = 10),
         // examples/asm/04-io/ (deterministic demos only)
         "countdown" to Snapshot(acc = 0, steps = 114),
-        "fibonacci_io" to Snapshot(acc = 121, steps = 271),
+        "fibonacci_io" to Snapshot(acc = 121, steps = 256),
         "hello_world" to Snapshot(acc = 33, steps = 25),
         "numbers" to Snapshot(acc = 14, steps = 31),
         "numbers_ascii" to Snapshot(acc = 14, steps = 31),

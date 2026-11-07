@@ -317,7 +317,7 @@ sign:   128               # 10000000
         add   i
         store patch
 
-load:   20                # load opcode
+        20                # load opcode
 patch:  0                 # <- address of data[i], patched above
         stop
 
@@ -472,7 +472,7 @@ x:      5
         store patch
 
         load  val
-store:  21                # store opcode
+        21                # store opcode
 patch:  0                 # <- address of data[i], patched above
         stop
 
@@ -555,7 +555,7 @@ one:    1
 """, subfolder = "03-programs"),
     Example("fibonacci_rec", ExampleKind.ASM, """# example: recursive Fibonacci
 # description: Computes fib(7) recursively on a self-modifying-code stack.
-# steps: 2145
+# steps: 2004
 # result: 13
 
 # Frame, pushed by the caller: [marker][n]. Marker: 0 = top, 1 = after fib(n-1), 2 = after fib(n-2).
@@ -570,7 +570,7 @@ one:    1
 fib:    load  sp
         sub   one           # address of this frame's n
         store pka
-lop:    20                  # load opcode
+        20                  # load opcode
 pka:    0                   # <- address of n, patched above
         store nloc          # nloc = n
 
@@ -585,15 +585,12 @@ r1:     load  one
 rec:    load  nloc
         sub   one
         store nm1           # nm1 = n-1
-        load  nloc
-        sub   two
-        store nm2           # nm2 = n-2
 
         # push marker=1
         load  sp
         store pa1
         load  one
-so1:    21                  # store opcode
+        21                  # store opcode
 pa1:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
@@ -602,7 +599,7 @@ pa1:    0                   # <- address of the stack top, patched above
         load  sp
         store pa2
         load  nm1
-so2:    21                  # store opcode
+        21                  # store opcode
 pa2:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
@@ -615,8 +612,7 @@ r1site: store fret1         # acc = fib(n-1); safe in a global, no call before t
         load  sp
         sub   one
         store pka2
-        load  zero
-lop2:   20                  # load opcode
+        20                  # load opcode
 pka2:   0                   # <- address of n, patched above
         sub   two
         store nm2           # nm2 = n-2
@@ -624,7 +620,7 @@ pka2:   0                   # <- address of n, patched above
         load  sp
         store pa3
         load  fret1
-so3:    21                  # store opcode
+        21                  # store opcode
 pa3:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
@@ -633,7 +629,7 @@ pa3:    0                   # <- address of the stack top, patched above
         load  sp
         store pa4
         load  two
-so4:    21                  # store opcode
+        21                  # store opcode
 pa4:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
@@ -642,7 +638,7 @@ pa4:    0                   # <- address of the stack top, patched above
         load  sp
         store pa5
         load  nm2
-so5:    21                  # store opcode
+        21                  # store opcode
 pa5:    0                   # <- address of the stack top, patched above
         load  sp
         add   one
@@ -654,8 +650,7 @@ r2site: store fscr          # acc = fib(n-2)
         sub   one
         store sp            # pop
         store pa6
-        load  zero
-lo6:    20                  # load opcode
+        20                  # load opcode
 pa6:    0                   # <- address of saved fib(n-1), patched above
         add   fscr          # fib(n-1)+fib(n-2)
 
@@ -665,8 +660,7 @@ ret:    store result
         sub   two           # pop n and marker
         store sp
         store pa7           # sp points at the marker
-        load  zero
-lo7:    20                  # load opcode
+        20                  # load opcode
 pa7:    0                   # <- address of the marker, patched above
         store mk
         ifzero top          # marker 0 -> top level
@@ -683,7 +677,6 @@ top:    load  result
         stop
 
 # data
-zero:   0
 one:    1
 two:    2
 input:  7
@@ -697,7 +690,7 @@ fscr:   0
 sp:     stackbase
 # The top frame sits just below stackbase: [marker=0][n=input].
 # sp = stackbase points at the next free slot; sp-1 is n.
-seedm:  0            # top-frame marker (stackbase-2)
+        0            # top-frame marker (stackbase-2)
 seedn:  0            # top-frame n, set from `input` at entry (stackbase-1)
 stackbase: 0
         0
@@ -1031,7 +1024,7 @@ c:      4
 loop:   load  count
         ifzero done
 
-iop:    20                # load opcode
+        20                # load opcode
 iarg:   0                 # <- address of arr[i], patched each pass
         add   result
         store result      # result += arr[i]
@@ -1094,7 +1087,7 @@ wloop:  load  n
 
         # write n to io[i] via a patched store
         load  n
-iop:    21                # store opcode
+        21                # store opcode
 iarg:   240               # <- address of io[i], patched each pass (starts at io0)
 
         load  iarg
@@ -1119,14 +1112,12 @@ one:   1
 
 # fib(14) = 377 does not fit in a byte, so the output stops at fib(13) = 233.
 
-        load  a
 wloop:  load  count
         ifzero done
 
         # write a to io[i] via a patched store
         load  a
-        store ival        # never read: the patched store writes acc
-iop:    21                # store opcode
+        21                # store opcode
 iarg:   240               # <- address of io[i], patched each pass (starts at io0)
 
         load  iarg
@@ -1156,15 +1147,13 @@ b:     1            # fib(i+1)
 next:  0
 count: 14           # values left to write
 one:   1
-ival:  0
 """, subfolder = "04-io"),
     Example("greet_name", ExampleKind.ASM, """# example: greet by name
-# description: Reads a name from the io cells and writes "hallo NAME!" back.
+# description: Reads a name and writes "hallo NAME!" back. Names over 8 characters overflow.
 # pytoy: output=ascii
 
 # Input: type one character per cell into io0, io1, ..., then set ready (mem[255]) to the count.
 # The name goes to scratch first because writing "hallo " overwrites io0..io5.
-# The output needs 6 + n + 1 of the 15 io cells, so names fit up to 8 characters.
 
         # busy-poll until ready != 0, then n = ready
 wait:   load  ready
@@ -1253,7 +1242,6 @@ bangarg: 0                   # <- address of io[6+n], patched above
         stop
 
 # data
-zero:    0
 one:     1
 n:       0
 cnt:     0
@@ -1677,7 +1665,7 @@ wait:   load  ready
 zero:   0
 """, subfolder = "04-io"),
     Example("sort_array_io", ExampleKind.ASM, """# example: sort numbers from input
-# description: Reads up to 15 numbers from the io cells and writes them back sorted.
+# description: Reads up to 15 numbers and writes them back sorted. More than 15 overflow.
 # pytoy: output=decimal
 
 # Input: type the values into io0, io1, ..., then set ready (mem[255]) to their count.
@@ -1818,7 +1806,6 @@ done:   load  arr            # smallest value
         stop
 
 # data
-zero:     0
 one:      1
 mask:     128          # 10000000
 iobase:   240          # io0
@@ -2519,11 +2506,10 @@ int main(void) {
 }
 """, compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
     Example("greet_name.toyc", ExampleKind.C, """// example: greet by name
-// description: Reads a name from the io cells and writes "Hallo NAME" back.
+// description: Reads a name and writes "Hallo NAME" back. Names over 9 characters overflow.
 // pytoy: output=ascii
 
 // Input: type one character per cell into io0, io1, ..., then set ready (mem[255]) to the count.
-// The output needs 6 + n of the 15 io cells, so names fit up to 9 characters.
 
 int main(void) {
     int data[16];

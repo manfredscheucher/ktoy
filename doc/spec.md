@@ -1071,3 +1071,6 @@ Manfred: keep the code simple.
 - Examples (written in pytoy, generated here): header `example`, `description`, `steps`, `result`
   in this order; `// expect:` became `// result:`. Comments carry real information only, one wording
   per concept, MSB explained at first mention. `bit_set_clear_toggle` now toggles x, not r_set.
+- Examples are demos, not hardened code: no dead code or unused labels, except where unreachable code
+  is the point (`00_stop`, `11_goto`). Input limits are stated in the description, not checked:
+  longer input may overflow (`greet_name`, `sort_array_io`).
