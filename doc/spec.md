@@ -1046,3 +1046,14 @@ Manfred: keep the code simple.
   Nothing had to be copied: nothing in ktoy used it. Older mentions in this file are history.
 - The README and the About dialog no longer mention pytoy. This doc, code comments and
   the example generators still do.
+
+## 29. 2026-11-06: Select view in the cell editor
+
+- Bytecode "Edit line" opens on a Select view: the operations in opcode order, labelled
+  with their code (`STOP(0)`, `RIGHT(1)`, ...), then the values 0..255 in a 16x16 grid.
+- A click writes the value and closes the dialog (Interpretation of "sobald man da drauf
+  klickt schreibt ers hin"), so this view has only Cancel.
+- A Select / Type toggle on top; Type is the usual input field. The last view used is
+  remembered (`editCellView`), on all platforms.
+- A narrow dialog (portrait) has 8 values per row instead of 16, at the normal font size,
+  with a scrollbar (Manfred's suggestion: 8x32 in portrait).

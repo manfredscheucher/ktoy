@@ -57,6 +57,14 @@ import kotlin.test.assertTrue
  */
 @OptIn(ExperimentalTestApi::class)
 class SimulatorScreenUiTest {
+    private var savedEditView: String? = null
+
+    @kotlin.test.BeforeTest
+    fun rememberEditView() { savedEditView = loadPref(EDIT_VIEW_PREF) }
+
+    @kotlin.test.AfterTest
+    fun restoreEditView() = savePref(EDIT_VIEW_PREF, savedEditView ?: "select")
+
 
     private val asmSrc = "load x\nstop\nx: 42\n"
     private val cSrc = "int main(void){return 42;}\n"
@@ -169,6 +177,8 @@ class SimulatorScreenUiTest {
         assertEquals(3, vm.memSelectedAddr)
         onNodeWithText("address 3", substring = true).assertExists()
         onNodeWithText("Save & ", substring = true).assertDoesNotExist()
+        onNodeWithTag("edit-view-type").performClick()
+        waitForIdle()
         onNodeWithTag("edit-value").performTextReplacement("9")
         onNodeWithText("Save").performClick()
         waitForIdle()
@@ -511,12 +521,33 @@ class SimulatorScreenUiTest {
     }
 
     @Test
+    fun theSelectViewWritesTheClickedOperationIntoTheCell() = runComposeUiTest {
+        savePref(EDIT_VIEW_PREF, "select")
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        val before = vm.machine!!.mem[3]
+        onNodeWithText("3 (00000011) ->", substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        onNodeWithTag("context-edit-line").performClick()
+        waitForIdle()
+        onNodeWithTag("pick-op-21").performClick()
+        waitForIdle()
+        assertEquals(21, vm.machine!!.mem[3])
+        onNodeWithTag("pick-op-21").assertDoesNotExist()
+        onNodeWithText("Undo").performClick()
+        waitForIdle()
+        assertEquals(before, vm.machine!!.mem[3])
+    }
+
+    @Test
     fun theSingleCellEditTakesBinaryWithB() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
         show(vm)
         onNodeWithText("3 (00000011) ->", substring = true).performMouseInput { rightClick() }
         waitForIdle()
         onNodeWithTag("context-edit-line").performClick()
+        waitForIdle()
+        onNodeWithTag("edit-view-type").performClick()
         waitForIdle()
         onNodeWithTag("edit-value").performTextReplacement("b1001")
         onNodeWithText("Save").performClick()
