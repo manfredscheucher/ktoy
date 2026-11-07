@@ -22,8 +22,6 @@ Silicon.
 ## Build
 
 ```bash
-git submodule update --init --recursive        # kotlin-common (shared logger)
-
 # compile each target (no run):
 ./gradlew :composeApp:compileAndroidMain                 # Android
 ./gradlew :composeApp:compileKotlinJvm                   # Desktop

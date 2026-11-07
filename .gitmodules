@@ -1,3 +1,0 @@
-[submodule "kotlin-common"]
-	path = kotlin-common
-	url = git@github.com:manfredscheucher/kotlin-common.git

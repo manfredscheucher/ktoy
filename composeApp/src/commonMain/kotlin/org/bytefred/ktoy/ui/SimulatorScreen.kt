@@ -734,8 +734,7 @@ private const val SPS_STEP = 0.5
  * A −/+ stepper for the Run speed (steps per second). A Double, shown with one
  * decimal so the user sees that sub-1 values are allowed (e.g. "0.5"). The field
  * accepts any float in [SPS_MIN, SPS_MAX]; the buttons nudge by [SPS_STEP].
- * Shape copied from kotlin-common's IntegerInput, adapted to Float (no shared
- * dependency, per the house rules). pytoy's spin_speed. [compact] (phones) uses
+ * pytoy's spin_speed. [compact] (phones) uses
  * a low bordered field instead of the 56 dp Material text field.
  */
 @Composable

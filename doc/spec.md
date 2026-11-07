@@ -1039,3 +1039,10 @@ Manfred: keep the code simple.
   The bytecode examples are fibonacci, multiply_repeated (6 * 7 by addition) and sum3.
 - Load in the Examples dialog no longer asks "still running, stop it?": it just stops
   the run, like File -> Load and Reload.
+
+## 28. 2026-11-06: Public repo, no kotlin-common, README only about ktoy
+
+- ktoy is a public repo and kotlin-common is private, so the unused submodule is gone.
+  Nothing had to be copied: nothing in ktoy used it. Older mentions in this file are history.
+- The README and the About dialog no longer mention pytoy. This doc, code comments and
+  the example generators still do.

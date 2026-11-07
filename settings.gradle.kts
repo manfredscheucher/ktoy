@@ -34,10 +34,3 @@ plugins {
 
 include(":composeApp")
 include(":androidApp")
-
-// kotlin-common :core (the leveled Logger) is currently unused by ktoy and its
-// commonMain doesn't compile for the js/browser target (kotlin.time.Instant on
-// Kotlin 2.3), so we don't include it. Re-enable both lines if ktoy starts using
-// the Logger — and then :core needs a js() target in the submodule:
-// include(":core")
-// project(":core").projectDir = file("kotlin-common/core")

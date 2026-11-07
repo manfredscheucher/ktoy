@@ -76,10 +76,7 @@ Android). The CPU logic lives in `commonMain`:
 
 ## Build & run
 
-Needs the `kotlin-common` git submodule (used for the shared logger):
-
 ```bash
-git submodule update --init --recursive
 ./gradlew :androidApp:assembleDebug        # build the debug APK
 ./gradlew :composeApp:jvmTest              # run the tests
 ```
@@ -120,10 +117,10 @@ The full specification, what was built and why, is in
 web, iOS), the menus, file I/O and version info are in
 [`doc/platforms.md`](doc/platforms.md).
 
-## Credits & license
-
-The Toy CPU instruction set is by Jim Hall (FreeDOS Project) — see its
-[official page](https://jimhall.itch.io/toy-cpu) and
-[source](https://github.com/freedosproject/toycpu).
+## License & credits
 
 ktoy is MIT-licensed (see [`LICENSE`](LICENSE)).
+
+The original Toy CPU and its instruction set are by Jim Hall (FreeDOS Project): see its
+[official page](https://jimhall.itch.io/toy-cpu) and
+[source](https://github.com/freedosproject/toycpu).

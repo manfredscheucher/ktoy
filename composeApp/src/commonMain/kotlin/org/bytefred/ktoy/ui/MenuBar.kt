@@ -391,7 +391,6 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                 FeedbackBox()
                 Spacer(Modifier.height(8.dp))
                 ProjectLine("ktoy", "https://github.com/manfredscheucher/ktoy", "this app")
-                ProjectLine("pytoy", "https://github.com/manfredscheucher/pytoy", "the Python original ktoy is ported from")
                 ProjectLine("toycpu", "https://github.com/freedosproject/toycpu", "the Toy CPU instruction set by Jim Hall (FreeDOS Project)")
                 ProjectLine("Videos", PLAYLIST_URL, "YouTube playlist", license = null)
                 Spacer(Modifier.height(8.dp))
