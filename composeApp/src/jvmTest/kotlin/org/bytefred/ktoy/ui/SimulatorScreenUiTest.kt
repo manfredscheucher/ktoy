@@ -138,7 +138,7 @@ class SimulatorScreenUiTest {
         show(vm)
         onNodeWithText("load x", substring = true).performMouseInput { rightClick() }
         waitForIdle()
-        assertEquals(null, vm.selectedAddr, "a right-click does not select")
+        assertEquals(vm.machine!!.mem.indexOf(20), vm.selectedAddr, "a right-click highlights the row")
         onNodeWithTag("context-edit").performClick()
         waitForIdle()
         onNodeWithText("Edit assembly").assertExists()
@@ -441,7 +441,7 @@ class SimulatorScreenUiTest {
         assertEquals(256, shown.split("\n").size)
         assertEquals(listOf("  0 | 20", "  1 | 3", "  2 | 0", "  3 | 42"), shown.split("\n").take(4))
         assertEquals("255 | 0", shown.split("\n").last())
-        onNodeWithText("Save & ", substring = true).assertDoesNotExist()
+        onNodeWithText("Save & Disassemble").assertExists()
 
         onNodeWithTag("edit-source").performTextReplacement("1\n".repeat(257))
         onNodeWithText("Save").performClick()
@@ -540,6 +540,69 @@ class SimulatorScreenUiTest {
     }
 
     @Test
+    fun saveAndDisassembleInTheBytecodeEdit() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toyo", "20\n6\n0\n") }
+        show(vm)
+        onNodeWithText("Bytecode").performClick()
+        waitForIdle()
+        onNodeWithText("Edit…").performClick()
+        waitForIdle()
+        onNodeWithText("Save", substring = false).assertExists()
+        onNodeWithTag("edit-source").performTextReplacement("20\n7\n0\n")
+        onNodeWithText("Save & Disassemble").performClick()
+        waitForIdle()
+        onAllNodesWithText("Disassemble").fetchSemanticsNodes().let { if (it.isNotEmpty()) onAllNodesWithText("Disassemble").onFirst().performClick() }
+        waitForIdle()
+        assertEquals(7, vm.machine!!.mem[1])
+        assertTrue(vm.hasSource, "assembly column is there")
+    }
+
+    @Test
+    fun aBrokenBytecodeEditIsNotSavedByDisassemble() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toyo", "20\n6\n0\n") }
+        show(vm)
+        onNodeWithText("Bytecode").performClick()
+        waitForIdle()
+        onNodeWithText("Edit…").performClick()
+        waitForIdle()
+        onNodeWithTag("edit-source").performTextReplacement("20\nabc\n")
+        onNodeWithText("Save & Disassemble").performClick()
+        waitForIdle()
+        assertEquals(6, vm.machine!!.mem[1])
+        assertTrue(!vm.hasSource)
+        onNodeWithText("Save & Disassemble").assertExists()
+    }
+
+    @Test
+    fun aRightClickHighlightsTheMemoryRow() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        onNodeWithText("3 (00000011) ->", substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        assertEquals(3, vm.selectedAddr)
+        assertEquals(3, vm.memSelectedAddr)
+    }
+
+    @Test
+    fun aRightClickHighlightsTheCLine() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toyc", "int main() {\n  return 42;\n}\n") }
+        show(vm)
+        onNodeWithText("return 42", substring = true).performMouseInput { rightClick() }
+        waitForIdle()
+        assertEquals(2, vm.selectedCLine)
+    }
+
+    @Test
+    fun aLongPressHighlightsTheRowOnTouch() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm, gestures = EditGestures(rightClick = false, longPress = true))
+        onNodeWithText("3 (00000011) ->", substring = true).performTouchInput { longClick() }
+        waitForIdle()
+        assertEquals(3, vm.selectedAddr)
+        onNodeWithTag("context-edit").assertExists()
+    }
+
+    @Test
     fun theSingleCellEditTakesBinaryWithB() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
         show(vm)
@@ -634,7 +697,7 @@ class SimulatorScreenUiTest {
     }
 
     @Test
-    fun theInstructionSetHelpHasAScrollbarAndNoLongLines() = runComposeUiTest {
+    fun theInstructionSetHelpHasAScrollbarAndNoLongLines() = androidx.compose.ui.test.runDesktopComposeUiTest(640, 360) {
         show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) })
         val text = org.bytefred.ktoy.core.referenceText()
         assertTrue(text.lines().all { it.length <= 56 }, text.lines().maxBy { it.length })

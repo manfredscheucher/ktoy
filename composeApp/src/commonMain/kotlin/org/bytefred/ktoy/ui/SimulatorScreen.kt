@@ -237,13 +237,17 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
         )
     }
     if (editBytecodeOpen) {
+        // Save writes the differences to the text shown, so memory must hold still
+        LaunchedEffect(Unit) { if (vm.running) vm.toggleRun() }
         EditSourceDialog(
             title = "Edit bytecode",
             label = "Bytecode",
             initial = m.mem.joinToString("\n"),
+            buildLabel = "Disassemble",
             firstLineNumber = 0,   // the number is the address
             check = vm::bytecodeError,
             onSave = vm::saveBytecode,
+            onBuild = { vm.request(SimViewModel.BuildAction.Disassemble) },
             onDismiss = { editBytecodeOpen = false },
         )
     }
@@ -375,7 +379,7 @@ private fun SourcePanel(
     val menu = rememberEditMenu()
     val gestures = LocalEditGestures.current
     vm.asmDraft?.let { draft ->
-        AsmDraftPanel(draft, vm.showLineNumbers, menu, gestures, onEdit, onEditLine, modifier)
+        AsmDraftPanel(draft, vm, menu, gestures, onEdit, onEditLine, modifier)
         return
     }
     val pcLines = pcBytes.mapNotNull { vm.addrToLine[it] }.toSet()
@@ -408,7 +412,7 @@ private fun SourcePanel(
             val colours = mutableListOf<Color>()
             // the transitive selection: a click in ANY column resolves to the asm
             // rows that light up here (a selected C line maps to several rows)
-            if (i in selAsmRows) colours.add(HL_SELECTED)
+            if (i in selAsmRows || vm.isMarked("asm", i)) colours.add(HL_SELECTED)
             if (i in pcLines) colours.add(HL_PC)
             if (i == argLine) colours.add(HL_ARG)
             // a STORE just overwrote a byte: its owning asm row goes red too
@@ -428,7 +432,10 @@ private fun SourcePanel(
             // columns via the VM's shared selection), like pytoy's _source_clicked;
             // right-click / long-press opens the edit menu. A listing row is its
             // line of the assembly source.
-            val rowMod = Modifier.editableRow(menu, gestures, i to line.addr, { line.addr?.let { vm.select(it) } }, onEdit) { onEditLine(i) }
+            val rowMod = Modifier.editableRow(
+                menu, gestures, i to line.addr, { line.addr?.let { vm.select(it) } },
+                { line.addr?.let { vm.select(it) } ?: vm.markRow("asm", i) }, onEdit,
+            ) { onEditLine(i) }
             HighlightRow(gutter + text, colours, rowMod)
         }
     }
@@ -442,7 +449,7 @@ private fun SourcePanel(
 @Composable
 private fun AsmDraftPanel(
     draft: String,
-    showLineNumbers: Boolean,
+    vm: SimViewModel,
     menu: EditMenuState,
     gestures: EditGestures,
     onEdit: () -> Unit,
@@ -456,12 +463,12 @@ private fun AsmDraftPanel(
     EditMenuBox(menu, modifier.fillMaxSize()) {
     ScrollColumn(vScroll, hScroll) {
         lines.forEachIndexed { i, line ->
-            val gutter = if (showLineNumbers) "${(i + 1).toString().padStart(gutterWidth)} | " else ""
+            val gutter = if (vm.showLineNumbers) "${(i + 1).toString().padStart(gutterWidth)} | " else ""
             // "   " lines the text up with the listing's ">> " marker column
             HighlightRow(
                 gutter + "   " + line,
-                emptyList(),
-                Modifier.editableRow(menu, gestures, i, onTap = null, onEdit) { onEditLine(i) },
+                if (vm.isMarked("asm", i)) listOf(HL_SELECTED) else emptyList(),
+                Modifier.editableRow(menu, gestures, i, onTap = null, { vm.markRow("asm", i) }, onEdit) { onEditLine(i) },
             )
         }
     }
@@ -534,10 +541,9 @@ private fun MemoryPanel(
             val textColor = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)
             // tap selects the cell; right-click / long-press opens the edit menu
             Box(
-                Modifier.fillMaxWidth().editableRow(menu, gestures, a, { vm.select(a, fromMemory = true) }, onEdit) {
-                    vm.select(a, fromMemory = true)
-                    onEditLine(a)
-                }
+                Modifier.fillMaxWidth().editableRow(
+                    menu, gestures, a, { vm.select(a, fromMemory = true) }, { vm.select(a, fromMemory = true) }, onEdit,
+                ) { onEditLine(a) }
             ) {
                 HighlightRow(text, colours, textColor = textColor)
             }
@@ -594,6 +600,7 @@ private fun CSourcePanel(
             lines.forEachIndexed { i, line ->
                 val cLine = i + 1   // 1-based, matching the markers
                 val colours = mutableListOf<Color>()
+                if (vm.isMarked("c", cLine)) colours.add(HL_SELECTED)
                 if (draft == null) {
                     if (cLine in selCLines) colours.add(HL_SELECTED)
                     if (cLine == pcCLine) colours.add(HL_PC)
@@ -606,7 +613,10 @@ private fun CSourcePanel(
                 HighlightRow(
                     gutter + line,
                     colours,
-                    Modifier.editableRow(menu, gestures, cLine to draft, { if (draft == null) vm.selectCLine(cLine) }, onEditC) { onEditLine(cLine - 1) },
+                    Modifier.editableRow(
+                        menu, gestures, cLine to draft, { if (draft == null) vm.selectCLine(cLine) },
+                        { if (draft == null && vm.cLineHasCode(cLine)) vm.selectCLine(cLine) else vm.markRow("c", cLine) }, onEditC,
+                    ) { onEditLine(cLine - 1) },
                 )
             }
         }

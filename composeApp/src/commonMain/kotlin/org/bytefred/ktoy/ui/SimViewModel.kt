@@ -443,6 +443,7 @@ class SimViewModel : ViewModel() {
                 asmText = null
                 machine = Machine(mem, (0..255).toSet())
                 clearCSource()
+                clearSelection()
                 rebuildAddrMaps()
             }
             ExampleKind.ASM -> {
@@ -457,6 +458,7 @@ class SimViewModel : ViewModel() {
                 asmText = example.source
                 machine = Machine(res.mem, res.dataAddrs)
                 clearCSource()
+                clearSelection()
                 rebuildAddrMaps()
             }
             ExampleKind.C -> {
@@ -538,6 +540,7 @@ class SimViewModel : ViewModel() {
     // null. Distinct from `selectedAddr` (which a source- or C-line tap also
     // sets) so the Edit button is enabled only for a memory selection.
     var memSelectedAddr: Int? = null; private set
+    private var markedRow by mutableStateOf<Pair<String, Int>?>(null)
 
     /**
      * Set the shared cross-column selection from a clicked byte address (an asm
@@ -551,6 +554,7 @@ class SimViewModel : ViewModel() {
             clearSelection()
             return
         }
+        markedRow = null
         selectedAddr = addr
         selectedCLine = addrToCLine(addr, addrToLine, asmToC)
         selectedFromC = false   // asm/mem click: single row, no sibling fan-out
@@ -571,6 +575,7 @@ class SimViewModel : ViewModel() {
             return
         }
         val addrs = asmRowsToAddrs(rows.toSet(), lineToAddr)
+        markedRow = null
         selectedCLine = cLine
         selectedAddr = addrs.minOrNull()
         selectedFromC = true   // C click: fan DOWN to all the statement's rows
@@ -578,7 +583,23 @@ class SimViewModel : ViewModel() {
         bump()
     }
 
+    /**
+     * Highlights a right-clicked row that has no address to select (a comment, a
+     * blank line, a draft line): [panel] tells which column it is in.
+     */
+    fun markRow(panel: String, row: Int) {
+        clearSelection()
+        markedRow = panel to row
+        bump()
+    }
+
+    fun isMarked(panel: String, row: Int) = markedRow == panel to row
+
+    /** Whether this C line has code, so it can be selected. */
+    fun cLineHasCode(cLine: Int) = !cToAsm[cLine].isNullOrEmpty()
+
     private fun clearSelection() {
+        markedRow = null
         selectedCLine = null
         selectedAddr = null
         selectedFromC = true   // back to the neutral default
@@ -625,6 +646,8 @@ class SimViewModel : ViewModel() {
         machine?.editCell(addr, value)
         // resolve the edited byte up to its C line so the C column highlights the
         // owning statement too (consistent with a memory-panel click: single row).
+        if (memSelectedAddr != addr) memSelectedAddr = null   // an I/O cell, not the selected row
+        markedRow = null
         selectedAddr = addr
         selectedCLine = addrToCLine(addr, addrToLine, asmToC)
         selectedFromC = false

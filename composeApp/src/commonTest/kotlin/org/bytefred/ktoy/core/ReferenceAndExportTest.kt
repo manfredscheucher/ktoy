@@ -22,10 +22,10 @@ class ReferenceAndExportTest {
     }
 
     @Test
-    fun referenceMentionsShortcuts() {
+    fun referenceListsNoShortcutsAndNoOrigin() {
         val text = referenceText().lowercase()
-        for (s in listOf("space", "backspace", "reload", "save")) {
-            assertTrue(s in text, "reference missing shortcut $s")
+        for (s in listOf("shortcut", "backspace", "toycpu")) {
+            assertTrue(s !in text, "reference mentions $s")
         }
     }
 

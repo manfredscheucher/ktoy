@@ -153,9 +153,8 @@ private val EFFECTS: Map<Int, String> = mapOf(
 )
 
 /**
- * The Help -> reference text: the 14 instructions (built from INSTR so it can't
- * drift from the real ISA) plus the GUI keyboard shortcuts. Mirrors pytoy's
- * simulator._reference_text().
+ * The Help -> reference text: the 14 instructions, built from INSTR so it can't
+ * drift from the real ISA.
  */
 fun referenceText(): String {
     val lines = mutableListOf("TOY CPU — INSTRUCTION SET", "")
@@ -168,19 +167,9 @@ fun referenceText(): String {
     }
     lines += listOf(
         "",
-        "Any opcode not listed behaves like nop (like toycpu).",
+        "Any opcode not listed behaves like nop.",
         "Arithmetic wraps modulo 256.",
         "ifzero is the only conditional.",
-        "",
-        "KEYBOARD SHORTCUTS",
-        "",
-        "Space / Enter    step one instruction",
-        "Backspace        step back (undo one step)",
-        "R                run / stop",
-        "Esc              reset to the start",
-        "Cmd/Ctrl+O       load a program",
-        "Cmd/Ctrl+R       reload from disk",
-        "Cmd/Ctrl+S       save the current program",
         "",
         "Right-click a line (long-press on touch) to edit it.",
     )

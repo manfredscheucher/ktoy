@@ -95,14 +95,15 @@ fun EditMenuBox(state: EditMenuState, modifier: Modifier, content: @Composable (
 
 /**
  * A row's pointer handling: a tap runs [onTap]; a right-click or long-press
- * (as [gestures] allow) opens [menu] with [onEdit] and [onEditLine]. A right-click is taken
- * before the tap detector sees it, so it does not also select the row.
+ * (as [gestures] allow) runs [onMark], which highlights the row, and opens [menu]
+ * with [onEdit] and [onEditLine].
  */
 fun Modifier.editableRow(
     menu: EditMenuState,
     gestures: EditGestures,
     key: Any?,
     onTap: (() -> Unit)?,
+    onMark: () -> Unit,
     onEdit: () -> Unit,
     onEditLine: () -> Unit,
 ): Modifier = this
@@ -113,6 +114,7 @@ fun Modifier.editableRow(
                 val e = awaitPointerEvent(PointerEventPass.Initial)
                 if (e.type == PointerEventType.Press && e.buttons.isSecondaryPressed) {
                     e.changes.forEach { it.consume() }
+                    onMark()
                     menu.open(onEdit, onEditLine)
                 }
             }
@@ -121,6 +123,6 @@ fun Modifier.editableRow(
     .pointerInput(key, gestures) {
         detectTapGestures(
             onTap = onTap?.let { tap -> { tap() } },
-            onLongPress = if (gestures.longPress) { _ -> menu.open(onEdit, onEditLine) } else null,
+            onLongPress = if (gestures.longPress) { _ -> onMark(); menu.open(onEdit, onEditLine) } else null,
         )
     }

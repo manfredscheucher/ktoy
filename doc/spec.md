@@ -1057,3 +1057,17 @@ Manfred: keep the code simple.
   remembered (`editCellView`), on all platforms.
 - A narrow dialog (portrait) has 8 values per row instead of 16, at the normal font size,
   with a scrollbar (Manfred's suggestion: 8x32 in portrait).
+
+## 30. 2026-11-07: Edit dialogs, right-click highlight, example comments
+
+- Multiline edit dialogs (C, assembly, bytecode) have a vertical and a horizontal scrollbar like
+  the code panels, no line wrap, and the scroll follows the cursor.
+- Whole-bytecode edit: Cancel / Save / Save & Disassemble. Save & X checks the text first.
+  Opening it stops a run: Save writes the differences to the text shown.
+- Right-click or long-press highlights the row orange, also rows without an address (comments,
+  blank lines, draft lines, C lines without code).
+- A build clears the selection.
+- Help -> Instruction set: no shortcuts list (the app has none), no "like toycpu".
+- Examples (written in pytoy, generated here): header `example`, `description`, `steps`, `result`
+  in this order; `// expect:` became `// result:`. Comments carry real information only, one wording
+  per concept, MSB explained at first mention. `bit_set_clear_toggle` now toggles x, not r_set.
