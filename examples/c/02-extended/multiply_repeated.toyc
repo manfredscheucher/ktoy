@@ -1,0 +1,19 @@
+// example: multiply by repeated addition
+// description: Computes a * b by adding a to res, b times.
+// steps: toycc 79, minicc 145
+// result: 42
+// io: no
+
+// 255 * 255 would take 255 passes, multiply_doubling.toyc at most 8.
+// minicc compiles * to this method.
+
+int main(void) {
+    int a = 7;
+    int b = 6;
+    int res = 0;
+    while (b != 0) {
+        res = res + a;
+        b = b - 1;
+    }
+    return res;
+}

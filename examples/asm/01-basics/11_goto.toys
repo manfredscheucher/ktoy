@@ -1,0 +1,15 @@
+# example: goto
+# description: Jumps to an address unconditionally.
+# steps: 3
+# result: 42
+# io: no
+
+# Opcode 00011000.
+
+        goto  skip
+        load  y         # never runs
+skip:   load  x         # acc = 42
+        stop
+
+x:      42
+y:      99

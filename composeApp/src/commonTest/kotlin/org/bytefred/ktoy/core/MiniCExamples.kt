@@ -15,8 +15,9 @@ package org.bytefred.ktoy.core
  * unsupported-syntax examples are left out automatically. 04-io/ examples
  * are excluded (read/write I/O, not headless-deterministic).
  *
- * GENERATED from pytoy examples/c/ by scripts/gen_minicc_examples.py — do
- * not edit by hand; regenerate when the C examples or minicc change.
+ * Frozen fixtures: generated once from pytoy's examples/c/ and minicc (that
+ * generator is gone, ktoy no longer uses pytoy). The C sources here are not
+ * kept in sync with examples/; they only pin minicc's output.
  */
 
 val MINICC_EXAMPLES: List<CExample> = listOf(

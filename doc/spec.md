@@ -710,7 +710,7 @@ Spec (Manfred, same About structure in ktoy, PoCoView and the ksat playground):
   Jim Hall, FreeDOS Project); last line "[Videos]: YouTube playlist" (no license
   bracket). At the very bottom one small grey line "sha · committed <date> ·
   built <date>" (" (modified)" if dirty, unknown parts left out). No font
-  mention, no License block.
+  mention, no License block (reversed by §34).
 - **Examples as a dialog** in the ksat playground style (was a full-screen
   overlay where a click loaded at once): an AlertDialog "Examples" with the same
   collapsible tree (category > subfolder), leaves are radio buttons that only
@@ -1126,3 +1126,22 @@ Prompts: "beim disamble dialog wenn er nachfragt is vorn ein komischer punkt . d
 - Switching an auto toggle on builds once right away. If that build discards something, the same confirm dialog comes first, and the toggle only goes on with its OK (Manfred's choice). Cancel leaves it off.
 - While a toggle is on, the builds it triggers never ask: switching it on was the OK.
 - Picking a toggle closes the menu.
+
+## 34. View settings remembered, license texts in About
+
+From the comparison with ksat-chess and the ksat playground; Manfred: "alles".
+
+- View -> Line numbers, Auto-scroll to PC and Layout are remembered across starts (prefs `lineNumbers`, `autoScroll`, `layout`; loaded by SimViewModel, saved by the View menu), as in ksat-chess. Nothing stored: the old defaults (on, on, auto). The auto build toggles stay per session (§31).
+- View -> I/O panel is not remembered: each load decides it. An example shows it exactly when its `io:` header says yes (§35).
+- About gets the "License texts" toggle of ksat-chess. This reverses §13 ("no License block"). The texts are generated at build time (generateLicenses, ported from ksat-chess) from the files: `LICENSE` (ktoy, MIT), `doc/licenses/LICENSE_TOYCPU.txt` (copied verbatim from freedosproject/toycpu, MIT, Jim Hall) and `doc/licenses/LICENSE_DEJAVU.txt` (the bundled DejaVu Sans Mono font).
+- JVM tests keep preferences in memory (`-Dktoy.prefs=memory`), so they never touch the real desktop preferences.
+
+## 35. Examples state their I/O use; examples live in ktoy
+
+Manfred: the examples say in their header whether they use I/O ("hab ich dir nicht scho mehrfach erklärt dass ktoy examples i/o annotation habn sollen"), and the examples move to ktoy ("Nur in ktoy"; "pytoy darfst du ruhen lassen. gib das ganze nach ktoy").
+
+- `examples/` (asm, c, toyo) is copied from pytoy and is now the source of truth. `scripts/gen_example_sources.py` reads it; nothing in ktoy uses a pytoy checkout any more. Not copied: pytoy's `examples/broken` (unused) and the compiled `.toys` next to the C sources (pytoy build output). The toyo README described pytoy's command line and was dropped.
+- Every example has a header line `# io: yes` / `# io: no` (`// io: ...` in C, inside the listing comments in `.toyo`), after the other header lines. Yes exactly for the 15 examples in `04-io`; a test checks the header against what each program does (an operand in 240..255, statically or within 5000 steps).
+- Loading an example shows the I/O panel exactly when its header says yes, and it never opens by itself while the example runs. Other programs (files, File -> Empty, builds after an edit) keep the old rule: shown if an operand is in 240..255, else opened the first time the running program touches an I/O cell.
+- Which compilers accept a C example is decided at runtime with ktoy's own compilers (`detectCompilers`: compiles and fits in 240 bytes), lazily when the Examples dialog first needs it; app start never compiles C. So `bigint_add` and `sort_array_inline` are listed under toycc only (minicc's output does not fit).
+- The compiler goldens (`CExamples.kt`, `MiniCExamples.kt`) stay as frozen fixtures; the scripts that made them from pytoy are removed.

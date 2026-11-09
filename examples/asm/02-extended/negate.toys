@@ -1,0 +1,14 @@
+# example: negate
+# description: Negates x by computing 0 - x.
+# steps: 3
+# result: 251
+# io: no
+
+# 251 is -5 mod 256.
+
+        load  zero
+        sub   x
+        stop
+
+zero:   0
+x:      5

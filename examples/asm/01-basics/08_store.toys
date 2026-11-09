@@ -1,0 +1,14 @@
+# example: store
+# description: Copies acc into memory.
+# steps: 3
+# result: 42
+# io: no
+
+# Opcode 00010101.
+
+        load  x         # acc = 42
+        store dst       # dst = 42
+        stop
+
+x:      42
+dst:    0

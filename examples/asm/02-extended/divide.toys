@@ -1,0 +1,28 @@
+# example: divide by repeated subtraction
+# description: Computes a / b by counting how often b can be subtracted from a.
+# steps: 39
+# result: 3
+# io: no
+
+# The most significant bit (MSB) of a - b acts as its sign: set means a < b.
+# Valid for a in 0..127, b in 1..128.
+
+loop:   load  a
+        sub   b
+        and   sign        # isolate the MSB
+        ifzero cont       # MSB clear -> a >= b, subtract for real
+        load  q
+        stop              # q = quotient
+cont:   load  a
+        sub   b
+        store a           # a -= b
+        load  q
+        add   one
+        store q           # q++
+        goto  loop
+
+a:      20
+b:      6
+q:      0
+one:    1
+sign:   128               # 10000000

@@ -1,0 +1,118 @@
+# example: greet by name
+# description: Reads a name and writes "Hallo NAME" back. Names over 9 characters overflow.
+# pytoy: output=ascii
+# io: yes
+
+# Input: type one character per cell into io0, io1, ..., then set ready (mem[255]) to the count.
+# The name goes to scratch first because writing "Hallo " overwrites io0..io5.
+
+        # busy-poll until ready != 0, then n = ready
+wait:   load  ready
+        ifzero wait
+        load  ready
+        store n              # number of name characters
+
+        # copy io0..io[n-1] into scratch[]
+        load  iobase
+        store rdarg          # read pointer over the io cells
+        load  scraddr
+        store wrarg          # write pointer over scratch[]
+        load  n
+        store cnt            # characters left to copy
+
+cploop: load  cnt
+        ifzero cpdone
+
+        20                   # load opcode
+rdarg:  240                  # <- address of io[i], patched each pass
+        21                   # store opcode
+wrarg:  scratch              # <- address of scratch[i], patched each pass
+
+        load  rdarg
+        add   one
+        store rdarg          # next io cell
+        load  wrarg
+        add   one
+        store wrarg          # next scratch slot
+        load  cnt
+        sub   one
+        store cnt            # cnt--
+        goto  cploop
+
+cpdone:
+
+        # write "Hallo " to io0..io5
+        load  gh
+        store io0
+        load  ga
+        store io1
+        load  gl
+        store io2
+        load  gl2
+        store io3
+        load  go
+        store io4
+        load  gsp
+        store io5
+
+        # append the name: scratch[0..n-1] -> io6..
+        load  scraddr
+        store r2arg          # read pointer over scratch[]
+        load  nameout
+        store w2arg          # write pointer over the io cells
+        load  n
+        store cnt            # characters left to write
+
+wrloop: load  cnt
+        ifzero wrdone
+
+        20                   # load opcode
+r2arg:  scratch              # <- address of scratch[i], patched each pass
+        21                   # store opcode
+w2arg:  246                  # <- address of io[6+i], patched each pass
+
+        load  r2arg
+        add   one
+        store r2arg          # next scratch slot
+        load  w2arg
+        add   one
+        store w2arg          # next io cell
+        load  cnt
+        sub   one
+        store cnt            # cnt--
+        goto  wrloop
+
+wrdone: stop
+
+# data
+one:     1
+n:       0
+cnt:     0
+iobase:  240          # io0
+nameout: 246          # io6
+scraddr: scratch      # address of scratch[0]
+
+# "Hallo " as ASCII codes
+gh:    72             # 'H'
+ga:    97             # 'a'
+gl:   108             # 'l'
+gl2:  108             # 'l'
+go:   111             # 'o'
+gsp:   32             # ' '
+
+# scratch array for the typed name
+scratch: 0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0
+         0

@@ -1,0 +1,21 @@
+// example: sum of an array
+// description: Sums an array with a loop.
+// steps: toycc 202, minicc 288
+// result: 39
+// io: no
+
+// Three values: sum3.toyc.
+// a[i] compiles to self-modifying code; by hand: examples/asm/03-programs/sum_array.toys.
+
+int main(void) {
+    int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
+    int s;
+    int i;
+    s = 0;
+    i = 0;
+    while (i < 10) {
+        s = s + a[i];
+        i = i + 1;
+    }
+    return s;
+}

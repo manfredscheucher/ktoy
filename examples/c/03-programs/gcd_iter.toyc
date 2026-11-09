@@ -1,0 +1,23 @@
+// example: iterative GCD by subtraction
+// description: Computes gcd(48, 36) in a loop with Euclid's subtraction algorithm.
+// steps: toycc 69, minicc 115
+// result: 12
+// io: no
+
+// Trace: (48, 36) -> (12, 36) -> (12, 24) -> (12, 12), then a == b.
+// Recursive version: gcd_rec.toyc.
+
+int gcd_iter(int a, int b) {
+    while (a != b) {
+        if (a > b) {
+            a = a - b;
+        } else {
+            b = b - a;
+        }
+    }
+    return a;
+}
+
+int main(void) {
+    return gcd_iter(48, 36);
+}

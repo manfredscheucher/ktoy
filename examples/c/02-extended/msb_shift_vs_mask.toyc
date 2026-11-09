@@ -1,0 +1,19 @@
+// example: most significant bit (MSB), shift vs mask
+// description: Extracts the MSB of x by shifting and by masking, then compares the two.
+// steps: toycc 24, minicc 27
+// result: 0
+// io: no
+
+// x >> 7 takes seven right instructions, x & 128 takes one and.
+// The shorter form matters because code and data share the same 256 bytes.
+
+int main(void) {
+    int x = 200;              // 11001000, MSB set
+
+    int msb1 = x >> 7;
+
+    int msb2 = 0;
+    if (x & 128) msb2 = 1;
+
+    return msb1 ^ msb2;       // 0 -> both agree
+}

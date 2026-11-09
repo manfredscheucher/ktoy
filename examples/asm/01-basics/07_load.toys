@@ -1,0 +1,12 @@
+# example: load
+# description: Copies a memory value into acc.
+# steps: 2
+# result: 42
+# io: no
+
+# Opcode 00010100.
+
+        load  x         # acc = 42
+        stop
+
+x:      42

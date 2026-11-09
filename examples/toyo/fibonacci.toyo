@@ -1,0 +1,63 @@
+# Toy CPU – compiled listing
+#
+# ADDR  BYTES                   SOURCE
+# ────────────────────────────────────────────────────────
+#                                # example: iterative Fibonacci
+#                                # description: Computes fib(7) in a loop.
+#                                # steps: 81
+#                                # result: 13
+#                                # io: no
+#                                
+#                                # a = b - a recovers the old b, so no temporary variable is needed.
+#                                # fib(14) = 377 does not fit in a byte, so n > 13 overflows.
+#                                # Recursive version: fibonacci_rec.toys.
+#                                
+     0   00010100  00011011              load  n         # loop counter
+     2   00011001  00011000      loop:   ifzero end      # n == 0
+#                                
+     4   00010100  00011100              load  a
+     6   00010110  00011101              add   b
+     8   00010101  00011101              store b         # b = a + b
+#                                
+    10   00010100  00011101              load  b
+    12   00010111  00011100              sub   a         # acc = (a + b) - a = old b
+    14   00010101  00011100              store a
+#                                
+    16   00010100  00011011              load  n
+    18   00010111  00011110              sub   one
+    20   00010101  00011011              store n         # n--
+#                                
+    22   00011000  00000010              goto  loop
+#                                
+    24   00010100  00011100      end:    load  a         # fib(n)
+    26   00000000                        stop
+#                                
+#                                # data
+    27   00000111                n:      7
+    28   00000000                a:      0
+    29   00000001                b:      1
+    30   00000001                one:    1
+
+# SYMBOLS
+#   loop            =   2  (00000010)
+#   end             =  24  (00011000)
+#   n               =  27  (00011011)
+#   a               =  28  (00011100)
+#   b               =  29  (00011101)
+#   one             =  30  (00011110)
+#   io0             = 240  (11110000)
+#   io1             = 241  (11110001)
+#   io2             = 242  (11110010)
+#   io3             = 243  (11110011)
+#   io4             = 244  (11110100)
+#   io5             = 245  (11110101)
+#   io6             = 246  (11110110)
+#   io7             = 247  (11110111)
+#   io8             = 248  (11111000)
+#   io9             = 249  (11111001)
+#   io10            = 250  (11111010)
+#   io11            = 251  (11111011)
+#   io12            = 252  (11111100)
+#   io13            = 253  (11111101)
+#   io14            = 254  (11111110)
+#   ready           = 255  (11111111)

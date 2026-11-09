@@ -70,8 +70,8 @@ Android). The CPU logic lives in `commonMain`:
 - `core/Machine.kt` — the runnable simulator state: step, step-back (undo), live
   edit, and `.toyo` parsing.
 - `ui/` — the Compose screens.
-- `core/ExampleSources.kt` — the bundled example programs, **generated** by
-  `scripts/gen_example_sources.py`.
+- `core/ExampleSources.kt` — the bundled example programs, **generated** from
+  `examples/` by `scripts/gen_example_sources.py`.
 - `jvmMain/.../MiniSim.kt` — [minisim](#minisim), a tiny standalone simulator.
 
 ## Build & run

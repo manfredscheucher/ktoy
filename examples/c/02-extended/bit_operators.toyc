@@ -1,0 +1,15 @@
+// example: bitwise operators and shifts
+// description: Applies &, ^, >> and <<, which map to and, xor, right and left.
+// steps: toycc 27, minicc 30
+// result: 36
+// io: no
+
+int main(void) {
+    int x = 0xF0;              // 11110000
+    int y = 0x3C;              // 00111100
+    int a = x & y;             // 00110000
+    int c = x ^ y;             // 11001100
+    a = a >> 2;                // 00001100
+    a = a << 1;                // 00011000
+    return a + (c & 0x0F);     // 24 + 12
+}

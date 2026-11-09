@@ -1,0 +1,17 @@
+# example: sum of three values
+# description: Adds a, b and c.
+# steps: 4
+# result: 8
+# io: no
+
+# Whole array: sum_array.toys.
+
+        load  a
+        add   b
+        add   c
+        stop
+
+# data
+a:      3
+b:      1
+c:      4

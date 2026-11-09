@@ -1,0 +1,13 @@
+# example: not
+# description: Flips every bit of acc.
+# steps: 3
+# result: 240
+# io: no
+
+# Opcode 00001111.
+
+        load  x         # acc = 00001111
+        not             # acc = 11110000
+        stop
+
+x:      15

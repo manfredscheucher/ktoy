@@ -1,0 +1,12 @@
+// example: times 7 with the * operator
+// description: Computes 7 * a with the * operator.
+// steps: toycc 51, minicc 49
+// result: 28
+// io: no
+
+// toycc compiles * to double-and-add, minicc to repeated addition.
+
+int main(void) {
+    int a = 4;
+    return 7 * a;
+}

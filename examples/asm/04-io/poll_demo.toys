@@ -1,0 +1,17 @@
+# example: busy-poll input
+# description: Waits until ready is non-zero, then copies io0 to io1.
+# pytoy: output=decimal
+# io: yes
+
+# The Toy CPU has no interrupts and no blocking read, so waiting for input means polling.
+# Input: type a value into io0, then set ready (mem[255]) to non-zero.
+
+wait:   load  ready
+        ifzero wait        # spin while 0
+        load  io0
+        store io1          # only to show the byte moved
+        load  zero
+        store ready        # so a next round could start
+        stop
+
+zero:   0

@@ -9,7 +9,7 @@ import androidx.lifecycle.viewModelScope
 import org.bytefred.ktoy.core.AssemblyResult
 import org.bytefred.ktoy.core.BuildOutcome
 import org.bytefred.ktoy.core.CProgram
-import org.bytefred.ktoy.core.EXAMPLES
+import org.bytefred.ktoy.core.EXAMPLE_SOURCES
 import org.bytefred.ktoy.core.Example
 import org.bytefred.ktoy.core.ExampleKind
 import org.bytefred.ktoy.core.IoFormat
@@ -75,15 +75,16 @@ class SimViewModel : ViewModel() {
     private var currentFilePath: String? = null
 
     // View -> Line numbers (the gutter in the source panels). On by default.
-    var showLineNumbers by mutableStateOf(true)
+    // The View settings are remembered across starts (saved by the View menu).
+    var showLineNumbers by mutableStateOf(loadPref(LINE_NUMBERS_PREF) != "false")
 
     // View -> Layout: AUTO picks side-by-side vs stacked from the window size;
     // PORTRAIT forces the columns stacked; LANDSCAPE forces them side by side.
-    var layoutMode by mutableStateOf(LayoutMode.AUTO)
+    var layoutMode by mutableStateOf(LayoutMode.entries.firstOrNull { it.name == loadPref(LAYOUT_PREF) } ?: LayoutMode.AUTO)
 
     // View -> Auto-scroll to PC: on Step / Run every panel scrolls so the PC's
     // line (">>") is centred.
-    var autoScroll by mutableStateOf(true)
+    var autoScroll by mutableStateOf(loadPref(AUTO_SCROLL_PREF) != "false")
 
     // Panel shares set by dragging the dividers, one map for side by side and
     // one for stacked. Equal by default; stacked memory gets 2 (it carries the
@@ -94,7 +95,8 @@ class SimViewModel : ViewModel() {
     /**
      * True if the loaded program touches the memory-mapped I/O cells (an
      * instruction operand in 240..255, e.g. `load ready` or `store io0`). Used
-     * to show the I/O panel automatically for I/O programs; it starts hidden.
+     * to show the I/O panel automatically for a program that isn't a bundled
+     * example (examples state it in their `io:` header); it starts hidden.
      */
     fun usesIo(): Boolean = listing.any { line ->
         !line.isData && line.bytes.size == 2 && line.bytes[1] >= 240
@@ -141,10 +143,11 @@ class SimViewModel : ViewModel() {
     // in the composable) so they survive rotation like the rest of the sim state.
     var showIo by mutableStateOf(false)
 
-    // The I/O panel opens by itself at most once per load: when the running
-    // program first reads/writes an I/O cell (catches self-modifying code, C
-    // write() via a copy loop and bytecode, which the load-time check misses).
-    // Once the user toggles the panel, it stays as they set it.
+    // For a program that isn't a bundled example, the I/O panel opens by itself
+    // at most once per load: when the running program first reads/writes an I/O
+    // cell (catches self-modifying code, C write() via a copy loop and bytecode,
+    // which the load-time check misses). Once the user toggles the panel, it
+    // stays as they set it. A bundled example follows its `io:` header instead.
     private var ioAutoDone = false
 
     /** View -> I/O panel. */
@@ -201,7 +204,6 @@ class SimViewModel : ViewModel() {
         addrToLine = a2l
     }
 
-    /** The program shown at app start: the 00_stop example. */
     /** File -> Empty: an empty program of [kind] (C: main returns 0, assembly: stop, bytecode: zeros). */
     fun loadEmpty(kind: ExampleKind) {
         val (name, source) = when (kind) {
@@ -213,7 +215,11 @@ class SimViewModel : ViewModel() {
         clearCurrentFile()
     }
 
-    fun loadStartExample() = load(EXAMPLES.first { it.name == START_EXAMPLE && it.kind == ExampleKind.ASM })
+    /**
+     * The program shown at app start: the 00_stop example. Read from
+     * EXAMPLE_SOURCES, so app start never compiles the C examples.
+     */
+    fun loadStartExample() = load(EXAMPLE_SOURCES.first { it.name == START_EXAMPLE && it.kind == ExampleKind.ASM })
 
     // ── loading a file from disk / device ─────────────────────────────────────
 
@@ -491,10 +497,17 @@ class SimViewModel : ViewModel() {
         }
         cDraft = null
         asmDraft = null
-        // I/O panel starts hidden; show it automatically for programs that use
-        // the I/O cells (the user can still toggle it in View).
-        showIo = usesIo()
-        ioAutoDone = showIo
+        // A bundled example says in its `io:` header whether it uses the I/O
+        // cells: the panel shows exactly then, and never opens by itself later.
+        // Any other program: hidden unless it uses the I/O cells (checked now,
+        // and again while it runs). The user can still toggle it in View.
+        if (example.io != null) {
+            showIo = example.io
+            ioAutoDone = true
+        } else {
+            showIo = usesIo()
+            ioAutoDone = showIo
+        }
         bump()
         return true
     }

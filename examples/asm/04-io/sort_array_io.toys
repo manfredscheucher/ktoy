@@ -1,0 +1,175 @@
+# example: sort numbers from input
+# description: Reads up to 15 numbers and writes them back sorted. More than 15 overflow.
+# pytoy: output=decimal
+# io: yes
+
+# Input: type the values into io0, io1, ..., then set ready (mem[255]) to their count.
+# The most significant bit (MSB) of b - a acts as its sign: set means b < a.
+# Valid for values 0..127.
+
+        # busy-poll until ready != 0, then n = ready
+wait:   load  ready
+        ifzero wait
+        load  ready
+        store n              # number of values
+
+        # copy io0..io[n-1] into arr[]
+        load  iobase
+        store rdarg          # read pointer over the io cells
+        load  arrptr
+        store wrarg          # write pointer over arr[]
+        load  n
+        store cnt            # values left to copy
+
+cploop: load  cnt
+        ifzero cpdone
+
+        20                   # load opcode
+rdarg:  240                  # <- address of io[i], patched each pass
+        21                   # store opcode
+wrarg:  0                    # <- address of arr[i], patched each pass
+
+        load  rdarg
+        add   one
+        store rdarg          # next io cell
+        load  wrarg
+        add   one
+        store wrarg          # next element
+        load  cnt
+        sub   one
+        store cnt            # cnt--
+        goto  cploop
+
+cpdone:
+
+        # bubble sort arr[0..n-1] ascending
+        # each pass moves the largest left to the end, so the next compares one pair less
+        load  n
+        sub   one
+        store npass          # n-1 outer passes
+
+outer:  load  npass
+        ifzero sorted
+
+        load  arrptr
+        store jptr           # reset j to arr[0]
+
+        load  npass
+        store ninner         # npass compares this pass
+
+inner:  load  ninner
+        ifzero next_pass
+
+        # patch the four indirect instructions from jptr (arr[j]) and jptr+1 (arr[j+1])
+        load  jptr
+        store ldj_arg
+        store stj_arg
+        add   one
+        store ldj1_arg
+        store stj1_arg
+
+        20                   # load opcode
+ldj_arg:  0                  # <- address of arr[j], patched each pass
+        store a
+
+        20                   # load opcode
+ldj1_arg: 0                  # <- address of arr[j+1], patched each pass
+        store b
+
+        sub   a              # acc = b - a
+        and   mask           # isolate the MSB
+        ifzero no_swap       # MSB clear -> b >= a -> no swap
+
+        # swap: arr[j] = b; arr[j+1] = a
+        load  b
+        21                   # store opcode
+stj_arg:  0                  # <- address of arr[j], patched each pass
+        load  a
+        21                   # store opcode
+stj1_arg: 0                  # <- address of arr[j+1], patched each pass
+
+no_swap:
+        load  jptr
+        add   one
+        store jptr           # j++
+
+        load  ninner
+        sub   one
+        store ninner         # ninner--
+        goto  inner
+
+next_pass:
+        load  npass
+        sub   one
+        store npass          # npass--
+        goto  outer
+
+        # write arr[0..n-1] back to io0..
+sorted:
+        load  arrptr
+        store rptr           # read pointer over arr[]
+        load  outbase
+        store optr           # write pointer over the io cells
+        load  n
+        store left           # values left to write
+
+wloop:  load  left
+        ifzero done
+
+        load  rptr           # patch the load/store addresses
+        store rd_arg
+        load  optr
+        store ot_arg
+
+        20                   # load opcode
+rd_arg:  0                   # <- address of arr[i], patched each pass
+        21                   # store opcode
+ot_arg:  240                 # <- address of io[i], patched each pass
+
+        load  rptr
+        add   one
+        store rptr           # next element
+        load  optr
+        add   one
+        store optr           # next io cell
+        load  left
+        sub   one
+        store left           # left--
+        goto  wloop
+
+done:   load  arr            # smallest value
+        stop
+
+# data
+one:      1
+mask:     128          # 10000000
+iobase:   240          # io0
+outbase:  240          # io0
+n:        0
+cnt:      0
+npass:    0
+ninner:   0
+jptr:     0
+a:        0
+b:        0
+rptr:     0
+optr:     0
+left:     0
+arrptr:   arr          # address of arr[0]
+
+# scratch array for up to 15 values
+arr:    0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0
+        0

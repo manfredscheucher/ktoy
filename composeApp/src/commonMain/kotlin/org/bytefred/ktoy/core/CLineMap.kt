@@ -139,7 +139,7 @@ val C_COMPILERS = listOf("minicc", "toycc")
 private fun assemblesAndFits(asm: String): Boolean =
     try {
         assemble(asm).errors.isEmpty()
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         false
     }
 
@@ -154,9 +154,10 @@ fun compileWith(compiler: String, src: String, sourceName: String, annotateCLine
 private fun compilerAccepts(compiler: String, src: String): Boolean =
     try {
         assemblesAndFits(compileWith(compiler, src, "probe", annotateCLines = false))
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
         // MiniError / CompileError (recursion, unsupported construct, …) → not
-        // accepted. Any other failure likewise means the source isn't usable.
+        // accepted. Any other failure (even a StackOverflowError) likewise means
+        // the source isn't usable; it must not crash the app.
         false
     }
 

@@ -1,0 +1,20 @@
+// example: recursive Fibonacci
+// description: Computes fib(7) recursively on a self-modifying-code stack.
+// steps: toycc 2121
+// result: 13
+// io: no
+
+// The Toy CPU has no call/return and no stack: toycc gives each function fixed global slots and
+// saves the caller's live slots around each call on a self-modifying-code stack, growing down
+// from address 239 just below the io cells (see the manual). Iterative version: fibonacci_iter.toyc.
+
+int fibonacci_rec(int n) {
+    if (n < 2) {
+        return n;
+    }
+    return fibonacci_rec(n - 1) + fibonacci_rec(n - 2);
+}
+
+int main(void) {
+    return fibonacci_rec(7);
+}

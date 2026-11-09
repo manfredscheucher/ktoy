@@ -949,13 +949,17 @@ class SimulatorScreenUiTest {
         val vm = SimViewModel().apply { loadFromFile("long.toys", longAsm) }
         show(vm)
         assertTrue(vm.autoScroll, "on by default")
-        menu("View", "Auto-scroll to PC")
-        assertFalse(vm.autoScroll)
-        onNodeWithText("Step").performClick()
-        waitForIdle()
-        mainClock.advanceTimeBy(2000)
-        waitForIdle()
-        pcRowIn("Assembly").assertIsNotDisplayed()
+        try {
+            menu("View", "Auto-scroll to PC")
+            assertFalse(vm.autoScroll)
+            onNodeWithText("Step").performClick()
+            waitForIdle()
+            mainClock.advanceTimeBy(2000)
+            waitForIdle()
+            pcRowIn("Assembly").assertIsNotDisplayed()
+        } finally {
+            savePref(AUTO_SCROLL_PREF, "true")
+        }
     }
 
     @Test

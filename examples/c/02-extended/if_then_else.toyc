@@ -1,0 +1,17 @@
+// example: if/else
+// description: Subtracts the smaller of a and b from the larger with if/else.
+// steps: toycc 15, minicc 24
+// result: 5
+// io: no
+
+int main(void) {
+    int a = 7;
+    int b = 12;
+    int r;
+    if (a < b) {
+        r = b - a;
+    } else {
+        r = a - b;
+    }
+    return r;
+}

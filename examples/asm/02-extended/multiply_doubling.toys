@@ -1,0 +1,30 @@
+# example: multiply by double-and-add
+# description: Computes a * b by adding shifted copies of a.
+# steps: 40
+# result: 42
+# io: no
+
+# One pass per bit of b: add a if the least significant bit (LSB) of b is set, then
+# double a and halve b. An 8-bit b needs at most 8 passes, repeated addition up to 255.
+
+        load  b
+loop:   ifzero done       # b == 0
+        and   one         # isolate the LSB
+        ifzero skip       # LSB clear -> don't add
+        load  res
+        add   a
+        store res         # res += a
+skip:   load  a
+        left
+        store a           # a <<= 1
+        load  b
+        right
+        store b           # b >>= 1
+        goto  loop
+done:   load  res
+        stop
+
+a:      7
+b:      6         # 110 in binary, so 7 * 6 = 7 * 4 + 7 * 2
+res:    0
+one:    1

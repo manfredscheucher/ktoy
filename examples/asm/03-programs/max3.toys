@@ -1,0 +1,39 @@
+# example: largest of three values
+# description: Finds the largest of a, b and c.
+# steps: 15
+# result: 4
+# io: no
+
+# The most significant bit (MSB) of b - best acts as its sign: set means b < best.
+# Valid for values 0..127. Whole array: max_array.toys.
+
+        load  a
+        store best
+
+        # compare b with best
+        load  b
+        sub   best
+        and   mask        # isolate the MSB
+        ifzero setb       # MSB clear -> b >= best
+        goto  chkc
+setb:   load  b
+        store best
+
+        # compare c with best
+chkc:   load  c
+        sub   best
+        and   mask        # isolate the MSB
+        ifzero setc       # MSB clear -> c >= best
+        goto  done
+setc:   load  c
+        store best
+
+done:   load  best
+        stop
+
+# data
+mask:   128               # 10000000
+best:   0
+a:      3
+b:      1
+c:      4

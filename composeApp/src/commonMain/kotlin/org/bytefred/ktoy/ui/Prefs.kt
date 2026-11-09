@@ -9,3 +9,8 @@ package org.bytefred.ktoy.ui
 expect fun loadPref(key: String): String?
 
 expect fun savePref(key: String, value: String)
+
+// the View settings (SimViewModel loads them, the View menu saves them)
+internal const val LINE_NUMBERS_PREF = "lineNumbers"
+internal const val AUTO_SCROLL_PREF = "autoScroll"
+internal const val LAYOUT_PREF = "layout"

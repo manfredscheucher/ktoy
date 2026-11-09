@@ -1,0 +1,14 @@
+# example: stop
+# description: Halts the CPU.
+# steps: 2
+# result: 42
+# io: no
+
+# Opcode 00000000.
+
+        load  x         # acc = 42
+        stop
+        load  y         # never runs
+
+x:      42
+y:      99

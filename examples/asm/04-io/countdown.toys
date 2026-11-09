@@ -1,0 +1,28 @@
+# example: countdown
+# description: Counts down from 10 to 1, writing each value to io0..io9.
+# pytoy: output=decimal
+# io: yes
+
+wloop:  load  n
+        ifzero done
+
+        # write n to io[i] via a patched store
+        load  n
+        21                # store opcode
+iarg:   240               # <- address of io[i], patched each pass (starts at io0)
+
+        load  iarg
+        add   one
+        store iarg        # next io cell
+
+        load  n
+        sub   one
+        store n           # n--
+        goto  wloop
+
+done:   load  n
+        stop
+
+# data
+n:    10
+one:   1

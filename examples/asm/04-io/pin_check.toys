@@ -1,0 +1,76 @@
+# example: PIN check
+# description: Checks the PIN in io0..io3 against 1337 and writes "succ" or "fail".
+# pytoy: output=ascii
+# io: yes
+
+# Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to non-zero.
+# The first wrong digit exits early, so step counts leak the PIN digit by digit
+# (4 * 10 tries instead of 10^4). See pin_check_hardened.toys and doc/design/pin-security.md.
+
+        # busy-poll until ready != 0
+wait:   load  ready
+        ifzero wait
+
+        # compare io0..io3 against the PIN, one digit at a time
+        load  io0
+        sub   pin0
+        ifzero ok0         # matched -> check next digit
+        goto  fail
+ok0:    load  io1
+        sub   pin1
+        ifzero ok1
+        goto  fail
+ok1:    load  io2
+        sub   pin2
+        ifzero ok2
+        goto  fail
+ok2:    load  io3
+        sub   pin3
+        ifzero ok3
+        goto  fail
+
+        # success: write "succ"
+ok3:    load  s_s
+        store io0
+        load  s_u
+        store io1
+        load  s_c1
+        store io2
+        load  s_c2
+        store io3
+        load  answer       # reveal the secret
+        stop
+
+        # failure: write "fail"
+fail:   load  f_f
+        store io0
+        load  f_a
+        store io1
+        load  f_i
+        store io2
+        load  f_l
+        store io3
+        load  zero         # acc = 0 signals failure
+        stop
+
+# data
+zero:   0
+answer: 42             # the secret behind the PIN
+
+# PIN "1337" as ASCII codes
+pin0:  49              # '1'
+pin1:  51              # '3'
+pin2:  51              # '3'
+pin3:  55              # '7'
+
+# "succ" as ASCII codes
+s_s:  115              # 's'
+s_u:  117              # 'u'
+s_c1: 99               # 'c'
+s_c2: 99               # 'c'
+
+# "fail" as ASCII codes
+f_f: 102               # 'f'
+f_a:  97               # 'a'
+f_i: 105               # 'i'
+f_l: 108               # 'l'

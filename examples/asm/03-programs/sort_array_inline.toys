@@ -1,0 +1,94 @@
+# example: bubble sort of an array
+# description: Sorts an array in place with bubble sort; the result is the smallest.
+# steps: 1956
+# result: 1
+# io: no
+
+# Self-modifying code: loads and stores are written as raw bytes so their address bytes can have labels.
+# Always 9 passes of 9 compares, with no early exit.
+# The most significant bit (MSB) of b - a acts as its sign: set means b < a. Valid for values 0..127.
+
+        load  npass_init
+        store npass          # 9 outer passes
+
+outer:  load  npass
+        ifzero done
+
+        load  arrptr
+        store jptr           # reset j to arr[0]
+
+        load  ninner_init
+        store ninner         # 9 compares this pass
+
+inner:  load  ninner
+        ifzero next_pass
+
+        # patch the four indirect instructions from jptr (arr[j]) and jptr+1 (arr[j+1])
+        load  jptr
+        store ldj_arg
+        store stj_arg
+        add   one
+        store ldj1_arg
+        store stj1_arg
+
+        20                   # load opcode
+ldj_arg:  0                  # <- address of arr[j], patched each pass
+        store a
+
+        20                   # load opcode
+ldj1_arg: 0                  # <- address of arr[j+1], patched each pass
+        store b
+
+        sub   a              # acc = b - a
+        and   mask           # isolate the MSB
+        ifzero no_swap       # MSB clear -> b >= a -> no swap
+
+        # swap: arr[j] = b; arr[j+1] = a
+        load  b
+        21                   # store opcode
+stj_arg:  0                  # <- address of arr[j], patched each pass
+        load  a
+        21                   # store opcode
+stj1_arg: 0                  # <- address of arr[j+1], patched each pass
+
+no_swap:
+        load  jptr
+        add   one
+        store jptr           # j++
+
+        load  ninner
+        sub   one
+        store ninner         # ninner--
+        goto  inner
+
+next_pass:
+        load  npass
+        sub   one
+        store npass          # npass--
+        goto  outer
+
+done:   load  arr
+        stop
+
+# data
+npass_init:  9
+ninner_init: 9
+npass:       0
+ninner:      0
+one:         1
+mask:        128            # 10000000
+a:           0
+b:           0
+jptr:        0
+arrptr:      arr            # address of arr[0]
+
+arr:    3
+        1
+        4
+        1
+        5
+        9
+        2
+        6
+        5
+        3

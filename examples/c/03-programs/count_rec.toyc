@@ -1,0 +1,19 @@
+// example: recursive count
+// description: Counts to 10 recursively with f(n) = f(n - 1) + 1 and f(0) = 0.
+// steps: toycc 421
+// result: 10
+// io: no
+
+// toycc compiles recursion with a self-modifying-code stack (see the manual).
+// Iterative version: count_iter.toyc.
+
+int f(int n) {
+    if (n == 0) {
+        return 0;
+    }
+    return f(n - 1) + 1;
+}
+
+int main(void) {
+    return f(10);
+}

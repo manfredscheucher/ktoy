@@ -1,0 +1,24 @@
+// example: iterative Fibonacci
+// description: Computes fib(7) in a loop.
+// steps: toycc 117, minicc 215
+// result: 13
+// io: no
+
+// Sequence from fib(0): 0 1 1 2 3 5 8 13.
+// fib(14) = 377 does not fit in a byte, so n > 13 overflows.
+// Recursive version: fibonacci_rec.toyc.
+
+int fibonacci_iter(int n) {
+    int a = 0;
+    int b = 1;
+    while (n != 0) {
+        b = a + b;
+        a = b - a;   // a = old b
+        n = n - 1;
+    }
+    return a;
+}
+
+int main(void) {
+    return fibonacci_iter(7);
+}

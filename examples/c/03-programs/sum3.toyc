@@ -1,0 +1,15 @@
+// example: sum of three values
+// description: Adds a, b and c.
+// steps: toycc 28, minicc 33
+// result: 8
+// io: no
+
+// Whole array: sum_array.toyc.
+
+int sum3(int a, int b, int c) {
+    return a + b + c;
+}
+
+int main(void) {
+    return sum3(3, 1, 4);
+}

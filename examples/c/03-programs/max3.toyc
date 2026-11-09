@@ -1,0 +1,18 @@
+// example: largest of three values
+// description: Finds the largest of a, b and c.
+// steps: toycc 39, minicc 52
+// result: 4
+// io: no
+
+// Whole array: max_array.toyc.
+
+int max3(int a, int b, int c) {
+    int m = a;
+    if (b > m) { m = b; }
+    if (c > m) { m = c; }
+    return m;
+}
+
+int main(void) {
+    return max3(3, 1, 4);
+}

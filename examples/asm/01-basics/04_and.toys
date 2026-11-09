@@ -1,0 +1,14 @@
+# example: and
+# description: Computes the bitwise and of acc and a memory value.
+# steps: 3
+# result: 136
+# io: no
+
+# Opcode 00010001.
+
+        load  x         # acc = 11001100
+        and   y         # acc = 10001000
+        stop
+
+x:      204             # 11001100
+y:      170             # 10101010

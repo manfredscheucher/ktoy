@@ -1,0 +1,13 @@
+// example: hello world
+// description: Writes "Hello world!" to the io cells as ASCII codes.
+// pytoy: output=ascii
+// io: yes
+
+int main(void) {
+    // A constant initializer list becomes initial data bytes at compile time,
+    // far smaller than twelve runtime stores.
+    int data[12] = {'H', 'e', 'l', 'l', 'o', ' ',
+                    'w', 'o', 'r', 'l', 'd', '!'};
+    write(data, 12);
+    return 0;
+}

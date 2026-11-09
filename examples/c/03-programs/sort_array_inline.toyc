@@ -1,0 +1,30 @@
+// example: bubble sort of an array
+// description: Sorts an array in place with bubble sort; the result is the smallest.
+// steps: toycc 2097
+// result: 1
+// io: no
+
+// a[i] compiles to self-modifying code; by hand: examples/asm/03-programs/sort_array_inline.toys.
+// Sorted: 1 1 2 3 3 4 5 5 6 9. Function version: sort_array_fn.toyc.
+
+int main(void) {
+    int a[10] = {3, 1, 4, 1, 5, 9, 2, 6, 5, 3};
+    int n = 10;
+    int i;
+    int j;
+    int t;
+    i = 0;
+    while (i < n) {
+        j = 0;
+        while (j < n - 1 - i) {   // the last i are already in place
+            if (a[j] > a[j + 1]) {
+                t = a[j];
+                a[j] = a[j + 1];
+                a[j + 1] = t;
+            }
+            j = j + 1;
+        }
+        i = i + 1;
+    }
+    return a[0];
+}

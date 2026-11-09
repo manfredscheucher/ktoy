@@ -1,0 +1,15 @@
+// example: iterative count
+// description: Counts from 1 to 10 in a loop.
+// steps: toycc 91, minicc 169
+// result: 10
+// io: no
+
+// Recursive version: count_rec.toyc.
+
+int main(void) {
+    int x = 1;
+    while (x < 10) {
+        x = x + 1;
+    }
+    return x;
+}

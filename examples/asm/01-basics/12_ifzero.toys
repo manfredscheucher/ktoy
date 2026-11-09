@@ -1,0 +1,15 @@
+# example: ifzero
+# description: Jumps to an address only if acc is zero.
+# steps: 3
+# result: 0
+# io: no
+
+# Opcode 00011001.
+
+        load  x         # acc = 0
+        ifzero done     # taken
+        load  y         # never runs
+done:   stop
+
+x:      0
+y:      99

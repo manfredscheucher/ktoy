@@ -1,0 +1,14 @@
+# example: sub
+# description: Subtracts a memory value from acc.
+# steps: 3
+# result: 42
+# io: no
+
+# Opcode 00010111.
+
+        load  x         # acc = 50
+        sub   y         # acc = 42
+        stop
+
+x:      50
+y:      8

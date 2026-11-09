@@ -1,0 +1,21 @@
+// example: sum of squares
+// description: Computes 3 * 3 + 4 * 4 with a helper function that calls another.
+// steps: toycc 143, minicc 140
+// result: 25
+// io: no
+
+// The Toy CPU has no call/return, so toycc gives each non-recursive function fixed global slots
+// for parameters and return value, emits one copy of its body, and jumps back to the right
+// call site with a marker (see the manual).
+
+int square(int x) {
+    return x * x;
+}
+
+int sum_of_squares(int a, int b) {
+    return square(a) + square(b);
+}
+
+int main(void) {
+    return sum_of_squares(3, 4);
+}

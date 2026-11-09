@@ -1,0 +1,14 @@
+# example: add
+# description: Adds a memory value to acc.
+# steps: 3
+# result: 42
+# io: no
+
+# Opcode 00010110.
+
+        load  x         # acc = 40
+        add   y         # acc = 42
+        stop
+
+x:      40
+y:      2

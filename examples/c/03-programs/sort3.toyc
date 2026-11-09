@@ -1,0 +1,20 @@
+// example: sort three values
+// description: Sorts a, b and c; the result is the smallest.
+// steps: toycc 47, minicc 64
+// result: 1
+// io: no
+
+// Same idea as bubble sort, on three named variables instead of an array.
+// Whole array: sort_array_inline.toyc.
+
+int sort3(int a, int b, int c) {
+    int t;
+    if (a > b) { t = a; a = b; b = t; }   // a <= b
+    if (b > c) { t = b; b = c; c = t; }   // b <= c
+    if (a > b) { t = a; a = b; b = t; }   // a <= b <= c
+    return a;
+}
+
+int main(void) {
+    return sort3(3, 1, 4);
+}

@@ -1,0 +1,33 @@
+# example: iterative GCD by subtraction
+# description: Computes gcd(48, 36) in a loop with Euclid's subtraction algorithm.
+# steps: 32
+# result: 12
+# io: no
+
+# Trace: (48, 36) -> (12, 36) -> (12, 24) -> (12, 12), then a == b.
+# The most significant bit (MSB) of a - b acts as its sign: set means a < b.
+# Valid for a and b in 1..127.
+
+loop:   load  a
+        sub   b
+        ifzero done       # a == b -> gcd found
+        and   sign        # isolate the MSB
+        ifzero a_gt_b     # MSB clear -> a > b
+
+        load  b
+        sub   a
+        store b           # b -= a
+        goto  loop
+
+a_gt_b: load  a
+        sub   b
+        store a           # a -= b
+        goto  loop
+
+done:   load  a           # a == b == gcd
+        stop
+
+# data
+a:      48
+b:      36
+sign:   128               # 10000000

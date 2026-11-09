@@ -1,0 +1,84 @@
+# example: constant-time PIN check
+# description: Checks the PIN in io0..io3 against 1337 with no per-digit branch.
+# pytoy: output=ascii
+# io: yes
+
+# Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to non-zero.
+# Every digit is always compared, so between polling and the final ifzero all runs take the same steps.
+# That one ifzero is the single target for fault injection. See doc/design/pin-security.md.
+
+        # busy-poll until ready != 0
+wait:   load  ready
+        ifzero wait
+
+        # constant-time compare: diff = or over (io[k] xor pin[k])
+        load  io0
+        xor   pin0         # 0 exactly when digit 0 matches
+        store diff         # diff = (io0 ^ pin0)
+
+        load  io1
+        xor   pin1
+        or    diff
+        store diff         # diff |= (io1 ^ pin1)
+
+        load  io2
+        xor   pin2
+        or    diff
+        store diff         # diff |= (io2 ^ pin2)
+
+        load  io3
+        xor   pin3
+        or    diff
+        store diff         # diff |= (io3 ^ pin3)
+
+        # the only conditional: diff == 0 exactly when all four digits match
+        load  diff
+        ifzero succ
+        goto  fail
+
+        # success: write "succ"
+succ:   load  s_s
+        store io0
+        load  s_u
+        store io1
+        load  s_c1
+        store io2
+        load  s_c2
+        store io3
+        load  answer       # reveal the secret
+        stop
+
+        # failure: write "fail"
+fail:   load  f_f
+        store io0
+        load  f_a
+        store io1
+        load  f_i
+        store io2
+        load  f_l
+        store io3
+        load  zero         # acc = 0 signals failure
+        stop
+
+# data
+zero:   0
+answer: 42             # the secret behind the PIN
+diff:   0              # accumulated digit differences
+
+# PIN "1337" as ASCII codes
+pin0:  49              # '1'
+pin1:  51              # '3'
+pin2:  51              # '3'
+pin3:  55              # '7'
+
+# "succ" as ASCII codes
+s_s:  115              # 's'
+s_u:  117              # 'u'
+s_c1: 99               # 'c'
+s_c2: 99               # 'c'
+
+# "fail" as ASCII codes
+f_f: 102               # 'f'
+f_a:  97               # 'a'
+f_i: 105               # 'i'
+f_l: 108               # 'l'

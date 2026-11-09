@@ -1,0 +1,13 @@
+# example: nop
+# description: Does nothing.
+# steps: 3
+# result: 42
+# io: no
+
+# Opcode 10000000.
+
+        load  x         # acc = 42
+        nop
+        stop
+
+x:      42

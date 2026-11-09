@@ -1,0 +1,49 @@
+# example: sum of an array
+# description: Sums an array with a loop.
+# steps: 126
+# result: 39
+# io: no
+
+# Self-modifying code: the load is written as raw bytes so its address byte can have a label.
+# Three values: sum3.toys.
+
+        # point the indirect load at arr[0]
+        load  ptr
+        store iarg
+
+loop:   load  count
+        ifzero done
+
+        20                # load opcode
+iarg:   0                 # <- address of arr[i], patched each pass
+        add   result
+        store result      # result += arr[i]
+
+        load  iarg
+        add   one
+        store iarg        # next element
+
+        load  count
+        sub   one
+        store count       # count--
+        goto  loop
+
+done:   load  result
+        stop
+
+# data
+count:  10
+one:    1
+result: 0
+ptr:    arr               # address of arr[0]
+
+arr:    3
+        1
+        4
+        1
+        5
+        9
+        2
+        6
+        5
+        3

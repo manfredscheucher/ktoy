@@ -1,0 +1,23 @@
+# example: compare a < b
+# description: Sets acc to 1 if a < b, else to 0.
+# steps: 6
+# result: 1
+# io: no
+
+# The most significant bit (MSB) of a - b acts as its sign: set means a < b.
+# Valid while a - b stays in -128..127.
+
+        load  a
+        sub   b
+        and   sign        # isolate the MSB
+        ifzero ge         # MSB clear -> a >= b
+        load  one
+        stop
+ge:     load  zero
+        stop
+
+a:      3
+b:      5
+sign:   128               # 10000000
+one:    1
+zero:   0

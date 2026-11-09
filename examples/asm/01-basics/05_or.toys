@@ -1,0 +1,14 @@
+# example: or
+# description: Computes the bitwise or of acc and a memory value.
+# steps: 3
+# result: 238
+# io: no
+
+# Opcode 00010010.
+
+        load  x         # acc = 11001100
+        or    y         # acc = 11101110
+        stop
+
+x:      204             # 11001100
+y:      170             # 10101010

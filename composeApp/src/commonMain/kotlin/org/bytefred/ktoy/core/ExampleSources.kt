@@ -18,11 +18,15 @@ package org.bytefred.ktoy.core
  * For C examples, [Example.compilers] names the compiler(s) that accept the
  * source — a subset of "minicc", "toycc". minicc rejects recursion (and
  * other constructs toycc supports), so a recursive example lists only
- * "toycc" while a simple one lists both. The list is empty for ASM/TOYO.
+ * "toycc" while a simple one lists both. It is filled in at runtime by
+ * [detectCompilers]; the list is empty for ASM/TOYO.
  *
- * GENERATED from pytoy examples/ by scripts/gen_example_sources.py — do
- * not edit by hand; regenerate when the .toys / .toyc / .toyo sources or
- * the compilers change.
+ * [Example.io] comes from the example's `io: yes` / `io: no` header: whether
+ * the program uses the I/O cells. Loading an example shows the I/O panel
+ * exactly when it is true.
+ *
+ * GENERATED from examples/ by scripts/gen_example_sources.py — do not edit
+ * by hand; regenerate when the .toys / .toyc / .toyo sources change.
  */
 
 enum class ExampleKind { ASM, C, TOYO }
@@ -35,13 +39,21 @@ data class Example(
     val compilers: List<String> = emptyList(),
     /** Repo subfolder this came from (e.g. "01-basics", "04-io"); "" for bytecode. */
     val subfolder: String = "",
+    /** The example's `io:` header (uses the I/O cells); null for a program that isn't a bundled example. */
+    val io: Boolean? = null,
 )
 
-val EXAMPLES: List<Example> = listOf(
+/**
+ * Every bundled example as written, without compiling anything: C examples
+ * still have an empty [Example.compilers]. App start reads this, so it never
+ * compiles the C examples.
+ */
+val EXAMPLE_SOURCES: List<Example> = listOf(
     Example("00_stop", ExampleKind.ASM, """# example: stop
 # description: Halts the CPU.
 # steps: 2
 # result: 42
+# io: no
 
 # Opcode 00000000.
 
@@ -51,11 +63,12 @@ val EXAMPLES: List<Example> = listOf(
 
 x:      42
 y:      99
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("01_right", ExampleKind.ASM, """# example: right
 # description: Shifts acc right by 1 bit.
 # steps: 3
 # result: 2
+# io: no
 
 # Opcode 00000001.
 
@@ -64,11 +77,12 @@ y:      99
         stop
 
 x:      4
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("02_left", ExampleKind.ASM, """# example: left
 # description: Shifts acc left by 1 bit.
 # steps: 3
 # result: 8
+# io: no
 
 # Opcode 00000010.
 
@@ -77,11 +91,12 @@ x:      4
         stop
 
 x:      4
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("03_not", ExampleKind.ASM, """# example: not
 # description: Flips every bit of acc.
 # steps: 3
 # result: 240
+# io: no
 
 # Opcode 00001111.
 
@@ -90,11 +105,12 @@ x:      4
         stop
 
 x:      15
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("04_and", ExampleKind.ASM, """# example: and
 # description: Computes the bitwise and of acc and a memory value.
 # steps: 3
 # result: 136
+# io: no
 
 # Opcode 00010001.
 
@@ -104,11 +120,12 @@ x:      15
 
 x:      204             # 11001100
 y:      170             # 10101010
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("05_or", ExampleKind.ASM, """# example: or
 # description: Computes the bitwise or of acc and a memory value.
 # steps: 3
 # result: 238
+# io: no
 
 # Opcode 00010010.
 
@@ -118,11 +135,12 @@ y:      170             # 10101010
 
 x:      204             # 11001100
 y:      170             # 10101010
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("06_xor", ExampleKind.ASM, """# example: xor
 # description: Computes the bitwise xor of acc and a memory value.
 # steps: 3
 # result: 102
+# io: no
 
 # Opcode 00010011.
 
@@ -132,11 +150,12 @@ y:      170             # 10101010
 
 x:      204             # 11001100
 y:      170             # 10101010
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("07_load", ExampleKind.ASM, """# example: load
 # description: Copies a memory value into acc.
 # steps: 2
 # result: 42
+# io: no
 
 # Opcode 00010100.
 
@@ -144,11 +163,12 @@ y:      170             # 10101010
         stop
 
 x:      42
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("08_store", ExampleKind.ASM, """# example: store
 # description: Copies acc into memory.
 # steps: 3
 # result: 42
+# io: no
 
 # Opcode 00010101.
 
@@ -158,11 +178,12 @@ x:      42
 
 x:      42
 dst:    0
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("09_add", ExampleKind.ASM, """# example: add
 # description: Adds a memory value to acc.
 # steps: 3
 # result: 42
+# io: no
 
 # Opcode 00010110.
 
@@ -172,11 +193,12 @@ dst:    0
 
 x:      40
 y:      2
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("10_sub", ExampleKind.ASM, """# example: sub
 # description: Subtracts a memory value from acc.
 # steps: 3
 # result: 42
+# io: no
 
 # Opcode 00010111.
 
@@ -186,11 +208,12 @@ y:      2
 
 x:      50
 y:      8
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("11_goto", ExampleKind.ASM, """# example: goto
 # description: Jumps to an address unconditionally.
 # steps: 3
 # result: 42
+# io: no
 
 # Opcode 00011000.
 
@@ -201,11 +224,12 @@ skip:   load  x         # acc = 42
 
 x:      42
 y:      99
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("12_ifzero", ExampleKind.ASM, """# example: ifzero
 # description: Jumps to an address only if acc is zero.
 # steps: 3
 # result: 0
+# io: no
 
 # Opcode 00011001.
 
@@ -216,11 +240,12 @@ done:   stop
 
 x:      0
 y:      99
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("13_nop", ExampleKind.ASM, """# example: nop
 # description: Does nothing.
 # steps: 3
 # result: 42
+# io: no
 
 # Opcode 10000000.
 
@@ -229,11 +254,12 @@ y:      99
         stop
 
 x:      42
-""", subfolder = "01-basics"),
+""", subfolder = "01-basics", io = false),
     Example("bit_set_clear_toggle", ExampleKind.ASM, """# example: set, clear and toggle a bit
 # description: Sets, toggles and clears bit 3 of x, storing each result.
 # steps: 10
 # result: 1
+# io: no
 
         load  x
         or    mask        # set bit 3
@@ -254,11 +280,12 @@ keep:     247             # 11110111 (not mask)
 r_set:    0
 r_toggle: 0
 r_clear:  0
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("compare_less", ExampleKind.ASM, """# example: compare a < b
 # description: Sets acc to 1 if a < b, else to 0.
 # steps: 6
 # result: 1
+# io: no
 
 # The most significant bit (MSB) of a - b acts as its sign: set means a < b.
 # Valid while a - b stays in -128..127.
@@ -277,11 +304,12 @@ b:      5
 sign:   128               # 10000000
 one:    1
 zero:   0
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("divide", ExampleKind.ASM, """# example: divide by repeated subtraction
 # description: Computes a / b by counting how often b can be subtracted from a.
 # steps: 39
 # result: 3
+# io: no
 
 # The most significant bit (MSB) of a - b acts as its sign: set means a < b.
 # Valid for a in 0..127, b in 1..128.
@@ -305,11 +333,12 @@ b:      6
 q:      0
 one:    1
 sign:   128               # 10000000
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("load_indirect", ExampleKind.ASM, """# example: load indirect
 # description: Reads data[i] into acc by patching the address of a load.
 # steps: 5
 # result: 9
+# io: no
 
 # Self-modifying code: the load is written as raw bytes so its address byte can have a label.
 
@@ -333,11 +362,12 @@ data:   3
         6
         5
         3
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("modulo", ExampleKind.ASM, """# example: modulo by repeated subtraction
 # description: Computes a % b by subtracting b until a < b.
 # steps: 30
 # result: 2
+# io: no
 
 # The most significant bit (MSB) of a - b acts as its sign: set means a < b.
 # Valid for a in 0..127, b in 1..128.
@@ -356,11 +386,12 @@ cont:   load  a
 a:      20
 b:      6
 sign:   128               # 10000000
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("msb_shift_vs_mask", ExampleKind.ASM, """# example: most significant bit (MSB), shift vs mask
 # description: Extracts the MSB of x by shifting and by masking, then compares the two.
 # steps: 18
 # result: 0
+# io: no
 
         load  x
         right
@@ -390,11 +421,12 @@ one:    1
 zero_v: 0
 m1:     0
 m2:     0
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("multiply_doubling", ExampleKind.ASM, """# example: multiply by double-and-add
 # description: Computes a * b by adding shifted copies of a.
 # steps: 40
 # result: 42
+# io: no
 
 # One pass per bit of b: add a if the least significant bit (LSB) of b is set, then
 # double a and halve b. An 8-bit b needs at most 8 passes, repeated addition up to 255.
@@ -420,11 +452,12 @@ a:      7
 b:      6         # 110 in binary, so 7 * 6 = 7 * 4 + 7 * 2
 res:    0
 one:    1
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("multiply_repeated", ExampleKind.ASM, """# example: multiply by repeated addition
 # description: Computes a * b by adding a to res, b times.
 # steps: 52
 # result: 42
+# io: no
 
 # 255 * 255 would take 255 passes, multiply_doubling.toys at most 8.
 
@@ -444,11 +477,12 @@ a:      7
 b:      6
 res:    0
 one:    1
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("negate", ExampleKind.ASM, """# example: negate
 # description: Negates x by computing 0 - x.
 # steps: 3
 # result: 251
+# io: no
 
 # 251 is -5 mod 256.
 
@@ -458,11 +492,12 @@ one:    1
 
 zero:   0
 x:      5
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("store_indirect", ExampleKind.ASM, """# example: store indirect
 # description: Writes val into data[i] by patching the address of a store.
 # steps: 6
 # result: 42
+# io: no
 
 # Self-modifying code: the store is written as raw bytes so its address byte can have a label.
 # data[3] changes from 0 to 42.
@@ -484,11 +519,12 @@ data:   0
         0
         0
         0
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("switch", ExampleKind.ASM, """# example: switch
 # description: Branches on x with equality tests: 0, 1 and 2 map to themselves, else 3.
 # steps: 10
 # result: 2
+# io: no
 
 # Equality a == b is tested as (a - b) == 0 with sub and ifzero.
 
@@ -517,11 +553,12 @@ zero:   0
 one:    1
 two:    2
 three:  3
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("times7_doubling", ExampleKind.ASM, """# example: times 7 by doubling
 # description: Computes 7 * a by doubling and adding.
 # steps: 10
 # result: 28
+# io: no
 
         load  a
         add   a
@@ -540,11 +577,12 @@ three:  3
 a:      4
 b:      0
 c:      0
-""", subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("fibonacci_iter", ExampleKind.ASM, """# example: iterative Fibonacci
 # description: Computes fib(7) in a loop.
 # steps: 81
 # result: 13
+# io: no
 
 # a = b - a recovers the old b, so no temporary variable is needed.
 # fib(14) = 377 does not fit in a byte, so n > 13 overflows.
@@ -575,11 +613,12 @@ n:      7
 a:      0
 b:      1
 one:    1
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("fibonacci_rec", ExampleKind.ASM, """# example: recursive Fibonacci
 # description: Computes fib(7) recursively on a self-modifying-code stack.
 # steps: 2004
 # result: 13
+# io: no
 
 # Frame, pushed by the caller: [marker][n]. Marker: 0 = top, 1 = after fib(n-1), 2 = after fib(n-2).
 # The top frame is preallocated as data; set `input` to choose n. Iterative version: fibonacci_iter.toys.
@@ -736,11 +775,12 @@ stackbase: 0
         0
         0
         0
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("gcd_iter", ExampleKind.ASM, """# example: iterative GCD by subtraction
 # description: Computes gcd(48, 36) in a loop with Euclid's subtraction algorithm.
 # steps: 32
 # result: 12
+# io: no
 
 # Trace: (48, 36) -> (12, 36) -> (12, 24) -> (12, 12), then a == b.
 # The most significant bit (MSB) of a - b acts as its sign: set means a < b.
@@ -769,11 +809,12 @@ done:   load  a           # a == b == gcd
 a:      48
 b:      36
 sign:   128               # 10000000
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("max3", ExampleKind.ASM, """# example: largest of three values
 # description: Finds the largest of a, b and c.
 # steps: 15
 # result: 4
+# io: no
 
 # The most significant bit (MSB) of b - best acts as its sign: set means b < best.
 # Valid for values 0..127. Whole array: max_array.toys.
@@ -808,11 +849,12 @@ best:   0
 a:      3
 b:      1
 c:      4
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("max_array", ExampleKind.ASM, """# example: largest value in an array
 # description: Finds the largest value in an array with a loop.
 # steps: 160
 # result: 9
+# io: no
 
 # Self-modifying code: the load is written as raw bytes so its address byte can have a label.
 # The most significant bit (MSB) of cur - best acts as its sign: set means cur < best.
@@ -868,11 +910,12 @@ arr:    3
         6
         5
         3
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sort3", ExampleKind.ASM, """# example: sort three values
 # description: Sorts a, b and c; the result is the smallest.
 # steps: 20
 # result: 1
+# io: no
 
 # Same idea as bubble sort, on three named variables instead of an array.
 # The most significant bit (MSB) of b - a acts as its sign: set means b < a.
@@ -923,11 +966,12 @@ t:      0
 a:      3
 b:      1
 c:      4
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sort_array_inline", ExampleKind.ASM, """# example: bubble sort of an array
 # description: Sorts an array in place with bubble sort; the result is the smallest.
 # steps: 1956
 # result: 1
+# io: no
 
 # Self-modifying code: loads and stores are written as raw bytes so their address bytes can have labels.
 # Always 9 passes of 9 compares, with no early exit.
@@ -1017,11 +1061,12 @@ arr:    3
         6
         5
         3
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sum3", ExampleKind.ASM, """# example: sum of three values
 # description: Adds a, b and c.
 # steps: 4
 # result: 8
+# io: no
 
 # Whole array: sum_array.toys.
 
@@ -1034,11 +1079,12 @@ arr:    3
 a:      3
 b:      1
 c:      4
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sum_array", ExampleKind.ASM, """# example: sum of an array
 # description: Sums an array with a loop.
 # steps: 126
 # result: 39
+# io: no
 
 # Self-modifying code: the load is written as raw bytes so its address byte can have a label.
 # Three values: sum3.toys.
@@ -1083,10 +1129,11 @@ arr:    3
         6
         5
         3
-""", subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("countdown", ExampleKind.ASM, """# example: countdown
 # description: Counts down from 10 to 1, writing each value to io0..io9.
 # pytoy: output=decimal
+# io: yes
 
 wloop:  load  n
         ifzero done
@@ -1111,10 +1158,11 @@ done:   load  n
 # data
 n:    10
 one:   1
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("fibonacci_io", ExampleKind.ASM, """# example: Fibonacci numbers
 # description: Writes fib(0)..fib(13) to io0..io13.
 # pytoy: output=decimal
+# io: yes
 
 # fib(14) = 377 does not fit in a byte, so the output stops at fib(13) = 233.
 
@@ -1153,10 +1201,11 @@ b:     1            # fib(i+1)
 next:  0
 count: 14           # values left to write
 one:   1
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("greet_name", ExampleKind.ASM, """# example: greet by name
 # description: Reads a name and writes "Hallo NAME" back. Names over 9 characters overflow.
 # pytoy: output=ascii
+# io: yes
 
 # Input: type one character per cell into io0, io1, ..., then set ready (mem[255]) to the count.
 # The name goes to scratch first because writing "Hallo " overwrites io0..io5.
@@ -1271,10 +1320,11 @@ scratch: 0
          0
          0
          0
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("hello_world", ExampleKind.ASM, """# example: hello world
 # description: Writes "Hello world!" to the io cells as ASCII codes.
 # pytoy: output=ascii
+# io: yes
 
         load  H
         store io0
@@ -1315,10 +1365,11 @@ r:  114
 l3: 108
 d:  100
 ex:  33
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("numbers", ExampleKind.ASM, """# example: numbers
 # description: Writes 0..14 to io0..io14.
 # pytoy: output=decimal
+# io: yes
 
 # The io cells are memory-mapped, so a plain store writes them.
 # The View > I/O format menu shows the same bytes as decimal, binary, hex or ASCII.
@@ -1372,10 +1423,11 @@ c11: 11
 c12: 12
 c13: 13
 c14: 14
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("numbers_ascii", ExampleKind.ASM, """# example: numbers in ASCII
 # description: Writes 0..14 to io0..io14, displayed as ASCII.
 # pytoy: output=ascii
+# io: yes
 
 # Same bytes as numbers.toys; codes 0..14 are control characters, so no cell shows a visible character.
 # Switch the View > I/O format menu to read them.
@@ -1428,10 +1480,11 @@ c11: 11
 c12: 12
 c13: 13
 c14: 14
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("numbers_hex", ExampleKind.ASM, """# example: numbers in hex
 # description: Writes 0..14 to io0..io14, displayed in hex.
 # pytoy: output=hex
+# io: yes
 
 # Same bytes as numbers.toys; they show as 00..09, then 0A..0E.
 
@@ -1483,10 +1536,11 @@ c11: 11
 c12: 12
 c13: 13
 c14: 14
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("pin_check", ExampleKind.ASM, """# example: PIN check
 # description: Checks the PIN in io0..io3 against 1337 and writes "succ" or "fail".
 # pytoy: output=ascii
+# io: yes
 
 # Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to non-zero.
 # The first wrong digit exits early, so step counts leak the PIN digit by digit
@@ -1559,10 +1613,11 @@ f_f: 102               # 'f'
 f_a:  97               # 'a'
 f_i: 105               # 'i'
 f_l: 108               # 'l'
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("pin_check_hardened", ExampleKind.ASM, """# example: constant-time PIN check
 # description: Checks the PIN in io0..io3 against 1337 with no per-digit branch.
 # pytoy: output=ascii
+# io: yes
 
 # Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to non-zero.
 # Every digit is always compared, so between polling and the final ifzero all runs take the same steps.
@@ -1643,10 +1698,11 @@ f_f: 102               # 'f'
 f_a:  97               # 'a'
 f_i: 105               # 'i'
 f_l: 108               # 'l'
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("poll_demo", ExampleKind.ASM, """# example: busy-poll input
 # description: Waits until ready is non-zero, then copies io0 to io1.
 # pytoy: output=decimal
+# io: yes
 
 # The Toy CPU has no interrupts and no blocking read, so waiting for input means polling.
 # Input: type a value into io0, then set ready (mem[255]) to non-zero.
@@ -1660,10 +1716,11 @@ wait:   load  ready
         stop
 
 zero:   0
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("sort_array_io", ExampleKind.ASM, """# example: sort numbers from input
 # description: Reads up to 15 numbers and writes them back sorted. More than 15 overflow.
 # pytoy: output=decimal
+# io: yes
 
 # Input: type the values into io0, io1, ..., then set ready (mem[255]) to their count.
 # The most significant bit (MSB) of b - a acts as its sign: set means b < a.
@@ -1835,7 +1892,7 @@ arr:    0
         0
         0
         0
-""", subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("fibonacci (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
 #
 # ADDR  BYTES                   SOURCE
@@ -1844,6 +1901,7 @@ arr:    0
 #                                # description: Computes fib(7) in a loop.
 #                                # steps: 81
 #                                # result: 13
+#                                # io: no
 #                                
 #                                # a = b - a recovers the old b, so no temporary variable is needed.
 #                                # fib(14) = 377 does not fit in a byte, so n > 13 overflows.
@@ -1898,7 +1956,7 @@ arr:    0
 #   io13            = 253  (11111101)
 #   io14            = 254  (11111110)
 #   ready           = 255  (11111111)
-"""),
+""", io = false),
     Example("multiply_repeated (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
 #
 # ADDR  BYTES                   SOURCE
@@ -1907,6 +1965,7 @@ arr:    0
 #                                # description: Computes a * b by adding a to res, b times.
 #                                # steps: 52
 #                                # result: 42
+#                                # io: no
 #                                
 #                                # 255 * 255 would take 255 passes, multiply_doubling.toys at most 8.
 #                                
@@ -1950,7 +2009,7 @@ arr:    0
 #   io13            = 253  (11111101)
 #   io14            = 254  (11111110)
 #   ready           = 255  (11111111)
-"""),
+""", io = false),
     Example("sum3 (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
 #
 # ADDR  BYTES                   SOURCE
@@ -1959,6 +2018,7 @@ arr:    0
 #                                # description: Adds a, b and c.
 #                                # steps: 4
 #                                # result: 8
+#                                # io: no
 #                                
 #                                # Whole array: sum_array.toys.
 #                                
@@ -1992,11 +2052,12 @@ arr:    0
 #   io13            = 253  (11111101)
 #   io14            = 254  (11111110)
 #   ready           = 255  (11111111)
-"""),
+""", io = false),
     Example("bit_operators.toyc", ExampleKind.C, """// example: bitwise operators and shifts
 // description: Applies &, ^, >> and <<, which map to and, xor, right and left.
 // steps: toycc 27, minicc 30
 // result: 36
+// io: no
 
 int main(void) {
     int x = 0xF0;              // 11110000
@@ -2007,11 +2068,12 @@ int main(void) {
     a = a << 1;                // 00011000
     return a + (c & 0x0F);     // 24 + 12
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("if_then_else.toyc", ExampleKind.C, """// example: if/else
 // description: Subtracts the smaller of a and b from the larger with if/else.
 // steps: toycc 15, minicc 24
 // result: 5
+// io: no
 
 int main(void) {
     int a = 7;
@@ -2024,11 +2086,12 @@ int main(void) {
     }
     return r;
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("msb_shift_vs_mask.toyc", ExampleKind.C, """// example: most significant bit (MSB), shift vs mask
 // description: Extracts the MSB of x by shifting and by masking, then compares the two.
 // steps: toycc 24, minicc 27
 // result: 0
+// io: no
 
 // x >> 7 takes seven right instructions, x & 128 takes one and.
 // The shorter form matters because code and data share the same 256 bytes.
@@ -2043,11 +2106,12 @@ int main(void) {
 
     return msb1 ^ msb2;       // 0 -> both agree
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("multiply_doubling.toyc", ExampleKind.C, """// example: multiply by double-and-add
 // description: Computes a * b by adding shifted copies of a.
 // steps: toycc 76, minicc 98
 // result: 42
+// io: no
 
 // One pass per bit of b: add a if the least significant bit (LSB) of b is set, then
 // double a and halve b. An 8-bit b needs at most 8 passes, repeated addition up to 255.
@@ -2066,11 +2130,12 @@ int main(void) {
     }
     return res;
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("multiply_operator.toyc", ExampleKind.C, """// example: multiply with the * operator
 // description: Computes a * b with the * operator.
 // steps: toycc 56, minicc 69
 // result: 42
+// io: no
 
 // The Toy CPU has no multiply instruction. toycc compiles * to double-and-add (one pass
 // per bit of b), minicc to repeated addition (one pass per unit of b).
@@ -2081,11 +2146,12 @@ int main(void) {
     int b = 6;
     return a * b;
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("multiply_repeated.toyc", ExampleKind.C, """// example: multiply by repeated addition
 // description: Computes a * b by adding a to res, b times.
 // steps: toycc 79, minicc 145
 // result: 42
+// io: no
 
 // 255 * 255 would take 255 passes, multiply_doubling.toyc at most 8.
 // minicc compiles * to this method.
@@ -2100,11 +2166,12 @@ int main(void) {
     }
     return res;
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("popcount.toyc", ExampleKind.C, """// example: popcount
 // description: Counts the set bits of 37 (100101 in binary).
 // steps: toycc 120, minicc 163
 // result: 3
+// io: no
 
 // The Toy CPU has no %, but x & 1 equals x % 2: the least significant bit (LSB).
 
@@ -2120,11 +2187,12 @@ int popcount(int x) {
 int main(void) {
     return popcount(37);
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("times7_operator.toyc", ExampleKind.C, """// example: times 7 with the * operator
 // description: Computes 7 * a with the * operator.
 // steps: toycc 51, minicc 49
 // result: 28
+// io: no
 
 // toycc compiles * to double-and-add, minicc to repeated addition.
 
@@ -2132,11 +2200,12 @@ int main(void) {
     int a = 4;
     return 7 * a;
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "02-extended"),
+""", subfolder = "02-extended", io = false),
     Example("bigint_add.toyc", ExampleKind.C, """// example: bigint add
 // description: Adds two 32-bit numbers stored as four bytes each, lowest byte first.
 // steps: toycc 99
 // result: 0
+// io: no
 
 // 123456789 + 314159265 = 437616054, whose bytes are [182, 125, 21, 26].
 // Carry out of a+b is the most significant bit (MSB) of (a & b) | ((a ^ b) & ~sum).
@@ -2160,11 +2229,12 @@ int main(void) {
 
     return (c0 ^ 182) | (c1 ^ 125) | (c2 ^ 21) | (c3 ^ 26);
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("count_iter.toyc", ExampleKind.C, """// example: iterative count
 // description: Counts from 1 to 10 in a loop.
 // steps: toycc 91, minicc 169
 // result: 10
+// io: no
 
 // Recursive version: count_rec.toyc.
 
@@ -2175,11 +2245,12 @@ int main(void) {
     }
     return x;
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("count_rec.toyc", ExampleKind.C, """// example: recursive count
 // description: Counts to 10 recursively with f(n) = f(n - 1) + 1 and f(0) = 0.
 // steps: toycc 421
 // result: 10
+// io: no
 
 // toycc compiles recursion with a self-modifying-code stack (see the manual).
 // Iterative version: count_iter.toyc.
@@ -2194,11 +2265,12 @@ int f(int n) {
 int main(void) {
     return f(10);
 }
-""", compilers = listOf("toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("fibonacci_array.toyc", ExampleKind.C, """// example: Fibonacci numbers in an array
 // description: Fills an array with the first 10 Fibonacci numbers and returns the last.
 // steps: toycc 278, minicc 392
 // result: 34
+// io: no
 
 // The array ends up as 0 1 1 2 3 5 8 13 21 34.
 
@@ -2214,11 +2286,12 @@ int main(void) {
     }
     return a[9];
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("fibonacci_iter.toyc", ExampleKind.C, """// example: iterative Fibonacci
 // description: Computes fib(7) in a loop.
 // steps: toycc 117, minicc 215
 // result: 13
+// io: no
 
 // Sequence from fib(0): 0 1 1 2 3 5 8 13.
 // fib(14) = 377 does not fit in a byte, so n > 13 overflows.
@@ -2238,11 +2311,12 @@ int fibonacci_iter(int n) {
 int main(void) {
     return fibonacci_iter(7);
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("fibonacci_rec.toyc", ExampleKind.C, """// example: recursive Fibonacci
 // description: Computes fib(7) recursively on a self-modifying-code stack.
 // steps: toycc 2121
 // result: 13
+// io: no
 
 // The Toy CPU has no call/return and no stack: toycc gives each function fixed global slots and
 // saves the caller's live slots around each call on a self-modifying-code stack, growing down
@@ -2258,11 +2332,12 @@ int fibonacci_rec(int n) {
 int main(void) {
     return fibonacci_rec(7);
 }
-""", compilers = listOf("toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("gcd_iter.toyc", ExampleKind.C, """// example: iterative GCD by subtraction
 // description: Computes gcd(48, 36) in a loop with Euclid's subtraction algorithm.
 // steps: toycc 69, minicc 115
 // result: 12
+// io: no
 
 // Trace: (48, 36) -> (12, 36) -> (12, 24) -> (12, 12), then a == b.
 // Recursive version: gcd_rec.toyc.
@@ -2281,11 +2356,12 @@ int gcd_iter(int a, int b) {
 int main(void) {
     return gcd_iter(48, 36);
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("gcd_rec.toyc", ExampleKind.C, """// example: recursive GCD by subtraction
 // description: Computes gcd(48, 36) recursively with Euclid's subtraction algorithm.
 // steps: toycc 175
 // result: 12
+// io: no
 
 // Trace: (48, 36) -> (12, 36) -> (12, 24) -> (12, 12), then a == b.
 // toycc compiles recursion with a self-modifying-code stack (see the manual).
@@ -2304,11 +2380,12 @@ int gcd_rec(int a, int b) {
 int main(void) {
     return gcd_rec(48, 36);
 }
-""", compilers = listOf("toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("max3.toyc", ExampleKind.C, """// example: largest of three values
 // description: Finds the largest of a, b and c.
 // steps: toycc 39, minicc 52
 // result: 4
+// io: no
 
 // Whole array: max_array.toyc.
 
@@ -2322,11 +2399,12 @@ int max3(int a, int b, int c) {
 int main(void) {
     return max3(3, 1, 4);
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("max_array.toyc", ExampleKind.C, """// example: largest value in an array
 // description: Finds the largest value in an array with a loop.
 // steps: toycc 222, minicc 332
 // result: 9
+// io: no
 
 // Three values: max3.toyc.
 // a[i] compiles to self-modifying code; by hand: examples/asm/03-programs/max_array.toys.
@@ -2344,11 +2422,12 @@ int main(void) {
     }
     return m;
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sort3.toyc", ExampleKind.C, """// example: sort three values
 // description: Sorts a, b and c; the result is the smallest.
 // steps: toycc 47, minicc 64
 // result: 1
+// io: no
 
 // Same idea as bubble sort, on three named variables instead of an array.
 // Whole array: sort_array_inline.toyc.
@@ -2364,11 +2443,12 @@ int sort3(int a, int b, int c) {
 int main(void) {
     return sort3(3, 1, 4);
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sort_array_fn.toyc", ExampleKind.C, """// example: bubble sort of an array in a function
 // description: Sorts an array in place with bubble sort in a function; the result is the smallest.
 // steps: toycc 2116
 // result: 1
+// io: no
 
 // The array decays to a pointer: bubblesort() gets main's base address and sorts in place
 // through a[i] == *(a + i), reached with self-modifying code.
@@ -2399,11 +2479,12 @@ int main(void) {
     bubblesort(a, 10);
     return a[0];
 }
-""", compilers = listOf("toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sort_array_inline.toyc", ExampleKind.C, """// example: bubble sort of an array
 // description: Sorts an array in place with bubble sort; the result is the smallest.
 // steps: toycc 2097
 // result: 1
+// io: no
 
 // a[i] compiles to self-modifying code; by hand: examples/asm/03-programs/sort_array_inline.toys.
 // Sorted: 1 1 2 3 3 4 5 5 6 9. Function version: sort_array_fn.toyc.
@@ -2429,11 +2510,12 @@ int main(void) {
     }
     return a[0];
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sum3.toyc", ExampleKind.C, """// example: sum of three values
 // description: Adds a, b and c.
 // steps: toycc 28, minicc 33
 // result: 8
+// io: no
 
 // Whole array: sum_array.toyc.
 
@@ -2444,11 +2526,12 @@ int sum3(int a, int b, int c) {
 int main(void) {
     return sum3(3, 1, 4);
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sum_array.toyc", ExampleKind.C, """// example: sum of an array
 // description: Sums an array with a loop.
 // steps: toycc 202, minicc 288
 // result: 39
+// io: no
 
 // Three values: sum3.toyc.
 // a[i] compiles to self-modifying code; by hand: examples/asm/03-programs/sum_array.toys.
@@ -2465,11 +2548,12 @@ int main(void) {
     }
     return s;
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sum_countdown.toyc", ExampleKind.C, """// example: countdown sum
 // description: Sums 5 + 4 + 3 + 2 + 1 with += and -=.
 // steps: toycc 66
 // result: 15
+// io: no
 
 int main(void) {
     int i = 5;
@@ -2480,11 +2564,12 @@ int main(void) {
     }
     return total;
 }
-""", compilers = listOf("toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("sum_of_squares.toyc", ExampleKind.C, """// example: sum of squares
 // description: Computes 3 * 3 + 4 * 4 with a helper function that calls another.
 // steps: toycc 143, minicc 140
 // result: 25
+// io: no
 
 // The Toy CPU has no call/return, so toycc gives each non-recursive function fixed global slots
 // for parameters and return value, emits one copy of its body, and jumps back to the right
@@ -2501,10 +2586,11 @@ int sum_of_squares(int a, int b) {
 int main(void) {
     return sum_of_squares(3, 4);
 }
-""", compilers = listOf("minicc", "toycc"), subfolder = "03-programs"),
+""", subfolder = "03-programs", io = false),
     Example("greet_name.toyc", ExampleKind.C, """// example: greet by name
 // description: Reads a name and writes "Hallo NAME" back. Names over 9 characters overflow.
 // pytoy: output=ascii
+// io: yes
 
 // Input: type one character per cell into io0, io1, ..., then set ready (mem[255]) to the count.
 
@@ -2520,10 +2606,11 @@ int main(void) {
     write(data, k + 6);       // "Hallo " + the name, to io0..
     return 0;
 }
-""", compilers = listOf("toycc"), subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("hello_world.toyc", ExampleKind.C, """// example: hello world
 // description: Writes "Hello world!" to the io cells as ASCII codes.
 // pytoy: output=ascii
+// io: yes
 
 int main(void) {
     // A constant initializer list becomes initial data bytes at compile time,
@@ -2533,10 +2620,11 @@ int main(void) {
     write(data, 12);
     return 0;
 }
-""", compilers = listOf("toycc"), subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("pin_check.toyc", ExampleKind.C, """// example: PIN check
 // description: Checks the PIN in io0..io3 against 1337 and writes "succ" or "fail".
 // pytoy: output=ascii
+// io: yes
 
 // Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to 4.
 // The first wrong digit exits early, so step counts leak the PIN digit by digit
@@ -2563,10 +2651,11 @@ int main(void) {
     write(fail, 4);
     return 0;
 }
-""", compilers = listOf("toycc"), subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
     Example("pin_check_hardened.toyc", ExampleKind.C, """// example: constant-time PIN check
 // description: Checks the PIN in io0..io3 against 1337 with no per-digit branch.
 // pytoy: output=ascii
+// io: yes
 
 // Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to 4.
 // Every digit is always compared, so up to the final if all runs take the same steps.
@@ -2591,8 +2680,19 @@ int main(void) {
     write(fail, 4);
     return 0;
 }
-""", compilers = listOf("toycc"), subfolder = "04-io"),
+""", subfolder = "04-io", io = true),
 )
+
+/**
+ * The examples the browser offers. Lazy, because it compiles every C example
+ * to find which compilers accept it; a C example no compiler accepts is dropped.
+ */
+val EXAMPLES: List<Example> by lazy {
+    EXAMPLE_SOURCES.mapNotNull { ex ->
+        if (ex.kind != ExampleKind.C) ex
+        else detectCompilers(ex.source).takeIf { it.isNotEmpty() }?.let { ex.copy(compilers = it) }
+    }
+}
 
 /**
  * Examples grouped for a browser UI, keyed by display category:

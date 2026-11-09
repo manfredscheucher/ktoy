@@ -1,43 +1,49 @@
 #!/usr/bin/env python3
 """
-Generate ktoy's ExampleSources.kt from the pytoy example programs.
+Generate ktoy's ExampleSources.kt from the example programs in examples/.
 
-The Kotlin app has no filesystem access to pytoy's examples/, so the bundled
-programs are embedded as Kotlin strings. This regenerates that file from the
-canonical .toys / .toyc / .toyo sources in the sibling pytoy checkout, so the
-two never drift. pytoy is the source of truth; this generator lives in ktoy
-(the consumer) so pytoy stays unaware of ktoy.
+The Kotlin app has no filesystem access to examples/, so the bundled programs
+are embedded as Kotlin strings. examples/ is the source of truth (it was copied
+from pytoy, which is paused; ktoy no longer depends on a pytoy checkout).
 
 Three kinds of example are embedded (see the generated `ExampleKind`):
 
-  - ASM  — assembly sources (*.toys). To load: assemble.
-  - C    — C sources (*.toyc). To load: COMPILE first (with a compiler the
-           source accepts), then assemble. Each C example carries its C source
-           text (for the C|asm view) plus a `compilers` list naming which
-           compiler(s) accept it ("minicc" and/or "toycc"). Compatibility is
-           computed HERE by actually trying pytoy's minicc and toycc on the
-           source and catching their errors (same logic as pytoy's
-           examples_index._detect_compilers) — accurate, not a heuristic.
-  - TOYO — pre-compiled bytecode listings (*.toyo). To load: parse directly.
+  - ASM  — assembly sources (examples/asm/<sub>/*.toys). To load: assemble.
+  - C    — C sources (examples/c/<sub>/*.toyc). To load: COMPILE first, then
+           assemble. Which compilers accept a C example is decided at runtime
+           in Kotlin (`detectCompilers`), with ktoy's own compilers.
+  - TOYO — pre-compiled bytecode listings (examples/toyo/*.toyo). To load: parse.
 
-pytoy is located as a sibling of this repo (../pytoy), overridable with the
-PYTOY env var:
+Every example states in its header whether it uses the I/O cells:
+`# io: yes` / `# io: no` (`// io: ...` in C). It becomes `Example.io`.
+
     python3 scripts/gen_example_sources.py
-    PYTOY=/path/to/pytoy python3 scripts/gen_example_sources.py
 
 Writes ExampleSources.kt next to the other core sources in this repo.
 """
 
 import os
-import sys
+import re
 
 KTOY = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PYTOY = os.environ.get("PYTOY", os.path.join(os.path.dirname(KTOY), "pytoy"))
-ASM_DIR = os.path.join(PYTOY, "examples", "asm")
-C_DIR = os.path.join(PYTOY, "examples", "c")
-TOYO_DIR = os.path.join(PYTOY, "examples", "toyo")
+EXAMPLES_DIR = os.path.join(KTOY, "examples")
+ASM_DIR = os.path.join(EXAMPLES_DIR, "asm")
+C_DIR = os.path.join(EXAMPLES_DIR, "c")
+TOYO_DIR = os.path.join(EXAMPLES_DIR, "toyo")
 OUT = os.path.join(KTOY, "composeApp", "src", "commonMain", "kotlin",
                    "org", "bytefred", "ktoy", "core", "ExampleSources.kt")
+
+# The io header: "# io: yes", "// io: no", or in a .toyo listing
+# "#        # io: yes".
+IO_HEADER = re.compile(r"^(?:#|//)(?:\s+#)?\s*io:\s*(yes|no)\s*$", re.M)
+
+
+def io_flag(path, src):
+    """The example's io header as a Kotlin literal; fail loudly if it's missing."""
+    m = IO_HEADER.search(src)
+    if not m:
+        raise SystemExit(f"{path}: no 'io: yes' / 'io: no' header")
+    return "true" if m.group(1) == "yes" else "false"
 
 
 def kotlin_triple_string(s):
@@ -51,60 +57,9 @@ def kotlin_triple_string(s):
     return f'"""{s}"""'
 
 
-# ── compiler compatibility probing ───────────────────────────────────────────
-# Try pytoy's minicc and toycc on the source and catch their errors. This mirrors
-# pytoy/examples_index.py::_detect_compilers, but runs here (the generator runs
-# against the pytoy checkout, so the result can be baked into the Kotlin data).
-
-def _minicc_accepts(src):
-    from pytoy.minicc import compile_source, MiniError
-    try:
-        compile_source(src, "probe")
-        return True
-    except MiniError:
-        return False
-    except Exception:
-        return False
-
-
-def _toycc_accepts(src):
-    from pytoy.compiler import compile_source, CompileError
-    try:
-        compile_source(src, "probe")
-        return True
-    except CompileError:
-        return False
-    except Exception:
-        return False
-
-
-def detect_compilers(src):
-    """The compilers that accept `src`, a subset of ("minicc", "toycc") in that
-    order. minicc first then toycc, matching pytoy."""
-    result = []
-    if _minicc_accepts(src):
-        result.append("minicc")
-    if _toycc_accepts(src):
-        result.append("toycc")
-    return result
-
-
-def kotlin_string_list(items):
-    """A Kotlin `listOf("a", "b")` literal from a list of plain strings."""
-    if not items:
-        return "emptyList()"
-    inner = ", ".join(f'"{x}"' for x in items)
-    return f"listOf({inner})"
-
-
 def main():
     if not os.path.isdir(ASM_DIR):
-        raise SystemExit(
-            f"pytoy examples not found at {ASM_DIR}. "
-            f"Clone pytoy next to ktoy, or set PYTOY=/path/to/pytoy.")
-
-    # pytoy's compilers (minicc, toycc) are needed to probe compiler compat.
-    sys.path.insert(0, PYTOY)
+        raise SystemExit(f"examples not found at {ASM_DIR}.")
 
     lines = [
         "package org.bytefred.ktoy.core",
@@ -127,11 +82,15 @@ def main():
         " * For C examples, [Example.compilers] names the compiler(s) that accept the",
         " * source — a subset of \"minicc\", \"toycc\". minicc rejects recursion (and",
         " * other constructs toycc supports), so a recursive example lists only",
-        " * \"toycc\" while a simple one lists both. The list is empty for ASM/TOYO.",
+        " * \"toycc\" while a simple one lists both. It is filled in at runtime by",
+        " * [detectCompilers]; the list is empty for ASM/TOYO.",
         " *",
-        " * GENERATED from pytoy examples/ by scripts/gen_example_sources.py — do",
-        " * not edit by hand; regenerate when the .toys / .toyc / .toyo sources or",
-        " * the compilers change.",
+        " * [Example.io] comes from the example's `io: yes` / `io: no` header: whether",
+        " * the program uses the I/O cells. Loading an example shows the I/O panel",
+        " * exactly when it is true.",
+        " *",
+        " * GENERATED from examples/ by scripts/gen_example_sources.py — do not edit",
+        " * by hand; regenerate when the .toys / .toyc / .toyo sources change.",
         " */",
         "",
         "enum class ExampleKind { ASM, C, TOYO }",
@@ -144,20 +103,25 @@ def main():
         "    val compilers: List<String> = emptyList(),",
         "    /** Repo subfolder this came from (e.g. \"01-basics\", \"04-io\"); \"\" for bytecode. */",
         "    val subfolder: String = \"\",",
+        "    /** The example's `io:` header (uses the I/O cells); null for a program that isn't a bundled example. */",
+        "    val io: Boolean? = null,",
         ")",
         "",
-        "val EXAMPLES: List<Example> = listOf(",
+        "/**",
+        " * Every bundled example as written, without compiling anything: C examples",
+        " * still have an empty [Example.compilers]. App start reads this, so it never",
+        " * compiles the C examples.",
+        " */",
+        "val EXAMPLE_SOURCES: List<Example> = listOf(",
     ]
 
     n_examples = 0
 
     # ── ASM ──────────────────────────────────────────────────────────────────
     # Every subfolder of examples/asm/ (01-basics, 02-extended, 03-programs,
-    # 04-io), so the app shows the same tree as pytoy. That includes the
-    # input-driven I/O demos (pin_check, greet_name, ...): in the app the user
-    # types the input. Only tests have to skip those (they never halt headless).
-    # File names are taken verbatim, so renames in pytoy flow through on the
-    # next regenerate.
+    # 04-io). That includes the input-driven I/O demos (pin_check, greet_name,
+    # ...): in the app the user types the input. Only tests have to skip those
+    # (they never halt headless). File names are taken verbatim.
     for sub in sorted(os.listdir(ASM_DIR)):
         folder = os.path.join(ASM_DIR, sub)
         if not os.path.isdir(folder):
@@ -169,7 +133,7 @@ def main():
             src = open(os.path.join(folder, f)).read()
             lines.append(f'    Example("{name}", ExampleKind.ASM, '
                          f'{kotlin_triple_string(src)}, '
-                         f'subfolder = "{sub}"),')
+                         f'subfolder = "{sub}", io = {io_flag(f, src)}),')
             n_examples += 1
 
     # ── TOYO ─────────────────────────────────────────────────────────────────
@@ -179,13 +143,13 @@ def main():
         name = f[:-5]
         src = open(os.path.join(TOYO_DIR, f)).read()
         lines.append(f'    Example("{name} (bytecode)", ExampleKind.TOYO, '
-                     f'{kotlin_triple_string(src)}),')
+                     f'{kotlin_triple_string(src)}, io = {io_flag(f, src)}),')
         n_examples += 1
 
     # ── C ────────────────────────────────────────────────────────────────────
-    # Every subfolder of examples/c/ (02-extended, 03-programs, 04-io), each
-    # example tagged with the compiler(s) that accept it. Loose files directly
-    # in examples/c/ are compiled outputs, not C, and are ignored. The name
+    # Every subfolder of examples/c/ (02-extended, 03-programs, 04-io). The
+    # compilers that accept each one are filled in at runtime (see the end of
+    # EXAMPLES), and a C example no compiler accepts is dropped there. The name
     # keeps the .toyc extension (as elsewhere) so the "Generated by toycc from
     # <name>" header agrees if the UI recompiles it.
     for sub in sorted(os.listdir(C_DIR)):
@@ -197,19 +161,26 @@ def main():
                 continue
             name = f  # keep extension, e.g. "fibonacci_rec.toyc"
             src = open(os.path.join(folder, f)).read()
-            compilers = detect_compilers(src)
-            if not compilers:
-                # No compiler accepts it: nothing the UI could do, so skip.
-                print(f"  (skipping {sub}/{f}: no compiler accepts it)")
-                continue
             lines.append(f'    Example("{name}", ExampleKind.C, '
                          f'{kotlin_triple_string(src)}, '
-                         f'compilers = {kotlin_string_list(compilers)}, '
-                         f'subfolder = "{sub}"),')
+                         f'subfolder = "{sub}", io = {io_flag(f, src)}),')
             n_examples += 1
 
-    lines.append(")")
-    lines.append("")
+    lines += [
+        ")",
+        "",
+        "/**",
+        " * The examples the browser offers. Lazy, because it compiles every C example",
+        " * to find which compilers accept it; a C example no compiler accepts is dropped.",
+        " */",
+        "val EXAMPLES: List<Example> by lazy {",
+        "    EXAMPLE_SOURCES.mapNotNull { ex ->",
+        "        if (ex.kind != ExampleKind.C) ex",
+        "        else detectCompilers(ex.source).takeIf { it.isNotEmpty() }?.let { ex.copy(compilers = it) }",
+        "    }",
+        "}",
+        "",
+    ]
 
     # ── grouping helpers for a browser UI ─────────────────────────────────────
     # Mirrors pytoy's grouped_examples / ExamplesDialog: a C example appears under

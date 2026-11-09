@@ -1,0 +1,60 @@
+# example: largest value in an array
+# description: Finds the largest value in an array with a loop.
+# steps: 160
+# result: 9
+# io: no
+
+# Self-modifying code: the load is written as raw bytes so its address byte can have a label.
+# The most significant bit (MSB) of cur - best acts as its sign: set means cur < best.
+# Valid for values 0..127. Three values: max3.toys.
+
+        # point the indirect load at arr[0]
+        load  ptr
+        store iarg
+
+loop:   load  count
+        ifzero done
+
+        20                # load opcode
+iarg:   0                 # <- address of arr[i], patched each pass
+        store cur
+
+        sub   best        # acc = cur - best
+        and   mask        # isolate the MSB
+        ifzero update     # MSB clear -> cur >= best
+
+        goto  next
+
+update: load  cur
+        store best
+
+next:   load  iarg
+        add   one
+        store iarg        # next element
+
+        load  count
+        sub   one
+        store count       # count--
+        goto  loop
+
+done:   load  best
+        stop
+
+# data
+count:  10
+one:    1
+mask:   128               # 10000000
+best:   0
+cur:    0
+ptr:    arr               # address of arr[0]
+
+arr:    3
+        1
+        4
+        1
+        5
+        9
+        2
+        6
+        5
+        3

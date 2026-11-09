@@ -55,6 +55,7 @@ import androidx.compose.ui.window.PopupProperties
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
+import org.bytefred.ktoy.GeneratedLicenses
 import org.bytefred.ktoy.GeneratedVersionInfo
 import org.bytefred.ktoy.core.ExampleKind
 
@@ -183,9 +184,13 @@ fun SimMenuBar(
         MenuButton("View", openMenu, { openMenu = it }) {
             CheckItem("Line numbers", vm.showLineNumbers) {
                 vm.showLineNumbers = !vm.showLineNumbers
+                savePref(LINE_NUMBERS_PREF, vm.showLineNumbers.toString())
             }
             CheckItem("I/O panel", vm.showIo) { vm.toggleIo() }
-            CheckItem("Auto-scroll to PC", vm.autoScroll) { vm.autoScroll = !vm.autoScroll }
+            CheckItem("Auto-scroll to PC", vm.autoScroll) {
+                vm.autoScroll = !vm.autoScroll
+                savePref(AUTO_SCROLL_PREF, vm.autoScroll.toString())
+            }
             HorizontalDivider()
             // Layout: AUTO (by window size) / PORTRAIT (stacked) / LANDSCAPE
             // (side by side). A flat radio group rather than a nested submenu,
@@ -196,6 +201,7 @@ fun SimMenuBar(
             for (mode in LayoutMode.entries) {
                 CheckItem("  " + mode.name.lowercase(), vm.layoutMode == mode) {
                     vm.layoutMode = mode
+                    savePref(LAYOUT_PREF, mode.name)
                 }
             }
         }
@@ -355,7 +361,7 @@ private fun CheckItem(label: String, checked: Boolean, onToggle: () -> Unit) {
     )
 }
 
-/** About: description, feedback box, the projects with their licenses, build identity. */
+/** About: description, feedback box, the projects with their licenses, build identity, license texts. */
 @Composable
 private fun AboutDialog(onDismiss: () -> Unit) {
     AlertDialog(
@@ -378,6 +384,17 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                var showLicenses by remember { mutableStateOf(false) }
+                TextButton(onClick = { showLicenses = !showLicenses }) {
+                    Text(if (showLicenses) "Hide license texts" else "License texts")
+                }
+                if (showLicenses) {
+                    for (notice in GeneratedLicenses.NOTICES) {
+                        HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                        Text(notice.title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                        Text(notice.text, style = MonoStyle.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize))
+                    }
+                }
             }
             }
         },

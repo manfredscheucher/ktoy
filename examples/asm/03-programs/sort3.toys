@@ -1,0 +1,55 @@
+# example: sort three values
+# description: Sorts a, b and c; the result is the smallest.
+# steps: 20
+# result: 1
+# io: no
+
+# Same idea as bubble sort, on three named variables instead of an array.
+# The most significant bit (MSB) of b - a acts as its sign: set means b < a.
+# Valid for values 0..127. Whole array: sort_array_inline.toys.
+
+        # step 1: if a > b, swap
+        load  b
+        sub   a
+        and   mask        # isolate the MSB
+        ifzero s2         # MSB clear -> a <= b -> no swap
+        load  a
+        store t
+        load  b
+        store a
+        load  t
+        store b           # a <-> b
+
+        # step 2: if b > c, swap (the largest ends in c)
+s2:     load  c
+        sub   b
+        and   mask        # isolate the MSB
+        ifzero s3         # MSB clear -> b <= c -> no swap
+        load  b
+        store t
+        load  c
+        store b
+        load  t
+        store c           # b <-> c
+
+        # step 3: if a > b, swap (the smallest ends in a)
+s3:     load  b
+        sub   a
+        and   mask        # isolate the MSB
+        ifzero done       # MSB clear -> a <= b -> no swap
+        load  a
+        store t
+        load  b
+        store a
+        load  t
+        store b           # a <-> b
+
+done:   load  a
+        stop
+
+# data
+mask:   128               # 10000000
+t:      0
+a:      3
+b:      1
+c:      4

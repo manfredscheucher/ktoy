@@ -1,0 +1,35 @@
+# example: iterative Fibonacci
+# description: Computes fib(7) in a loop.
+# steps: 81
+# result: 13
+# io: no
+
+# a = b - a recovers the old b, so no temporary variable is needed.
+# fib(14) = 377 does not fit in a byte, so n > 13 overflows.
+# Recursive version: fibonacci_rec.toys.
+
+        load  n         # loop counter
+loop:   ifzero end      # n == 0
+
+        load  a
+        add   b
+        store b         # b = a + b
+
+        load  b
+        sub   a         # acc = (a + b) - a = old b
+        store a
+
+        load  n
+        sub   one
+        store n         # n--
+
+        goto  loop
+
+end:    load  a         # fib(n)
+        stop
+
+# data
+n:      7
+a:      0
+b:      1
+one:    1

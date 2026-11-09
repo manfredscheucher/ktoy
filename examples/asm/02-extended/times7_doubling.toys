@@ -1,0 +1,23 @@
+# example: times 7 by doubling
+# description: Computes 7 * a by doubling and adding.
+# steps: 10
+# result: 28
+# io: no
+
+        load  a
+        add   a
+        store b         # b = 2a
+
+        load  b
+        add   b
+        store c         # c = 4a
+
+        load  a
+        add   b
+        add   c
+        stop            # acc = a + 2a + 4a = 7a
+
+# data
+a:      4
+b:      0
+c:      0

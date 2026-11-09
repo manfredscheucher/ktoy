@@ -1,0 +1,28 @@
+// example: constant-time PIN check
+// description: Checks the PIN in io0..io3 against 1337 with no per-digit branch.
+// pytoy: output=ascii
+// io: yes
+
+// Input: type the digits into io0..io3 as ASCII, then set ready (mem[255]) to 4.
+// Every digit is always compared, so up to the final if all runs take the same steps.
+// That one if is the single target for fault injection. See doc/design/pin-security.md.
+
+int main(void) {
+    int data[4];
+    int succ[4] = {'s', 'u', 'c', 'c'};
+    int fail[4] = {'f', 'a', 'i', 'l'};
+    int diff;
+
+    read(data);
+
+    // Each (digit ^ expected) is 0 exactly when that digit matches, so the or is 0 exactly
+    // when all four match. Unrolled by hand (no pin[] array, no for) to fit 240 bytes.
+    diff = (data[0] ^ '1') | (data[1] ^ '3') | (data[2] ^ '3') | (data[3] ^ '7');
+
+    if (diff == 0) {
+        write(succ, 4);
+        return 42;   // the secret
+    }
+    write(fail, 4);
+    return 0;
+}
