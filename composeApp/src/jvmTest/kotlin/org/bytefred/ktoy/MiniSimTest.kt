@@ -78,7 +78,8 @@ class MiniSimTest {
 
     @Test
     fun agreesWithTheCpuCoreOnAllExamples() {
-        val images = EXAMPLES.filter { it.subfolder != "04-io" }.mapNotNull {
+        // count_2_32 runs about 2 * 10^10 steps; ExampleStepsTest covers it
+        val images = EXAMPLES.filter { it.subfolder != "04-io" && !it.name.startsWith("count_2_32") }.mapNotNull {
             when (it.kind) {
                 ExampleKind.ASM -> it.name to assemble(it.source).mem
                 ExampleKind.TOYO -> it.name to parseToyo(it.source)

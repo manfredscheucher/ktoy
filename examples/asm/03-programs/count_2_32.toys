@@ -1,0 +1,47 @@
+# example: count to 2^32
+# description: Counts in five bytes until the fifth byte is set.
+# steps: 21559051524
+# result: 1
+# io: no
+
+# byte0 is the lowest byte. When a byte wraps to 0, the next byte is
+# increased. After 2^32 increases byte0..byte3 are 0 again and byte4 is 1.
+# Each block takes 5 operations (the nop below each goto evens out ifzero),
+# so the program runs 5 * (2^32 + 2^24 + 2^16 + 2^8) + 4 steps. That does not
+# fit in a 32-bit Int, so the step counter overflows.
+
+label0: load  byte0
+        add   one
+        store byte0
+        ifzero label1
+        goto  label0
+label1: nop
+        load  byte1
+        add   one
+        store byte1
+        ifzero label2
+        goto  label0
+label2: nop
+        load  byte2
+        add   one
+        store byte2
+        ifzero label3
+        goto  label0
+label3: nop
+        load  byte3
+        add   one
+        store byte3
+        ifzero label4
+        goto  label0
+label4: nop
+        load  byte4
+        add   one
+        store byte4
+        stop
+
+byte0:  0
+byte1:  0
+byte2:  0
+byte3:  0
+byte4:  0
+one:    1

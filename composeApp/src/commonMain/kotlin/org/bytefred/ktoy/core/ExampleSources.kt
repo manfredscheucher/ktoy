@@ -578,6 +578,54 @@ a:      4
 b:      0
 c:      0
 """, subfolder = "02-extended", io = false),
+    Example("count_2_32", ExampleKind.ASM, """# example: count to 2^32
+# description: Counts in five bytes until the fifth byte is set.
+# steps: 21559051524
+# result: 1
+# io: no
+
+# byte0 is the lowest byte. When a byte wraps to 0, the next byte is
+# increased. After 2^32 increases byte0..byte3 are 0 again and byte4 is 1.
+# Each block takes 5 operations (the nop below each goto evens out ifzero),
+# so the program runs 5 * (2^32 + 2^24 + 2^16 + 2^8) + 4 steps. That does not
+# fit in a 32-bit Int, so the step counter overflows.
+
+label0: load  byte0
+        add   one
+        store byte0
+        ifzero label1
+        goto  label0
+label1: nop
+        load  byte1
+        add   one
+        store byte1
+        ifzero label2
+        goto  label0
+label2: nop
+        load  byte2
+        add   one
+        store byte2
+        ifzero label3
+        goto  label0
+label3: nop
+        load  byte3
+        add   one
+        store byte3
+        ifzero label4
+        goto  label0
+label4: nop
+        load  byte4
+        add   one
+        store byte4
+        stop
+
+byte0:  0
+byte1:  0
+byte2:  0
+byte3:  0
+byte4:  0
+one:    1
+""", subfolder = "03-programs", io = false),
     Example("fibonacci_iter", ExampleKind.ASM, """# example: iterative Fibonacci
 # description: Computes fib(7) in a loop.
 # steps: 81
@@ -1893,6 +1941,87 @@ arr:    0
         0
         0
 """, subfolder = "04-io", io = true),
+    Example("count_2_32 (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
+#
+# ADDR  BYTES                   SOURCE
+# ────────────────────────────────────────────────────────
+#                                # example: count to 2^32
+#                                # description: Counts in five bytes until the fifth byte is set.
+#                                # steps: 21559051524
+#                                # result: 1
+#                                # io: no
+#                                
+#                                # byte0 is the lowest byte. When a byte wraps to 0, the next byte is
+#                                # increased. After 2^32 increases byte0..byte3 are 0 again and byte4 is 1.
+#                                # Each block takes 5 operations (the nop below each goto evens out ifzero),
+#                                # so the program runs 5 * (2^32 + 2^24 + 2^16 + 2^8) + 4 steps. That does not
+#                                # fit in a 32-bit Int, so the step counter overflows.
+#                                
+     0   00010100  00110011      label0: load  byte0
+     2   00010110  00111000              add   one
+     4   00010101  00110011              store byte0
+     6   00011001  00001010              ifzero label1
+     8   00011000  00000000              goto  label0
+    10   10000000                label1: nop
+    11   00010100  00110100              load  byte1
+    13   00010110  00111000              add   one
+    15   00010101  00110100              store byte1
+    17   00011001  00010101              ifzero label2
+    19   00011000  00000000              goto  label0
+    21   10000000                label2: nop
+    22   00010100  00110101              load  byte2
+    24   00010110  00111000              add   one
+    26   00010101  00110101              store byte2
+    28   00011001  00100000              ifzero label3
+    30   00011000  00000000              goto  label0
+    32   10000000                label3: nop
+    33   00010100  00110110              load  byte3
+    35   00010110  00111000              add   one
+    37   00010101  00110110              store byte3
+    39   00011001  00101011              ifzero label4
+    41   00011000  00000000              goto  label0
+    43   10000000                label4: nop
+    44   00010100  00110111              load  byte4
+    46   00010110  00111000              add   one
+    48   00010101  00110111              store byte4
+    50   00000000                        stop
+#                                
+    51   00000000                byte0:  0
+    52   00000000                byte1:  0
+    53   00000000                byte2:  0
+    54   00000000                byte3:  0
+    55   00000000                byte4:  0
+    56   00000001                one:    1
+
+# SYMBOLS
+#   label0          =   0  (00000000)
+#   label1          =  10  (00001010)
+#   label2          =  21  (00010101)
+#   label3          =  32  (00100000)
+#   label4          =  43  (00101011)
+#   byte0           =  51  (00110011)
+#   byte1           =  52  (00110100)
+#   byte2           =  53  (00110101)
+#   byte3           =  54  (00110110)
+#   byte4           =  55  (00110111)
+#   one             =  56  (00111000)
+#   io0             = 240  (11110000)
+#   io1             = 241  (11110001)
+#   io2             = 242  (11110010)
+#   io3             = 243  (11110011)
+#   io4             = 244  (11110100)
+#   io5             = 245  (11110101)
+#   io6             = 246  (11110110)
+#   io7             = 247  (11110111)
+#   io8             = 248  (11111000)
+#   io9             = 249  (11111001)
+#   io10            = 250  (11111010)
+#   io11            = 251  (11111011)
+#   io12            = 252  (11111100)
+#   io13            = 253  (11111101)
+#   io14            = 254  (11111110)
+#   ready           = 255  (11111111)
+""", io = false),
     Example("fibonacci (bytecode)", ExampleKind.TOYO, """# Toy CPU – compiled listing
 #
 # ADDR  BYTES                   SOURCE

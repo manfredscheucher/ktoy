@@ -17,6 +17,11 @@ class ExampleStepsTest {
     private fun header(src: String, re: String): String? =
         Regex(re, setOf(RegexOption.MULTILINE, RegexOption.IGNORE_CASE)).find(src)?.groupValues?.get(1)?.trim()
 
+    /** Examples whose header promises more steps than this are only assembled, not run to STOP (count_2_32). */
+    private val MAX_RUN = 1_000_000L
+
+    private fun tooLong(steps: String?) = steps != null && steps.toLong() > MAX_RUN
+
     /** Run to STOP (counted) and return (acc, steps). */
     private fun run(mem: IntArray, dataAddrs: Set<Int>, name: String): Pair<Int, Int> {
         val m = Machine(mem, dataAddrs)
@@ -31,6 +36,7 @@ class ExampleStepsTest {
         for (ex in asm) {
             val res = assemble(ex.source)
             assertTrue(res.errors.isEmpty(), "${ex.name}: ${res.errors}")
+            if (tooLong(header(ex.source, """^#\s*steps:\s*(\d+)"""))) continue
             val (acc, steps) = run(res.mem, res.dataAddrs, ex.name)
             assertEquals(assertNotNull(header(ex.source, """^#\s*result:\s*(\d+)"""), "${ex.name}: no result line").toInt(), acc, ex.name)
             assertEquals(assertNotNull(header(ex.source, """^#\s*steps:\s*(\d+)"""), "${ex.name}: no steps line").toInt(), steps, ex.name)
@@ -44,6 +50,7 @@ class ExampleStepsTest {
         assertTrue(toyo.size >= 3)
         for (ex in toyo) {
             val mem = parseToyo(ex.source)
+            if (tooLong(header(ex.source, """^#\s+#\s*steps:\s*(\d+)"""))) continue
             val (acc, steps) = run(mem, emptySet(), ex.name)
             assertEquals(assertNotNull(header(ex.source, """^#\s+#\s*result:\s*(\d+)"""), "${ex.name}: no result line").toInt(), acc, ex.name)
             assertEquals(assertNotNull(header(ex.source, """^#\s+#\s*steps:\s*(\d+)"""), "${ex.name}: no steps line").toInt(), steps, ex.name)
@@ -69,5 +76,20 @@ class ExampleStepsTest {
             }
             assertEquals(header(src, """//\s*steps:\s*(.+)"""), per.joinToString(", "), "$name steps")
         }
+    }
+
+    @Test
+    fun countTo2Pow32TakesFiveStepsPerBlock() {
+        // the full run is too long; start with byte1..byte3 at 255, so 256 more
+        // increases carry through every block: 5 * (256 + 1 + 1 + 1) + 4 steps
+        val ex = EXAMPLES.first { it.name == "count_2_32" && it.kind == ExampleKind.ASM }
+        val res = assemble(ex.source)
+        val mem = res.mem.copyOf()
+        for (b in listOf("byte1", "byte2", "byte3")) mem[res.syms.getValue(b)] = 255
+        val m = Machine(mem, res.dataAddrs)
+        while (m.step()) assertTrue(m.stepCount < 10_000, "count_2_32 does not stop")
+        assertEquals(1, m.acc)
+        assertEquals(5 * (256 + 3) + 4, m.stepCount)
+        assertEquals(listOf(0, 0, 0, 0, 1), (0..4).map { m.mem[res.syms.getValue("byte$it")] })
     }
 }

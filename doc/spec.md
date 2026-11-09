@@ -1145,3 +1145,10 @@ Manfred: the examples say in their header whether they use I/O ("hab ich dir nic
 - Loading an example shows the I/O panel exactly when its header says yes, and it never opens by itself while the example runs. Other programs (files, File -> Empty, builds after an edit) keep the old rule: shown if an operand is in 240..255, else opened the first time the running program touches an I/O cell.
 - Which compilers accept a C example is decided at runtime with ktoy's own compilers (`detectCompilers`: compiles and fits in 240 bytes), lazily when the Examples dialog first needs it; app start never compiles C. So `bigint_add` and `sort_array_inline` are listed under toycc only (minicc's output does not fit).
 - The compiler goldens (`CExamples.kt`, `MiniCExamples.kt`) stay as frozen fixtures; the scripts that made them from pytoy are removed.
+
+## 36. Example count_2_32 (step counter overflow)
+
+- Manfred: an example that counts in bytes until the fifth byte (byte4) is set, structured as his sketch: one block per byte (load, add one, store, ifzero next block, goto label0). Saved as assembly (`03-programs/count_2_32.toys`) and as bytecode (`toyo/count_2_32.toyo`).
+- A nop under each goto (at the next block's label) makes every block 5 operations whether ifzero jumps or not. Total: 5 * (2^32 + 2^24 + 2^16 + 2^8) + 4 = 21559051524 steps.
+- The 32-bit `Int` step counter overflows on this example. That is intended (Manfred), it stays `Int`.
+- Tests: ExampleStepsTest and MiniSimTest don't run it to STOP; `countTo2Pow32TakesFiveStepsPerBlock` starts with byte1..byte3 at 255 and checks 5 * (256 + 3) + 4 steps.
