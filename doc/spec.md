@@ -1110,3 +1110,10 @@ Manfred: keep the code simple.
   the program patches stays a number with "# patched by the program", and a data cell that a
   load carries into such a patch (`load ptr; add i; store L5+1`) is written as the address it
   holds (`D35`, `io0`). A pointer that is 0 or points past the last value stays a number.
+
+## 32. Look like sat-chess-kotlin
+
+Prompt: "kannst du bitte wie in ../sat-chess-kotlin den style machn? da is obn ne schöne leiste … evtl color theme etc auch anpassen".
+
+- The menu bar is one grey strip (#E6E8EB) across the full width at the top, no rounded corners or margin; the program title stays on its right.
+- The colour scheme is the sat-chess one: teal primary (#2F5D62), neutral white/grey surfaces. The highlight colours of the panels are unchanged.

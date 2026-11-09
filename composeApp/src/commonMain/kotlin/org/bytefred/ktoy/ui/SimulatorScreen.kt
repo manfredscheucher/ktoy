@@ -85,12 +85,12 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     val sel = vm.selectionSets()
     val (changedCLines, changedRows) = vm.changeSets()
 
-    Column(Modifier.fillMaxSize().padding(8.dp)) {
-        // Menu bar + the current program title, a grey bar so it reads as one.
+    Column(Modifier.fillMaxSize()) {
+        // Menu bar + the current program title: one grey bar across the top.
         Row(
             Modifier.fillMaxWidth()
-                .background(MENU_BAR_COLOR, RoundedCornerShape(6.dp))
-                .padding(end = 8.dp),
+                .background(MENU_BAR_COLOR)
+                .padding(start = 4.dp, end = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
         ) {
@@ -113,96 +113,98 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
                 modifier = Modifier.weight(1f, fill = false).padding(start = 8.dp),
             )
         }
-        // a transient "Saved …" status line from the File menu, auto-cleared
-        vm.statusMessage?.let { msg ->
-            LaunchedEffect(msg) {
-                kotlinx.coroutines.delay(3000)
-                vm.clearStatus()
-            }
-            Text(msg, style = MonoStyle, color = Color(0xFF1A7F37))
-        }
-
-        // Adaptive columns, like pytoy: C (only for a C load) | asm (only with
-        // source) | CPU & memory (always). Side by side when wide, stacked when
-        // narrow; each in a labelled, bordered box.
-        BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
-            val cols = (if (vm.hasCSource) 1 else 0) +
-                (if (vm.hasSource) 1 else 0) + 1
-            // AUTO: side by side once each shown column gets its usable minimum
-            // width (by width only, so it follows a window resize); PORTRAIT /
-            // LANDSCAPE override it (View -> Layout).
-            val minPerCol = 300.dp
-            val wide = when (vm.layoutMode) {
-                LayoutMode.LANDSCAPE -> true
-                LayoutMode.PORTRAIT -> false
-                LayoutMode.AUTO -> maxWidth >= minPerCol * cols
-            }
-            val pcCLine = vm.pcCLine()
-            val cCol: @Composable (Modifier) -> Unit = { mod ->
-                CSourcePanel(vm, sel.cLines, changedCLines, pcCLine, { editCOpen = true }, { editCLine = it }, mod)
-            }
-            val src: @Composable (Modifier) -> Unit = { mod ->
-                LabeledPanel(if (vm.asmDraft != null) "Assembly (modified)" else "Assembly", mod) {
-                    SourcePanel(vm, pcBytes, dec.argAddr, sel.asmRows, changedRows, { editAsmOpen = true }, { editAsmLine = it }, Modifier.fillMaxSize())
+        Column(Modifier.weight(1f).padding(8.dp)) {
+            // a transient "Saved …" status line from the File menu, auto-cleared
+            vm.statusMessage?.let { msg ->
+                LaunchedEffect(msg) {
+                    kotlinx.coroutines.delay(3000)
+                    vm.clearStatus()
                 }
+                Text(msg, style = MonoStyle, color = Color(0xFF1A7F37))
             }
-            val mem: @Composable (Modifier) -> Unit = { mod ->
-                LabeledPanel("CPU & memory", mod) {
-                    Column(Modifier.fillMaxSize()) {
-                        StatusBlock(vm, symOf)
-                        MemoryPanel(vm, pcBytes, dec.argAddr, sel.addrs, { editBytecodeOpen = true }, { editTarget = it }, Modifier.fillMaxSize())
+
+            // Adaptive columns, like pytoy: C (only for a C load) | asm (only with
+            // source) | CPU & memory (always). Side by side when wide, stacked when
+            // narrow; each in a labelled, bordered box.
+            BoxWithConstraints(Modifier.fillMaxWidth().weight(1f)) {
+                val cols = (if (vm.hasCSource) 1 else 0) +
+                    (if (vm.hasSource) 1 else 0) + 1
+                // AUTO: side by side once each shown column gets its usable minimum
+                // width (by width only, so it follows a window resize); PORTRAIT /
+                // LANDSCAPE override it (View -> Layout).
+                val minPerCol = 300.dp
+                val wide = when (vm.layoutMode) {
+                    LayoutMode.LANDSCAPE -> true
+                    LayoutMode.PORTRAIT -> false
+                    LayoutMode.AUTO -> maxWidth >= minPerCol * cols
+                }
+                val pcCLine = vm.pcCLine()
+                val cCol: @Composable (Modifier) -> Unit = { mod ->
+                    CSourcePanel(vm, sel.cLines, changedCLines, pcCLine, { editCOpen = true }, { editCLine = it }, mod)
+                }
+                val src: @Composable (Modifier) -> Unit = { mod ->
+                    LabeledPanel(if (vm.asmDraft != null) "Assembly (modified)" else "Assembly", mod) {
+                        SourcePanel(vm, pcBytes, dec.argAddr, sel.asmRows, changedRows, { editAsmOpen = true }, { editAsmLine = it }, Modifier.fillMaxSize())
                     }
                 }
+                val mem: @Composable (Modifier) -> Unit = { mod ->
+                    LabeledPanel("CPU & memory", mod) {
+                        Column(Modifier.fillMaxSize()) {
+                            StatusBlock(vm, symOf)
+                            MemoryPanel(vm, pcBytes, dec.argAddr, sel.addrs, { editBytecodeOpen = true }, { editTarget = it }, Modifier.fillMaxSize())
+                        }
+                    }
+                }
+                val panels = buildList {
+                    if (vm.hasCSource) add(SplitPanel(Panel.C, cCol))
+                    if (vm.hasSource) add(SplitPanel(Panel.ASM, src))
+                    add(SplitPanel(Panel.MEMORY, mem))
+                }
+                // stacked on phones too; each layout keeps its own divider positions
+                key(wide) {
+                    SplitPane(
+                        panels,
+                        if (wide) vm.wideWeights else vm.stackedWeights,
+                        { if (wide) vm.wideWeights = it else vm.stackedWeights = it },
+                        horizontal = wide,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
             }
-            val panels = buildList {
-                if (vm.hasCSource) add(SplitPanel(Panel.C, cCol))
-                if (vm.hasSource) add(SplitPanel(Panel.ASM, src))
-                add(SplitPanel(Panel.MEMORY, mem))
-            }
-            // stacked on phones too; each layout keeps its own divider positions
-            key(wide) {
-                SplitPane(
-                    panels,
-                    if (wide) vm.wideWeights else vm.stackedWeights,
-                    { if (wide) vm.wideWeights = it else vm.stackedWeights = it },
-                    horizontal = wide,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
 
-        // The memory-mapped I/O panel: the friendly view of io0..io14 plus the
-        // ready register. Shown below the two panels when toggled on; tapping a
-        // cell reuses the same edit dialog as the memory panel, so the user acts
-        // as the I/O device while the running program polls.
-        if (vm.showIo) {
-            // Own bordered container (not LabeledPanel, whose body forces
-            // fillMaxSize for the scrollable main panels — the I/O panel wraps
-            // its height instead, so it doesn't push the controls off-screen).
-            Column(
-                Modifier.fillMaxWidth()
-                    .padding(top = 3.dp)
-                    .border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(6.dp))
-            ) {
-                Text(
-                    "I/O",
-                    style = MonoStyle,
-                    modifier = Modifier.fillMaxWidth()
-                        .background(Color(0xFFEEEEEE))
-                        .padding(horizontal = 6.dp, vertical = 3.dp),
-                )
-                IoPanel(
-                    mem = m.mem,
-                    pc = m.pc,
-                    format = vm.ioFormat,
-                    onFormatChange = { vm.ioFormat = it },
-                    onEditCell = { editTarget = it },
-                    modifier = Modifier.fillMaxWidth(),
-                )
+            // The memory-mapped I/O panel: the friendly view of io0..io14 plus the
+            // ready register. Shown below the two panels when toggled on; tapping a
+            // cell reuses the same edit dialog as the memory panel, so the user acts
+            // as the I/O device while the running program polls.
+            if (vm.showIo) {
+                // Own bordered container (not LabeledPanel, whose body forces
+                // fillMaxSize for the scrollable main panels — the I/O panel wraps
+                // its height instead, so it doesn't push the controls off-screen).
+                Column(
+                    Modifier.fillMaxWidth()
+                        .padding(top = 3.dp)
+                        .border(1.dp, Color(0xFFBBBBBB), RoundedCornerShape(6.dp))
+                ) {
+                    Text(
+                        "I/O",
+                        style = MonoStyle,
+                        modifier = Modifier.fillMaxWidth()
+                            .background(Color(0xFFEEEEEE))
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                    )
+                    IoPanel(
+                        mem = m.mem,
+                        pc = m.pc,
+                        format = vm.ioFormat,
+                        onFormatChange = { vm.ioFormat = it },
+                        onEditCell = { editTarget = it },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
             }
-        }
 
-        Controls(vm)
+            Controls(vm)
+        }
     }
 
     editTarget?.let { addr ->
