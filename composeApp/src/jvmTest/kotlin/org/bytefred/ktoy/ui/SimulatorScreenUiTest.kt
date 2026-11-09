@@ -252,24 +252,35 @@ class SimulatorScreenUiTest {
     }
 
     @Test
-    fun saveAsPreselectsTheHighestLevel() = runComposeUiTest {
+    fun saveOffersEachFormatHighestFirst() = runComposeUiTest {
         show(SimViewModel().apply { loadFromFile("prog.toyc", cSrc) })
         menu("File", "Save…")
-        onNodeWithText("Save as").assertExists()
-        onNode(hasText("C source (.toyc)") and isSelectable()).assertIsSelected()
-        onNode(hasText("Assembly (.toys)") and isSelectable()).assertIsNotSelected()
+        val tops = listOf("Save C", "Save assembly", "Save bytecode").map { onNodeWithText(it).fetchSemanticsNode().boundsInRoot.top }
+        assertEquals(tops.sorted(), tops, "highest level on top")
+        onNodeWithText("Discard").assertDoesNotExist()
+        onNodeWithText("Cancel").performClick()
+        waitForIdle()
+        onNodeWithText("Save C").assertDoesNotExist()
+    }
+
+    @Test
+    fun saveOffersOnlyTheFormatsTheProgramHas() = runComposeUiTest {
+        show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) })
+        menu("File", "Save…")
+        onNodeWithText("Save assembly").assertExists()
+        onNodeWithText("Save bytecode").assertExists()
+        onNodeWithText("Save C").assertDoesNotExist()
         onNodeWithText("Cancel").performClick()
     }
 
     @Test
-    fun saveInTheQuestionOpensTheFormatChoice() = runComposeUiTest {
+    fun theQuestionOffersTheFormatsDiscardAndCancel() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
         vm.saveAsmDraft("stop\n")
         show(vm)
         onNodeWithText("Reload").performClick()
-        onNodeWithText("Save…").performClick()
-        waitForIdle()
-        onNode(hasText("Assembly (.toys)") and isSelectable()).assertIsSelected()
+        onNodeWithText("Save assembly").assertExists()
+        onNodeWithText("Discard").assertExists()
         onNodeWithText("Cancel").performClick()   // cancels the reload too
         waitForIdle()
         onNodeWithText("Save changes?").assertDoesNotExist()
@@ -282,15 +293,14 @@ class SimulatorScreenUiTest {
         vm.saveCDraft("int main(void){return 7;}\n")
         show(vm)
         menu("File", "Save…")
-        onNode(hasText("Assembly (.toys)") and isSelectable()).performClick()
-        onNodeWithText("Save").performClick()
+        onNodeWithText("Save assembly").performClick()
         waitForIdle()
         onNodeWithText("This file lacks your edits").assertExists()
         onNodeWithText("not compiled yet", substring = true).assertExists()
         onNodeWithText("Back").performClick()
         waitForIdle()
         onNodeWithText("This file lacks your edits").assertDoesNotExist()
-        onNodeWithText("Save as").assertExists()
+        onNodeWithText("Save C").assertExists()
     }
 
     @Test
@@ -699,14 +709,14 @@ class SimulatorScreenUiTest {
     @Test
     fun theInstructionSetHelpHasAScrollbarAndNoLongLines() = androidx.compose.ui.test.runDesktopComposeUiTest(640, 360) {
         show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) })
-        val text = org.bytefred.ktoy.core.referenceText()
+        val text = org.bytefred.ktoy.core.referenceTable()
         assertTrue(text.lines().all { it.length <= 56 }, text.lines().maxBy { it.length })
         assertTrue(text.lines().none { it.startsWith("  ") }, "no indentation")
         val before = onAllNodesWithTag("vscroll-thumb").fetchSemanticsNodes().size
         onNodeWithTag("menu-Help").performClick()
         onNodeWithText("Instruction set", substring = true).performClick()
         waitForIdle()
-        onNodeWithText("ifzero", substring = true).assertExists()
+        onNodeWithText("the only conditional", substring = true).assertExists()
         assertEquals(before + 1, onAllNodesWithTag("vscroll-thumb").fetchSemanticsNodes().size, "the dialog has a scrollbar")
     }
 
@@ -784,7 +794,7 @@ class SimulatorScreenUiTest {
         assertFalse(vm.hasSource)
         menu("Bytecode", "Disassemble")
         assertTrue(vm.hasSource)
-        onNodeWithText("load   D3", substring = true).assertExists()
+        onNodeWithText("load  D3", substring = true).assertExists()
     }
 
     @Test

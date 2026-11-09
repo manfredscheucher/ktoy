@@ -10,6 +10,12 @@ package org.bytefred.ktoy.core
  * 0..239. Unreachable code comes out as data. An invalid opcode on the path
  * runs as a NOP (the CPU default), so the trace goes on after it; it is
  * written as a data byte with a comment, since asm has no mnemonic for it.
+ *
+ * To read like the hand-written examples: a blank line after each goto and
+ * stop, `# data` before the data at the end, an operand the program patches
+ * (a store writes it) stays a number, and a data cell that a load carries
+ * into such a patch (load p; add/sub ...; store L5+1) is an address, written
+ * as its label.
  */
 fun decompile(mem: IntArray): String {
     val mnemonic = OPCODES.entries.associate { (k, v) -> v to k }
@@ -60,9 +66,26 @@ fun decompile(mem: IntArray): String {
     val lineAt = IntArray(IO_BASE) { -1 }
     lines.forEachIndexed { i, l -> repeat(l.size) { lineAt[l.addr + it] = i } }
 
-    // 3. labels for every referenced line, operands as label(+offset)
+    // 3. operand bytes the program writes (self-modifying code), and the data
+    // cells a load carries into one of them: those hold addresses
+    val patched = code.filter { mem[it] == 21 }.map { mem[it + 1] }
+        .filter { it < IO_BASE && (it - 1) in code && hasOperand(mem[it - 1]) }.toSet()
+    val addressCells = mutableSetOf<Int>()
+    for (start in code.filter { mem[it] == 20 }) {
+        var b = start + 2
+        while (b in code && mem[b] in setOf(22, 23)) b += 2
+        val src = mem[start + 1]
+        if (b in code && mem[b] == 21 && mem[b + 1] in patched && src < IO_BASE && src !in code &&
+            lines[lineAt[src]].addr == src && !lines[lineAt[src]].isCode
+        ) addressCells.add(src)
+    }
+    // the address must be a line start (or an I/O cell): data takes no label+N.
+    // 0 stays a number: it is a placeholder the program sets, not the entry point.
+    addressCells.retainAll { v -> mem[v] >= IO_BASE || (mem[v] != 0 && mem[v] <= lines.last().let { it.addr + it.size - 1 } && lines[lineAt[mem[v]]].addr == mem[v]) }
+
+    // 4. labels for every referenced line, operands as label(+offset)
     val labelOf = mutableMapOf<Int, String>()
-    for (t in operands.filter { it < IO_BASE }) {
+    for (t in operands.filter { it < IO_BASE } + addressCells.map { mem[it] }.filter { it < IO_BASE }) {
         val l = lines[lineAt[t]]
         labelOf[l.addr] = (if (l.isCode) "L" else "D") + l.addr
     }
@@ -73,18 +96,32 @@ fun decompile(mem: IntArray): String {
         return labelOf.getValue(l.addr) + if (off > 0) "+$off" else ""
     }
 
+    // the data after the last instruction gets the `# data` marker
+    val dataFrom = lines.indexOfLast { it.isCode } + 1
     val out = mutableListOf("# decompiled from bytecode", "")
-    for (l in lines) {
+    for ((i, l) in lines.withIndex()) {
+        if (i == dataFrom && i > 0) {
+            if (out.last().isNotEmpty()) out.add("")
+            out.add("# data")
+        }
         val label = labelOf[l.addr]?.let { "$it:" } ?: ""
+        val v = mem[l.addr]
         val body = if (l.isCode) {
-            val op = mem[l.addr]
-            val mn = mnemonic.getValue(op)
-            if (hasOperand(op)) mn.padEnd(7) + ref(mem[l.addr + 1]) else mn
+            val mn = mnemonic.getValue(v)
+            when {
+                !hasOperand(v) -> mn
+                l.addr + 1 in patched -> mn.padEnd(5) + " " + mem[l.addr + 1].toString().padEnd(6) + " # patched by the program"
+                else -> mn.padEnd(5) + " " + ref(mem[l.addr + 1])
+            }
         } else if (l.addr in invalid) {
-            mem[l.addr].toString().padEnd(7) + "# invalid opcode (a NOP by default" +
-                (if (hasOperand(mem[l.addr])) ", skips the next byte too)" else ")")
-        } else mem[l.addr].toString()
+            v.toString().padEnd(6) + " # invalid opcode (a NOP by default" +
+                (if (hasOperand(v)) ", skips the next byte too)" else ")")
+        } else if (l.addr in addressCells) {
+            if (v >= IO_BASE) IO_LABELS.getValue(v) else labelOf.getValue(v)
+        } else v.toString()
         out.add((label.padEnd(8) + body).trimEnd())
+        // a goto or stop ends a block
+        if (l.isCode && (v == 0 || v == 24) && i + 1 < lines.size && i + 1 != dataFrom) out.add("")
     }
     return out.joinToString("\n") + "\n"
 }

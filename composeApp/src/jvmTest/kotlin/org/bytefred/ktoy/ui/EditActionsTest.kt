@@ -552,7 +552,7 @@ class EditActionsTest {
     fun aRightClickDoesNotScrollAsm() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
         show(vm)
-        val row = "load  x12"
+        val row = "load  x30"
         val before = top(row)
         onNodeWithText(row, substring = true).performMouseInput { rightClick() }
         waitForIdle()
@@ -565,7 +565,7 @@ class EditActionsTest {
     fun aTapOnTheSameRowScrollsAsm() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
         show(vm)
-        val row = "load  x12"
+        val row = "load  x30"
         val before = top(row)
         onNodeWithText(row, substring = true).performClick()
         waitForIdle()
@@ -576,7 +576,7 @@ class EditActionsTest {
     fun aMemoryRightClickDoesNotScrollItsPanel() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
         show(vm)
-        val row = "12 (00001100) ->"
+        val row = "30 (00011110) ->"
         val before = top(row)
         onNodeWithText(row, substring = true).performMouseInput { rightClick() }
         waitForIdle()
@@ -589,7 +589,7 @@ class EditActionsTest {
     fun aMemoryTapScrollsItsPanel() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("p.toys", longAsm()) }
         show(vm)
-        val row = "12 (00001100) ->"
+        val row = "30 (00011110) ->"
         val before = top(row)
         onNodeWithText(row, substring = true).performClick()
         waitForIdle()

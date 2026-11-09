@@ -29,6 +29,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -221,7 +223,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             initial = vm.cDraft ?: vm.cText ?: "",
             buildLabel = "Compile",
             onSave = vm::saveCDraft,
-            onBuild = { vm.request(SimViewModel.BuildAction.Compile()) },
+            onBuild = { vm.buildAfterSave(SimViewModel.BuildAction.Compile()) },
             onDismiss = { editCOpen = false },
         )
     }
@@ -232,7 +234,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             initial = vm.asmDraft ?: vm.asmText ?: "",
             buildLabel = "Assemble",
             onSave = vm::saveAsmDraft,
-            onBuild = { vm.request(SimViewModel.BuildAction.Assemble) },
+            onBuild = { vm.buildAfterSave(SimViewModel.BuildAction.Assemble) },
             onDismiss = { editAsmOpen = false },
         )
     }
@@ -247,21 +249,21 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             firstLineNumber = 0,   // the number is the address
             check = vm::bytecodeError,
             onSave = vm::saveBytecode,
-            onBuild = { vm.request(SimViewModel.BuildAction.Disassemble) },
+            onBuild = { vm.buildAfterSave(SimViewModel.BuildAction.Disassemble) },
             onDismiss = { editBytecodeOpen = false },
         )
     }
     editCLine?.let { line ->
         EditLineDialog(
             line, vm.cDraft ?: vm.cText ?: "", "C source", "Compile", vm::saveCDraft,
-            onBuild = { vm.request(SimViewModel.BuildAction.Compile()) },
+            onBuild = { vm.buildAfterSave(SimViewModel.BuildAction.Compile()) },
             onDismiss = { editCLine = null },
         )
     }
     editAsmLine?.let { line ->
         EditLineDialog(
             line, vm.asmDraft ?: vm.asmText ?: "", "Assembly", "Assemble", vm::saveAsmDraft,
-            onBuild = { vm.request(SimViewModel.BuildAction.Assemble) },
+            onBuild = { vm.buildAfterSave(SimViewModel.BuildAction.Assemble) },
             onDismiss = { editAsmLine = null },
         )
     }
@@ -637,6 +639,8 @@ private fun scrollToLine(state: androidx.compose.foundation.ScrollState, lineInd
     val topPx = with(LocalDensity.current) { 4.dp.roundToPx() }
     LaunchedEffect(lineIndex) {
         if (lineIndex != null && !held) {
+            // before the first layout the viewport is 0 high and the centring would scroll too far
+            snapshotFlow { state.viewportSize }.first { it > 0 }
             val target = topPx + lineIndex * rowPx + rowPx / 2 - state.viewportSize / 2
             state.animateScrollTo(target.coerceIn(0, state.maxValue))
         }

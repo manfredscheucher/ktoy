@@ -111,11 +111,11 @@ internal fun ExamplesDialog(
     fun toggle(key: String, default: Boolean) { expanded[key] = !isOpen(key, default) }
     var selected by state::selected
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Examples") },
-        text = {
-            LazyColumn(Modifier.heightIn(max = 560.dp).testTag("examples-tree"), state = state.list) {
+    BigDialog("Examples", onDismiss, buttons = {
+        TextButton(onClick = onDismiss) { Text("Cancel") }
+        TextButton(onClick = { selected?.let(onLoad) }, enabled = selected != null) { Text("Load") }
+    }) {
+            LazyColumn(Modifier.weight(1f).fillMaxWidth().testTag("examples-tree"), state = state.list) {
                 for ((category, bySub) in tree) {
                     val catOpen = isOpen(category, default = false)
                     item(key = "cat:$category") {
@@ -144,15 +144,7 @@ internal fun ExamplesDialog(
                     }
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { selected?.let(onLoad) },
-                enabled = selected != null,
-            ) { Text("Load") }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+    }
 }
 
 /**

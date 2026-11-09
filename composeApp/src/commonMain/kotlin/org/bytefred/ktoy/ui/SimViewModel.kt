@@ -202,6 +202,17 @@ class SimViewModel : ViewModel() {
     }
 
     /** The program shown at app start: the 00_stop example. */
+    /** File -> Empty: an empty program of [kind] (C: main returns 0, assembly: stop, bytecode: zeros). */
+    fun loadEmpty(kind: ExampleKind) {
+        val (name, source) = when (kind) {
+            ExampleKind.C -> "empty.toyc" to "int main(void) {\n    return 0;\n}\n"
+            ExampleKind.ASM -> "empty.toys" to "        stop\n"
+            ExampleKind.TOYO -> "empty.toyo" to ""
+        }
+        load(Example(name, kind, source, if (kind == ExampleKind.C) detectCompilers(source) else emptyList()))
+        clearCurrentFile()
+    }
+
     fun loadStartExample() = load(EXAMPLES.first { it.name == START_EXAMPLE && it.kind == ExampleKind.ASM })
 
     // ── loading a file from disk / device ─────────────────────────────────────
@@ -663,6 +674,8 @@ class SimViewModel : ViewModel() {
         selectedCLine = addrToCLine(addr, addrToLine, asmToC)
         selectedFromC = false
         bump()
+        // the I/O cells are not part of the disassembly: typing input there never rebuilds
+        if (autoBuild == AutoBuild.DISASSEMBLE && addr < 240) request(BuildAction.Disassemble)
     }
 
     // ── editing and building (C / Assembly / Bytecode menus) ─────────────────
@@ -687,11 +700,36 @@ class SimViewModel : ViewModel() {
         selectedCLine = null
         memSelectedAddr = null
         bump()
+        if (autoBuild == AutoBuild.DISASSEMBLE) request(BuildAction.Disassemble)
     }
 
-    fun saveCDraft(text: String) { cDraft = text.takeIf { it != cText } }
+    fun saveCDraft(text: String) {
+        cDraft = text.takeIf { it != cText }
+        if (autoBuild == AutoBuild.COMPILE && cDraft != null) request(BuildAction.Compile())
+    }
 
-    fun saveAsmDraft(text: String) { asmDraft = text.takeIf { it != asmText } }
+    fun saveAsmDraft(text: String) {
+        asmDraft = text.takeIf { it != asmText }
+        if (autoBuild == AutoBuild.ASSEMBLE && asmDraft != null) request(BuildAction.Assemble)
+    }
+
+    /** A build step that runs by itself after an edit in its layer (C, Assembly, Bytecode menu). */
+    enum class AutoBuild { COMPILE, ASSEMBLE, DISASSEMBLE }
+
+    /** At most one: assembling then disassembling would undo each other. Off at start. */
+    var autoBuild by mutableStateOf<AutoBuild?>(null); private set
+
+    fun toggleAutoBuild(which: AutoBuild) { autoBuild = if (autoBuild == which) null else which }
+
+    /** Save & Compile / Assemble / Disassemble: the build, unless saving already ran it. */
+    fun buildAfterSave(action: BuildAction) {
+        val auto = when (action) {
+            is BuildAction.Compile -> AutoBuild.COMPILE
+            BuildAction.Assemble -> AutoBuild.ASSEMBLE
+            BuildAction.Disassemble -> AutoBuild.DISASSEMBLE
+        }
+        if (autoBuild != auto) request(action)
+    }
 
     /** A build step from the menus; [request] confirms it first if it loses something. */
     sealed interface BuildAction {

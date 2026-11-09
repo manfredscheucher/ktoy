@@ -153,28 +153,25 @@ private val EFFECTS: Map<Int, String> = mapOf(
 )
 
 /**
- * The Help -> reference text: the 14 instructions, built from INSTR so it can't
- * drift from the real ISA.
+ * Help -> Instruction set: the table of the 14 instructions, built from INSTR so
+ * it can't drift from the real ISA.
  */
-fun referenceText(): String {
-    val lines = mutableListOf("TOY CPU — INSTRUCTION SET", "")
-    lines.add("mnemonic opcode bytes  effect")
-    lines.add("-".repeat(52))
+fun referenceTable(): String {
+    val lines = mutableListOf("mnemonic opcode bytes  effect", "-".repeat(52))
     for (op in INSTR.keys.sorted()) {
         val name = INSTR.getValue(op).name.lowercase()
         val nbytes = if (hasOperand(op)) 2 else 1
         lines.add(name.padEnd(8) + op.toString().padStart(7) + nbytes.toString().padStart(6) + "  " + (EFFECTS[op] ?: ""))
     }
-    lines += listOf(
-        "",
-        "Any opcode not listed behaves like nop.",
-        "Arithmetic wraps modulo 256.",
-        "ifzero is the only conditional.",
-        "",
-        "Right-click a line (long-press on touch) to edit it.",
-    )
     return lines.joinToString("\n")
 }
+
+/** The notes under the table. */
+val REFERENCE_NOTES = "Any opcode not listed behaves like nop. Arithmetic wraps modulo 256. " +
+    "ifzero is the only conditional."
+
+/** The table and the notes as plain text. */
+fun referenceText(): String = referenceTable() + "\n\n" + REFERENCE_NOTES
 
 /** The opcodes with a reference effect — for a test guarding EFFECTS vs INSTR. */
 internal fun instrOpcodes(): Set<Int> = INSTR.keys

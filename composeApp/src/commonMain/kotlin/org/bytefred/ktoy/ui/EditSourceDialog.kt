@@ -4,8 +4,12 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -56,11 +60,23 @@ fun EditSourceDialog(
     val text = field.text
     var error by remember { mutableStateOf<String?>(null) }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            if (singleLine) {
+    fun save(build: Boolean) {
+        error = check(text)
+        if (error == null) { onSave(text); onDismiss(); if (build) onBuild() }
+    }
+
+    @Composable
+    fun Buttons() {
+        TextButton(onClick = onDismiss) { Text("Cancel") }
+        TextButton(onClick = { save(false) }) { Text("Save") }
+        if (buildLabel != null) TextButton(onClick = { save(true) }) { Text("Save & $buildLabel") }
+    }
+
+    if (singleLine) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text(title) },
+            text = {
                 OutlinedTextField(
                     value = field,
                     onValueChange = { field = it; error = null },
@@ -71,47 +87,38 @@ fun EditSourceDialog(
                     textStyle = MonoStyle,
                     modifier = Modifier.testTag("edit-source"),
                 )
-            } else {
-                // The field grows with its text and the box around it scrolls both ways, like
-                // the code panels: a text field's own scrolling has no scrollbars. The error
-                // stays outside, in view.
-                val vScroll = rememberScrollState()
-                val hScroll = rememberScrollState()
-                FollowCursor(field, firstLineNumber, vScroll, hScroll)
-                Column {
-                    ScrollbarBox(vScroll, Modifier.weight(1f, fill = false).heightIn(max = 360.dp), hScroll) {
-                        Box(Modifier.verticalScroll(vScroll).horizontalScroll(hScroll).padding(end = 8.dp, bottom = 8.dp)) {
-                            OutlinedTextField(
-                                value = field,
-                                onValueChange = { field = it; error = null },
-                                label = { Text(label) },
-                                isError = error != null,
-                                textStyle = MonoStyle,
-                                visualTransformation = LineNumbers(firstLineNumber),
-                                modifier = Modifier.heightIn(min = 160.dp).testTag("edit-source"),
-                            )
-                        }
-                    }
-                    error?.let { Text(it, Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.error) }
-                }
+            },
+            confirmButton = { Row { Buttons() } },
+        )
+        return
+    }
+    BigDialog(title, onDismiss, buttons = { Buttons() }) {
+        // The field grows with its text and the box around it scrolls both ways, like
+        // the code panels: a text field's own scrolling has no scrollbars. The error
+        // stays outside, in view.
+        val vScroll = rememberScrollState()
+        val hScroll = rememberScrollState()
+        FollowCursor(field, firstLineNumber, vScroll, hScroll)
+        // the field fills the box at least, so it doesn't sit small in a big dialog
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+        val minW = maxWidth - 8.dp
+        val minH = maxHeight - 8.dp
+        ScrollbarBox(vScroll, Modifier.fillMaxSize(), hScroll) {
+            Box(Modifier.verticalScroll(vScroll).horizontalScroll(hScroll).padding(end = 8.dp, bottom = 8.dp)) {
+                OutlinedTextField(
+                    value = field,
+                    onValueChange = { field = it; error = null },
+                    label = { Text(label) },
+                    isError = error != null,
+                    textStyle = MonoStyle,
+                    visualTransformation = LineNumbers(firstLineNumber),
+                    modifier = Modifier.widthIn(min = minW).heightIn(min = minH).testTag("edit-source"),
+                )
             }
-        },
-        confirmButton = {
-            Row {
-                TextButton(onClick = {
-                    error = check(text)
-                    if (error == null) { onSave(text); onDismiss() }
-                }) { Text("Save") }
-                if (buildLabel != null) {
-                    TextButton(onClick = {
-                        error = check(text)
-                        if (error == null) { onSave(text); onDismiss(); onBuild() }
-                    }) { Text("Save & $buildLabel") }
-                }
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+        }
+        }
+        error?.let { Text(it, Modifier.padding(top = 4.dp), color = MaterialTheme.colorScheme.error) }
+    }
 }
 
 /**

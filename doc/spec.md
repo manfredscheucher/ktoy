@@ -1080,3 +1080,33 @@ Manfred: keep the code simple.
 - Disassemble warns when cells 240..255 hold values: the disassembly covers 0..239 only.
 - Same program, same data in assembly and C: `greet_name` writes "Hallo NAME" (up to 9 characters),
   `multiply_*` 7 * 6, `sum_array`/`max_array` 10 values, `times7_*` in `02-extended`.
+
+## 31. 2026-11-09: File -> Empty, Save dialog, Help pages, big dialogs, auto build
+
+- File -> Empty folds out C / Assembly / Bytecode in the menu (Material3 menus have no real
+  submenus). C: `int main(void) { return 0; }`, assembly: `stop`, bytecode: all zeros. Asks first
+  when edits are unsaved.
+- File -> Save opens one dialog: a full-width button per format the program has, highest level
+  first ("Save C", "Save assembly", "Save bytecode"), then Cancel. Leaving with unsaved edits
+  shows the same buttons with Discard and Cancel. Only one format: saves at once. A format that
+  lacks an edit still asks first ("This file lacks your edits"). Design from a fresh reviewer,
+  confirmed by Manfred over his first idea (Save C / Save asm / Save bytecode / Don't save).
+- Help: General (short overview of everything), Instruction set, C compilers, About. No caption
+  plus sub-caption style, plain paragraphs, monospace only for the instruction table. C compilers:
+  mini C first, full C as "extends mini C by …". Edit and build is folded into General.
+- Content dialogs (Help, the multiline editors, Examples) fill the window but a 16 dp margin, on
+  every platform. Short questions stay small.
+- C / Assembly / Bytecode menus: Auto compile / assemble / disassemble on edit. Off at start, not
+  remembered, at most one on (assemble then disassemble would undo each other). Auto disassemble
+  follows bytecode edits of cells 0..239 only, so typing into the I/O panel never rebuilds.
+  Save & X in an edit dialog does not build a second time.
+- Every C example's result is what main returns: both compilers leave it in ACC at stop.
+- The panels centre a line only after their first layout (the memory column opened scrolled by
+  about two rows, hiding its header and address 0).
+- Disassemble reads more like the hand-written examples (Manfred: "assembly to bytecode and back
+  should give about the same code"; comments and names may differ). Checked on every assembly
+  example: same structure, only labels differ. Changes: the columns as in the examples
+  (`load  x`), a blank line after goto and stop, `# data` before the data at the end, an operand
+  the program patches stays a number with "# patched by the program", and a data cell that a
+  load carries into such a patch (`load ptr; add i; store L5+1`) is written as the address it
+  holds (`D35`, `io0`). A pointer that is 0 or points past the last value stays a number.

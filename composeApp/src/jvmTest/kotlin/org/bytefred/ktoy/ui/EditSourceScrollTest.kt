@@ -144,8 +144,10 @@ class EditSourceScrollTest {
         val long = "load x # " + "a long comment ".repeat(20)
         dialog("$long\nstop")
         onNodeWithTag("hscroll-thumb").assertIsDisplayed()
+        // unwrapped, the line makes the field wider than the dialog
         val field = onNodeWithTag("edit-source").getUnclippedBoundsInRoot()
-        assertTrue(field.bottom.value - field.top.value < 170, "wrapped: ${field}")
+        val dialog = onNodeWithTag("big-dialog").getUnclippedBoundsInRoot()
+        assertTrue(field.right - field.left > dialog.right - dialog.left, "wrapped: $field in $dialog")
     }
 
     @Test

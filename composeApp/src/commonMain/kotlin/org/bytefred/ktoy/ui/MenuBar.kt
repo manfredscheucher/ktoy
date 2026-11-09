@@ -23,6 +23,7 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -55,7 +56,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 import org.bytefred.ktoy.GeneratedVersionInfo
-import org.bytefred.ktoy.core.referenceText
+import org.bytefred.ktoy.core.ExampleKind
 
 /**
  * The simulator's menu bar: File (Load/Reload/Save), one menu per layer of the
@@ -81,14 +82,16 @@ fun SimMenuBar(
     // the open menu's title, or null; one state for all menus, so a click on
     // another title switches straight to that menu (see MenuButton)
     var openMenu by remember { mutableStateOf<String?>(null) }
-    var savePickerFor by remember { mutableStateOf<List<Pair<String, String>>?>(null) }
-    // the format chosen in the picker, while "this file lacks your edits" asks
+    var saveOpen by remember { mutableStateOf(false) }
+    // the format chosen, while "this file lacks your edits" asks
     var staleSaveFor by remember { mutableStateOf<String?>(null) }
     // Escape closes an open menu: the popups are not focusable (see MenuButton),
     // so the bar takes the focus while a menu is open
     val barFocus = remember { FocusRequester() }
     LaunchedEffect(openMenu) { if (openMenu != null) barFocus.requestFocus() }
-    var help by remember { mutableStateOf<Pair<String, String>?>(null) }   // title to text
+    var help by remember { mutableStateOf<HelpPage?>(null) }
+    var emptyOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(openMenu) { emptyOpen = false }
     var showAbout by remember { mutableStateOf(false) }
     // Welcome / early-development notice at start, until "Don't show again".
     // rememberSaveable so an Android rotation doesn't re-open a dismissed one.
@@ -97,10 +100,13 @@ fun SimMenuBar(
     val loadFromDisk = rememberFileLoader { name, text, path -> vm.loadFromFile(name, text, path) }
     val saveToDisk = rememberFileSaver(vm::fileSaved)
     // one format saves right away, several ask which (C preselected, else assembly)
+    fun pick(ext: String) {
+        if (vm.missingFrom(ext).isNotEmpty()) staleSaveFor = ext
+        else { saveOpen = false; saveAs(vm, saveToDisk, ext) }
+    }
     fun save() {
         val formats = vm.saveFormats()
-        if (formats.size == 1) saveAs(vm, saveToDisk, formats[0].second)
-        else savePickerFor = formats
+        if (formats.size == 1) pick(formats[0].second) else saveOpen = true
     }
 
     // a menu entry: closes the menu, then runs [onClick]
@@ -126,6 +132,18 @@ fun SimMenuBar(
         // ── File ──
         MenuButton("File", openMenu, { openMenu = it }) {
             Item("Examples…", onClick = onBrowseExamples)
+            // a submenu folded out in place: Material3 menus have no submenus
+            DropdownMenuItem(
+                text = { Text(if (emptyOpen) "Empty ▾" else "Empty ▸") },
+                onClick = { emptyOpen = !emptyOpen },
+                modifier = Modifier.testTag("menu-empty"),
+            )
+            if (emptyOpen) for ((label, kind) in listOf("C" to ExampleKind.C, "Assembly" to ExampleKind.ASM, "Bytecode" to ExampleKind.TOYO))
+                DropdownMenuItem(
+                    text = { Text(label, Modifier.padding(start = 16.dp)) },
+                    onClick = { openMenu = null; emptyOpen = false; vm.leave { vm.loadEmpty(kind) } },
+                    modifier = Modifier.testTag("empty-$label"),
+                )
             Item("Load…") { vm.leave(loadFromDisk) }
             if (fileReloadSupported) Item("Reload", vm.canReload) { vm.leave { vm.reload() } }
             Item("Save…") { save() }
@@ -135,6 +153,7 @@ fun SimMenuBar(
         MenuButton("C", openMenu, { openMenu = it }, enabled = vm.hasCSource) {
             Item("Edit…", onClick = onEditC)
             Item("Compile") { vm.request(SimViewModel.BuildAction.Compile()) }
+            AutoItem(vm, SimViewModel.AutoBuild.COMPILE, "Auto compile on edit")
             HorizontalDivider()
             // switching recompiles right away (full C is the default at load)
             for ((compiler, label) in listOf("toycc" to "Full C (toycc)", "minicc" to "Mini C (minicc)")) {
@@ -149,6 +168,7 @@ fun SimMenuBar(
         MenuButton("Assembly", openMenu, { openMenu = it }, enabled = vm.asmText != null) {
             Item("Edit…", onClick = onEditAsm)
             Item("Assemble") { vm.request(SimViewModel.BuildAction.Assemble) }
+            AutoItem(vm, SimViewModel.AutoBuild.ASSEMBLE, "Auto assemble on edit")
         }
 
         // ── Bytecode ──
@@ -156,6 +176,7 @@ fun SimMenuBar(
             Item("Edit…", onClick = onEditBytecode)
             Item("Edit line…", vm.memSelectedAddr != null, onEditCell)
             Item("Disassemble") { vm.request(SimViewModel.BuildAction.Disassemble) }
+            AutoItem(vm, SimViewModel.AutoBuild.DISASSEMBLE, "Auto disassemble on edit")
         }
 
         // ── View ──
@@ -169,7 +190,8 @@ fun SimMenuBar(
             // Layout: AUTO (by window size) / PORTRAIT (stacked) / LANDSCAPE
             // (side by side). A flat radio group rather than a nested submenu,
             // since Material3 DropdownMenu has no built-in submenus.
-            Text("Layout", style = MonoStyle,
+            Text("Layout", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
             for (mode in LayoutMode.entries) {
                 CheckItem("  " + mode.name.lowercase(), vm.layoutMode == mode) {
@@ -180,46 +202,33 @@ fun SimMenuBar(
 
         // ── Help ──
         MenuButton("Help", openMenu, { openMenu = it }) {
-            Item("Instruction set & shortcuts") { help = "Instruction set & shortcuts" to referenceText() }
-            Item("Edit and build") { help = "Edit and build" to BUILD_HELP }
-            Item("C: full C vs mini C") { help = "C: full C vs mini C" to C_HELP }
+            for (page in HelpPage.entries) Item(page.title) { help = page }
             Item("About ktoy") { showAbout = true }
         }
     }
 
     // Load / Examples / Reload / closing the window with unsaved edits
-    if (vm.pendingLeave != null && savePickerFor == null) {
-        UnsavedEditsDialog(
-            vm.unsavedDescription(),
-            onSave = ::save,
-            onDiscard = vm::discardAndLeave,
-            onCancel = vm::cancelLeave,
-        )
-    }
-
-    // Save-format picker (shown only when more than one format applies)
-    if (staleSaveFor == null) savePickerFor?.let { formats ->
-        SaveFormatDialog(
-            formats,
-            onSave = { ext ->
-                if (vm.missingFrom(ext).isNotEmpty()) staleSaveFor = ext
-                else { savePickerFor = null; saveAs(vm, saveToDisk, ext) }
-            },
-            // also cancels a pending Load / Examples / Reload / close
-            onDismiss = { savePickerFor = null; vm.cancelLeave() },
-        )
+    if (vm.pendingLeave != null && staleSaveFor == null) {
+        SaveChoiceDialog("Save changes?", "Not saved to a file yet: ${vm.unsavedDescription()}.", vm.saveFormats(), ::pick, vm::cancelLeave) {
+            TextButton(onClick = vm::discardAndLeave) { Text("Discard") }
+            TextButton(onClick = vm::cancelLeave) { Text("Cancel") }
+        }
+    } else if (saveOpen && staleSaveFor == null) {
+        SaveChoiceDialog("Save", null, vm.saveFormats(), ::pick, { saveOpen = false }) {
+            TextButton(onClick = { saveOpen = false }) { Text("Cancel") }
+        }
     }
 
     // the chosen format lacks an edit: ask first
     staleSaveFor?.let { ext ->
         StaleSaveDialog(
             vm.missingFrom(ext),
-            onSaveAnyway = { staleSaveFor = null; savePickerFor = null; saveAs(vm, saveToDisk, ext) },
+            onSaveAnyway = { staleSaveFor = null; saveOpen = false; saveAs(vm, saveToDisk, ext) },
             onBack = { staleSaveFor = null },
         )
     }
 
-    help?.let { (title, text) -> TextDialog(title, text) { help = null } }
+    help?.let { HelpDialog(it) { help = null } }
     if (showAbout) AboutDialog { showAbout = false }
     if (showWelcome) WelcomeDialog { showWelcome = false }
 }
@@ -246,52 +255,43 @@ private fun StaleSaveDialog(missing: List<String>, onSaveAnyway: () -> Unit, onB
     )
 }
 
-/** "Save changes?" before the program is replaced: Save… / Discard / Cancel. */
+/**
+ * Which format to save, one full-width button each, highest level first;
+ * [buttons] below them (Cancel, or Discard / Cancel before leaving).
+ */
 @Composable
-private fun UnsavedEditsDialog(unsaved: String, onSave: () -> Unit, onDiscard: () -> Unit, onCancel: () -> Unit) {
+private fun SaveChoiceDialog(
+    title: String,
+    message: String?,
+    formats: List<Pair<String, String>>,
+    onPick: (ext: String) -> Unit,
+    onDismiss: () -> Unit,
+    buttons: @Composable () -> Unit,
+) {
     AlertDialog(
-        onDismissRequest = onCancel,
-        title = { Text("Save changes?") },
-        text = { Text("Not saved to a file yet: $unsaved.") },
-        confirmButton = { TextButton(onClick = onSave) { Text("Save…") } },
-        dismissButton = {
-            Row {
-                TextButton(onClick = onDiscard) { Text("Discard") }
-                TextButton(onClick = onCancel) { Text("Cancel") }
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                message?.let { Text(it, Modifier.padding(bottom = 4.dp)) }
+                for ((_, ext) in formats)
+                    FilledTonalButton(onClick = { onPick(ext) }, Modifier.fillMaxWidth()) { Text(saveLabel(ext)) }
             }
         },
+        confirmButton = { Row { buttons() } },
     )
 }
 
-/** Which format to save: one radio button each, the first (highest level) preselected. */
-@Composable
-private fun SaveFormatDialog(
-    formats: List<Pair<String, String>>,
-    onSave: (ext: String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var chosen by remember(formats) { mutableStateOf(formats.first().second) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Save as") },
-        text = {
-            Column {
-                formats.forEach { (label, ext) ->
-                    Row(
-                        Modifier.fillMaxWidth()
-                            .selectable(chosen == ext, role = Role.RadioButton) { chosen = ext },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(chosen == ext, onClick = null)
-                        Text(label, Modifier.padding(start = 8.dp))
-                    }
-                }
-            }
-        },
-        confirmButton = { TextButton(onClick = { onSave(chosen) }) { Text("Save") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
-    )
+private fun saveLabel(ext: String) = when (ext) {
+    ".toyc" -> "Save C"
+    ".toys" -> "Save assembly"
+    else -> "Save bytecode"
 }
+
+/** A menu toggle for one [SimViewModel.AutoBuild]; turning one on turns the others off. */
+@Composable
+private fun AutoItem(vm: SimViewModel, which: SimViewModel.AutoBuild, label: String) =
+    CheckItem(label, vm.autoBuild == which) { vm.toggleAutoBuild(which) }
 
 /**
  * A menu title that opens a [DropdownMenu]. Plain clickable text rather than a
@@ -351,28 +351,6 @@ private fun CheckItem(label: String, checked: Boolean, onToggle: () -> Unit) {
     DropdownMenuItem(
         text = { Text((if (checked) "✓ " else "   ") + label) },
         onClick = onToggle,
-    )
-}
-
-/** A read-only, monospaced, scrollable text dialog (Help reference). */
-@Composable
-private fun TextDialog(title: String, body: String, onDismiss: () -> Unit) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            val vScroll = rememberScrollState()
-            val hScroll = rememberScrollState()
-            ScrollbarBox(vScroll, Modifier.heightIn(max = 480.dp), hScroll) {
-                Text(
-                    body,
-                    style = MonoStyle,
-                    softWrap = false,
-                    modifier = Modifier.verticalScroll(vScroll).horizontalScroll(hScroll),
-                )
-            }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("OK") } },
     )
 }
 
@@ -485,89 +463,3 @@ private const val PLAYLIST_URL = "https://www.youtube.com/watch?v=vQxGXtlf5c4&li
 // subject "ktoy feedback", body "hi manfred," + blank line
 private const val FEEDBACK_MAILTO =
     "mailto:$EMAIL?subject=ktoy%20feedback&body=hi%20manfred%2C%0A%0A"
-
-private const val BUILD_HELP = """EDIT AND BUILD
-
-A program goes down three layers:
-  C  --Compile-->  assembly  --Assemble-->  bytecode
-and back up one:
-  bytecode  --Disassemble-->  assembly
-
-Edit
-  Right-click a column (long-press on a touch screen) and
-  choose Edit… or Edit line…, or use the C / Assembly /
-  Bytecode menu.
-  - C and assembly: Save only stores the text. The column
-    shows "(modified)" and the program keeps running the
-    old version until you Compile / Assemble. Save & Compile
-    / Save & Assemble does both.
-  - Edit line changes only that line.
-  - Bytecode: takes effect at once. Edit… shows all 256
-    cells, one integer per line. Missing lines at the end
-    are 0; more than 256 lines is an error.
-
-Compile (C menu)
-  C -> assembly -> bytecode. The compiler choice in the
-  same menu (full C / mini C) recompiles right away.
-
-Assemble (Assembly menu)
-  Assembly -> bytecode. For a C program the C column goes
-  away: the program is plain assembly from then on.
-
-Disassemble (Bytecode menu)
-  The current memory (with your cell edits and what the
-  program stored) -> assembly. Code and data are told
-  apart by following the jumps from address 0; every byte
-  that is never executed comes out as data. Labels are
-  generated: L12 for code, D40 for data.
-
-Reset vs. Compile / Assemble
-  Reset (bottom bar) goes back to the start of the last
-  build: PC 0, ACC 0, the bytes as built. Compile and
-  Assemble build again from the source text.
-
-Before a step throws something away (the C column, a
-run in progress, memory edits, unassembled edits) ktoy
-asks first and lists what would be lost.
-
-Saving
-  File -> Save… asks for the format (the highest level is
-  preselected). An edit counts as saved only in the format
-  it was made in: C edits as C, assembly as assembly,
-  memory cells as bytecode. If the chosen format lacks an
-  edit, ktoy asks first. Until all is saved, Load, Examples,
-  Reload and closing the window ask "Save changes?".
-  A run is no edit. A bytecode file holds the program as
-  built plus your cell edits: one value per line, up to
-  the last non-zero cell.
-  Reload reads the file from disk again. Saving at the
-  highest level makes that file the one Reload opens; a
-  lower level is only an export.
-"""
-
-private const val C_HELP = """C COMPILERS
-
-ktoy compiles a small subset of C to Toy CPU assembly and
-shows C, assembly and memory side by side. There are two
-compilers; switch with the button above the C column
-(or in the C menu).
-
-full C (toycc)
-  - functions, including recursion (a software stack
-    in memory)
-  - arrays and pointers
-  - read() / write() for the I/O cells
-
-mini C (minicc)
-  - small and readable, made to see how a compiler works
-  - several functions, but no recursion (no call stack)
-  - no pointers, no I/O
-  - flat variable scope (a name declared in a { } block
-    stays visible after it)
-
-Both
-  - every int is 8 bits (0..255) and wraps mod 256
-  - < > <= >= use bit 7, correct when the operands
-    differ by less than 128
-  - code and data must fit into 240 bytes
-"""
