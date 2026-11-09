@@ -1117,3 +1117,12 @@ Prompt: "kannst du bitte wie in ../sat-chess-kotlin den style machn? da is obn n
 
 - The menu bar is one grey strip (#E6E8EB) across the full width at the top, no rounded corners or margin; the program title stays on its right.
 - The colour scheme is the sat-chess one: teal primary (#2F5D62), neutral white/grey surfaces. The highlight colours of the panels are unchanged.
+
+## 33. Confirm dialog text, auto build confirm
+
+Prompts: "beim disamble dialog wenn er nachfragt is vorn ein komischer punkt . da is auch zu viel text in klammern … schreib konkret dass beim disassemblen verworfen wird"; "beim auto disassemble kannst auch den dialog anzeigen, nur wenn bestätigt toggle aktivieren; analog für auto compile und auto assemble".
+
+- The confirm dialog is one sentence without bullets or brackets: "Disassemble discards the C code, your C edits and the current run."
+- Switching an auto toggle on builds once right away. If that build discards something, the same confirm dialog comes first, and the toggle only goes on with its OK (Manfred's choice). Cancel leaves it off.
+- While a toggle is on, the builds it triggers never ask: switching it on was the OK.
+- Picking a toggle closes the menu.

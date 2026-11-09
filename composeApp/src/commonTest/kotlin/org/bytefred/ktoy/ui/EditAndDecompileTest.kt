@@ -103,7 +103,16 @@ class EditAndDecompileTest {
         val c = cVm()
         c.saveAsmDraft("stop\n")
         assertTrue(c.lossesFor(BuildAction.Compile()).any { "assembly edits" in it })
-        assertTrue(c.lossesFor(BuildAction.Disassemble).any { "C column" in it })
+        assertTrue(c.lossesFor(BuildAction.Disassemble).any { "C code" in it })
+    }
+
+    @Test
+    fun theConfirmTextIsOneSentence() {
+        assertEquals("Assemble discards the current run.", lossSentence("Assemble", listOf("the current run")))
+        assertEquals(
+            "Disassemble discards the C code, your C edits and the current run.",
+            lossSentence("Disassemble", listOf("the C code", "your C edits", "the current run")),
+        )
     }
 
     @Test

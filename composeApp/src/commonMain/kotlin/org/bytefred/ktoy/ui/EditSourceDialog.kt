@@ -2,12 +2,10 @@ package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -169,22 +167,24 @@ internal class LineNumbers(private val first: Int) : VisualTransformation {
 }
 
 /**
- * Asks before a build step that would throw something away: one line per
- * [losses] entry, then [actionLabel] / Cancel.
+ * Asks before a build step that would throw something away: one sentence
+ * "[actionLabel] discards a, b and c.", then [actionLabel] / Cancel.
  */
 @Composable
 fun ConfirmLossDialog(actionLabel: String, losses: List<String>, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("$actionLabel?") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                losses.forEach { Text("• $it") }
-            }
-        },
+        text = { Text(lossSentence(actionLabel, losses)) },
         confirmButton = { TextButton(onClick = onConfirm) { Text(actionLabel) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
     )
+}
+
+/** "Disassemble discards a, b and c." */
+fun lossSentence(actionLabel: String, losses: List<String>): String {
+    val list = if (losses.size < 2) losses.joinToString() else losses.dropLast(1).joinToString(", ") + " and " + losses.last()
+    return "$actionLabel discards $list."
 }
 
 /**

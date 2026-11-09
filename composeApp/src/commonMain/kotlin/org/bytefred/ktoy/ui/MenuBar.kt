@@ -153,7 +153,7 @@ fun SimMenuBar(
         MenuButton("C", openMenu, { openMenu = it }, enabled = vm.hasCSource) {
             Item("Edit…", onClick = onEditC)
             Item("Compile") { vm.request(SimViewModel.BuildAction.Compile()) }
-            AutoItem(vm, SimViewModel.AutoBuild.COMPILE, "Auto compile on edit")
+            AutoItem(vm, SimViewModel.AutoBuild.COMPILE, "Auto compile on edit") { openMenu = null }
             HorizontalDivider()
             // switching recompiles right away (full C is the default at load)
             for ((compiler, label) in listOf("toycc" to "Full C (toycc)", "minicc" to "Mini C (minicc)")) {
@@ -168,7 +168,7 @@ fun SimMenuBar(
         MenuButton("Assembly", openMenu, { openMenu = it }, enabled = vm.asmText != null) {
             Item("Edit…", onClick = onEditAsm)
             Item("Assemble") { vm.request(SimViewModel.BuildAction.Assemble) }
-            AutoItem(vm, SimViewModel.AutoBuild.ASSEMBLE, "Auto assemble on edit")
+            AutoItem(vm, SimViewModel.AutoBuild.ASSEMBLE, "Auto assemble on edit") { openMenu = null }
         }
 
         // ── Bytecode ──
@@ -176,7 +176,7 @@ fun SimMenuBar(
             Item("Edit…", onClick = onEditBytecode)
             Item("Edit line…", vm.memSelectedAddr != null, onEditCell)
             Item("Disassemble") { vm.request(SimViewModel.BuildAction.Disassemble) }
-            AutoItem(vm, SimViewModel.AutoBuild.DISASSEMBLE, "Auto disassemble on edit")
+            AutoItem(vm, SimViewModel.AutoBuild.DISASSEMBLE, "Auto disassemble on edit") { openMenu = null }
         }
 
         // ── View ──
@@ -290,8 +290,9 @@ private fun saveLabel(ext: String) = when (ext) {
 
 /** A menu toggle for one [SimViewModel.AutoBuild]; turning one on turns the others off. */
 @Composable
-private fun AutoItem(vm: SimViewModel, which: SimViewModel.AutoBuild, label: String) =
-    CheckItem(label, vm.autoBuild == which) { vm.toggleAutoBuild(which) }
+private fun AutoItem(vm: SimViewModel, which: SimViewModel.AutoBuild, label: String, closeMenu: () -> Unit) =
+    // closes the menu: switching on builds right away, maybe after a dialog
+    CheckItem(label, vm.autoBuild == which) { closeMenu(); vm.toggleAutoBuild(which) }
 
 /**
  * A menu title that opens a [DropdownMenu]. Plain clickable text rather than a

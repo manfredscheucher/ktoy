@@ -739,7 +739,7 @@ class SimulatorScreenUiTest {
 
         menu("Assembly", "Assemble")
         onNodeWithText("Assemble?").assertExists()
-        onNodeWithText("C column", substring = true).assertExists()
+        onNodeWithText("the C code", substring = true).assertExists()
         onNodeWithText("Cancel").performClick()
         waitForIdle()
         assertTrue(vm.hasCSource, "Cancel keeps the C")

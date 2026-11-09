@@ -675,7 +675,7 @@ class SimViewModel : ViewModel() {
         selectedFromC = false
         bump()
         // the I/O cells are not part of the disassembly: typing input there never rebuilds
-        if (autoBuild == AutoBuild.DISASSEMBLE && addr < 240) request(BuildAction.Disassemble)
+        if (autoBuild == AutoBuild.DISASSEMBLE && addr < 240) perform(BuildAction.Disassemble)
     }
 
     // ── editing and building (C / Assembly / Bytecode menus) ─────────────────
@@ -700,26 +700,42 @@ class SimViewModel : ViewModel() {
         selectedCLine = null
         memSelectedAddr = null
         bump()
-        if (autoBuild == AutoBuild.DISASSEMBLE) request(BuildAction.Disassemble)
+        if (autoBuild == AutoBuild.DISASSEMBLE) perform(BuildAction.Disassemble)
     }
 
     fun saveCDraft(text: String) {
         cDraft = text.takeIf { it != cText }
-        if (autoBuild == AutoBuild.COMPILE && cDraft != null) request(BuildAction.Compile())
+        if (autoBuild == AutoBuild.COMPILE && cDraft != null) perform(BuildAction.Compile())
     }
 
     fun saveAsmDraft(text: String) {
         asmDraft = text.takeIf { it != asmText }
-        if (autoBuild == AutoBuild.ASSEMBLE && asmDraft != null) request(BuildAction.Assemble)
+        if (autoBuild == AutoBuild.ASSEMBLE && asmDraft != null) perform(BuildAction.Assemble)
     }
 
     /** A build step that runs by itself after an edit in its layer (C, Assembly, Bytecode menu). */
     enum class AutoBuild { COMPILE, ASSEMBLE, DISASSEMBLE }
 
-    /** At most one: assembling then disassembling would undo each other. Off at start. */
+    /**
+     * At most one: assembling then disassembling would undo each other. Off at start.
+     * The builds it triggers never ask: switching it on is the OK for all of them.
+     */
     var autoBuild by mutableStateOf<AutoBuild?>(null); private set
 
-    fun toggleAutoBuild(which: AutoBuild) { autoBuild = if (autoBuild == which) null else which }
+    // the toggle that confirmPending switches on along with its first build
+    private var pendingAuto: AutoBuild? = null
+
+    /** Off, or on with one build right away; if that build loses something, after the confirm dialog. */
+    fun toggleAutoBuild(which: AutoBuild) {
+        if (autoBuild == which) { autoBuild = null; return }
+        val action = when (which) {
+            AutoBuild.COMPILE -> BuildAction.Compile()
+            AutoBuild.ASSEMBLE -> BuildAction.Assemble
+            AutoBuild.DISASSEMBLE -> BuildAction.Disassemble
+        }
+        if (lossesFor(action).isEmpty()) { autoBuild = which; perform(action) }
+        else { stopRun(); pendingAuto = which; pendingAction = action }
+    }
 
     /** Save & Compile / Assemble / Disassemble: the build, unless saving already ran it. */
     fun buildAfterSave(action: BuildAction) {
@@ -747,23 +763,21 @@ class SimViewModel : ViewModel() {
     /** The action waiting for the user's OK in the confirm dialog, or null. */
     var pendingAction: BuildAction? by mutableStateOf(null); private set
 
-    /** What [action] would throw away, one line each; empty = nothing is lost. */
+    /** What [action] would throw away, as phrases for "[action] discards …"; empty = nothing is lost. */
     fun lossesFor(action: BuildAction): List<String> = buildList {
         val m = machine
-        if (action !is BuildAction.Compile && hasCSource)
-            add("The C column is removed: the program becomes plain assembly" +
-                if (cDraft != null) " (your C edits are lost)." else ".")
-        if (action == BuildAction.Disassemble && hasSource && !hasCSource)
-            add("The assembly is replaced by the disassembled code (labels and comments are lost).")
-        if (action != BuildAction.Assemble && asmDraft != null)
-            add("Your assembly edits that are not assembled yet are lost.")
-        if (m != null && action == BuildAction.Disassemble) {
-            if ((240..255).any { m.mem[it] != 0 }) add("The values in the I/O cells 240..255 are lost.")
-            if (m.stepCount > 0) add("The run starts over at PC 0 (the program bytes 0..239 are kept as they are now).")
-        } else if (m != null) {
-            if (m.stepCount > 0) add("The current run is discarded.")
-            if (m.hasLiveEdits) add("Your memory edits are discarded.")
+        if (action !is BuildAction.Compile && hasCSource) {
+            add("the C code")
+            if (cDraft != null) add("your C edits")
         }
+        if (action == BuildAction.Disassemble && hasSource && !hasCSource)
+            add("the labels and comments of the assembly")
+        if (action != BuildAction.Assemble && asmDraft != null)
+            add("your assembly edits")
+        if (m != null && m.stepCount > 0) add("the current run")
+        if (m != null && action == BuildAction.Disassemble) {
+            if ((240..255).any { m.mem[it] != 0 }) add("the values in the I/O cells")
+        } else if (m != null && m.hasLiveEdits) add("your memory edits")
     }
 
     /** Run [action], or park it in [pendingAction] if [lossesFor] is not empty. */
@@ -772,9 +786,14 @@ class SimViewModel : ViewModel() {
         else { stopRun(); pendingAction = action }
     }
 
-    fun confirmPending() { pendingAction?.let(::perform); pendingAction = null }
+    fun confirmPending() {
+        pendingAuto?.let { autoBuild = it }
+        pendingAuto = null
+        pendingAction?.let(::perform)
+        pendingAction = null
+    }
 
-    fun cancelPending() { pendingAction = null }
+    fun cancelPending() { pendingAuto = null; pendingAction = null }
 
     private fun perform(action: BuildAction) = when (action) {
         is BuildAction.Compile -> compileC(action.compiler)
