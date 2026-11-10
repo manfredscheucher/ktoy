@@ -346,7 +346,8 @@ private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
     val desc = describe(dec.instr, dec.argAddr, symOf, m.mem)
     val header = when {
         m.stopped -> "Stopped after ${m.stepCount} steps."
-        else -> "Step #${m.stepCount}:"
+        // the instruction about to run is step #1 for the first one, as in the mini simulator
+        else -> "Step #${m.stepCount + 1}:"
     }
     // the raw bytes of the current instruction: opcode, plus the operand byte
     // for a two-byte instruction — like pytoy's "OP{n}=b.. b..".

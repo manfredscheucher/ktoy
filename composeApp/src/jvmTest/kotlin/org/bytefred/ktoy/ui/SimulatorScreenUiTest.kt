@@ -119,6 +119,16 @@ class SimulatorScreenUiTest {
     }
 
     @Test
+    fun theFirstStepIsStepOne() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        onNodeWithText("Step #1:", substring = true).assertExists()
+        vm.step()
+        waitForIdle()
+        onNodeWithText("Step #2:", substring = true).assertExists()
+    }
+
+    @Test
     fun editAsmViaMenuThenAssemble() = runComposeUiTest {
         val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
         show(vm)

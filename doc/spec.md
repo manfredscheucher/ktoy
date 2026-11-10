@@ -1152,3 +1152,7 @@ Manfred: the examples say in their header whether they use I/O ("hab ich dir nic
 - A nop under each goto (at the next block's label) makes every block 5 operations whether ifzero jumps or not. Total: 5 * (2^32 + 2^24 + 2^16 + 2^8) + 4 = 21559051524 steps.
 - The 32-bit `Int` step counter overflows on this example. That is intended (Manfred), it stays `Int`.
 - Tests: ExampleStepsTest and MiniSimTest don't run it to STOP; `countTo2Pow32TakesFiveStepsPerBlock` starts with byte1..byte3 at 255 and checks 5 * (256 + 3) + 4 steps.
+
+## 37. Step numbers start at 1
+
+- Manfred: the CPU status block counts steps from 1, as the mini simulator does: before the first instruction it shows "Step #1:". The "Stopped after N steps." count is unchanged.
