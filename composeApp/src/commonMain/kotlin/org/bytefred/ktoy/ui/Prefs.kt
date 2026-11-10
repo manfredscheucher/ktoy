@@ -14,3 +14,4 @@ expect fun savePref(key: String, value: String)
 internal const val LINE_NUMBERS_PREF = "lineNumbers"
 internal const val AUTO_SCROLL_PREF = "autoScroll"
 internal const val LAYOUT_PREF = "layout"
+internal const val MEMORY_VIEW_PREF = "memoryView"

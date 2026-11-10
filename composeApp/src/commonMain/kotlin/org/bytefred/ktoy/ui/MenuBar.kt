@@ -204,6 +204,16 @@ fun SimMenuBar(
                     savePref(LAYOUT_PREF, mode.name)
                 }
             }
+            HorizontalDivider()
+            Text("Memory", style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp))
+            for (view in MemoryView.entries) {
+                CheckItem("  " + view.label.lowercase(), vm.memoryView == view) {
+                    vm.memoryView = view
+                    savePref(MEMORY_VIEW_PREF, view.name)
+                }
+            }
         }
 
         // ── Help ──

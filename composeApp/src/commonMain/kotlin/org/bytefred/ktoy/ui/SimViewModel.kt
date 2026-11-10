@@ -86,6 +86,9 @@ class SimViewModel : ViewModel() {
     // line (">>") is centred.
     var autoScroll by mutableStateOf(loadPref(AUTO_SCROLL_PREF) != "false")
 
+    // View -> Memory: single column (default) or a 16 / 8 column grid of values.
+    var memoryView by mutableStateOf(MemoryView.entries.firstOrNull { it.name == loadPref(MEMORY_VIEW_PREF) } ?: MemoryView.SINGLE_COLUMN)
+
     // Panel shares set by dragging the dividers, one map for side by side and
     // one for stacked. Equal by default; stacked memory gets 2 (it carries the
     // status block on top of the 256-byte listing).

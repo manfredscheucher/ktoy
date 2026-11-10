@@ -1,6 +1,7 @@
 package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -349,11 +350,11 @@ private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
         // the instruction about to run is step #1 for the first one, as in the mini simulator
         else -> "Step #${m.stepCount + 1}:"
     }
-    // the raw bytes of the current instruction: opcode, plus the operand byte
-    // for a two-byte instruction — like pytoy's "OP{n}=b.. b..".
-    val bytes = if (dec.argAddr != null) "b${bin8(dec.instr)} b${bin8(m.mem[(m.pc + 1) % 256])}"
-                else "b${bin8(dec.instr)}"
-    val opCount = bytes.split(" ").size
+    // the raw bytes of the current instruction, decimal and binary like ACC: the
+    // opcode (the mini simulator's "op=") and, for a two-byte instruction, its
+    // operand byte
+    val opByte = m.mem[m.pc]
+    val argByte = if (dec.argAddr != null) m.mem[(m.pc + 1) % 256] else null
     // ACC: green when stopped (final result), blue when the last step wrote it
     val accColour: Color? = when {
         m.stopped && m.stepCount > 0 -> HL_ARG
@@ -364,7 +365,8 @@ private fun StatusBlock(vm: SimViewModel, symOf: (Int) -> String) {
         Text(header, style = MonoStyle)
         HighlightRow("  ACC=${m.acc}=b${bin8(m.acc)}", if (accColour != null) listOf(accColour) else emptyList())
         Text("  PC=${m.pc}", style = MonoStyle)
-        Text("  OP$opCount=$bytes", style = MonoStyle)
+        Text("  OP=$opByte=b${bin8(opByte)}", style = MonoStyle)
+        if (argByte != null) Text("  ARG=$argByte=b${bin8(argByte)}", style = MonoStyle)
         Text("  EXPLAIN: $desc", style = MonoStyle)
     }
 }
@@ -520,6 +522,11 @@ private fun MemoryPanel(
     val gestures = LocalEditGestures.current
     EditMenuBox(menu, modifier.fillMaxSize()) {
     ScrollColumn(vScroll, hScroll) {
+        val cols = vm.memoryView.columns
+        if (cols > 1) {
+            MemoryGrid(vm, m.mem, m.pc, cols, pcBytes, argAddr, selAddrs, usedAddrs)
+            return@ScrollColumn
+        }
         Text(header, style = MonoStyle, softWrap = false, maxLines = 1)
         visible.forEach { a ->
             val v = m.mem[a]
@@ -554,6 +561,46 @@ private fun MemoryPanel(
             }
         }
     }
+    }
+}
+
+/**
+ * View -> Memory as a grid: [cols] decimal values per row, no addresses, the PC's
+ * cell marked with `*` (the mini simulator's `-v` dump). Cells keep the list
+ * view's highlight colours; a tap selects the address. Editing stays in the
+ * single-column view.
+ */
+@Composable
+private fun MemoryGrid(
+    vm: SimViewModel,
+    mem: IntArray,
+    pc: Int,
+    cols: Int,
+    pcBytes: Set<Int>,
+    argAddr: Int?,
+    selAddrs: Set<Int>,
+    usedAddrs: Set<Int>,
+) {
+    for (start in 0 until 256 step cols) {
+        Row(Modifier.testTag("mem-grid-row")) {
+            for (a in start until start + cols) {
+                val bg = when {
+                    a in selAddrs -> HL_SELECTED
+                    a in pcBytes -> HL_PC
+                    a == argAddr -> HL_ARG
+                    a == vm.machine?.changedCell && vm.machine?.stopped == false -> HL_CHANGE
+                    else -> Color.Transparent
+                }
+                val colour = if (a in usedAddrs) Color.Black else Color(0xFFAAAAAA)
+                Text(
+                    memoryGridCell(mem[a], a == pc),
+                    style = MonoStyle.copy(color = colour),
+                    softWrap = false,
+                    maxLines = 1,
+                    modifier = Modifier.background(bg).clickable { vm.select(a, fromMemory = true) },
+                )
+            }
+        }
     }
 }
 
