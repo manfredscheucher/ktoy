@@ -1163,3 +1163,7 @@ Manfred: the examples say in their header whether they use I/O ("hab ich dir nic
 - Grid cells keep the list view's highlight colours (selection, PC bytes, argument, changed cell) and a tap selects the address. Editing stays in the single-column view.
 - 16 columns are wider than a phone panel; the panel then scrolls sideways inside itself, the page never does.
 - Status block: the opcode in decimal as well, like the mini simulator's `op=`: `OP=20=b00010100`, and for a two-byte instruction a second line `ARG=10=b00001010` (Manfred: "das andre heißt extra irgendwie"; read as the operand byte, named ARG). This replaces `OP1=` / `OP2=b.. b..`.
+
+## 39. Header in the menu bar
+
+- Manfred (2026-11-17, same as PoCoView and the ksat playground): the menu bar shows "ktoy" in bold on the right, on the web followed by "  Toy CPU simulator", then "  ·  <program name>" (desktop: "ktoy  ·  prog.toys"). One line with ellipsis, so on narrow screens the end is cut first.

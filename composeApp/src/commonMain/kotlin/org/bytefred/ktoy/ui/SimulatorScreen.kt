@@ -36,9 +36,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import org.bytefred.ktoy.core.decode
 import org.bytefred.ktoy.core.describe
@@ -87,7 +90,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
     val (changedCLines, changedRows) = vm.changeSets()
 
     Column(Modifier.fillMaxSize()) {
-        // Menu bar + the current program title: one grey bar across the top.
+        // Menu bar + the header (app name, web subtitle, program name): one grey bar across the top.
         Row(
             Modifier.fillMaxWidth()
                 .background(MENU_BAR_COLOR)
@@ -106,12 +109,14 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             // one line + ellipsis, shrinking (weight), so a long name can't push
             // the menu off-screen
             Text(
-                vm.title,
-                style = MonoStyle,
+                buildAnnotatedString {
+                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append("ktoy") }
+                    if (isWeb) append("  Toy CPU simulator")
+                    append("  ·  ${vm.title}")
+                },
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.End,
-                modifier = Modifier.weight(1f, fill = false).padding(start = 8.dp),
+                modifier = Modifier.weight(1f, fill = false).padding(start = 8.dp).testTag("header"),
             )
         }
         Column(Modifier.weight(1f).padding(8.dp)) {

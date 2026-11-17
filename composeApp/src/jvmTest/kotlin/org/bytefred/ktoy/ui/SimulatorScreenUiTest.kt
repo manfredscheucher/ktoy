@@ -28,6 +28,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasAnyAncestor
@@ -116,6 +117,14 @@ class SimulatorScreenUiTest {
         val mem = vm.wideWeights.getValue(Panel.MEMORY)
         assertTrue(asm > mem, "asm $asm should have grown against memory $mem")
         assertEquals(2f, asm + mem, 1e-3f, "a drag only moves share between the two neighbours")
+    }
+
+    @Test
+    fun headerShowsTheAppAndProgramName() = runComposeUiTest {
+        val vm = SimViewModel().apply { loadFromFile("prog.toys", asmSrc) }
+        show(vm)
+        // desktop: no web subtitle
+        onNodeWithTag("header").assertTextEquals("ktoy  ·  prog.toys")
     }
 
     @Test
