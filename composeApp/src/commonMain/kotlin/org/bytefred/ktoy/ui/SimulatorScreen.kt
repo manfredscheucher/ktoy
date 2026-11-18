@@ -18,9 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -837,26 +835,13 @@ private fun StepsPerSecInput(value: Double, compact: Boolean, onValueChange: (Do
             onValueChange((value - SPS_STEP).coerceIn(SPS_MIN, SPS_MAX))
         }
         // as high as the buttons next to it (Material's OutlinedTextField is
-        // 56 dp, far taller than the number in it)
-        BasicTextField(
+        // 56 dp, far taller than the number in it); "1000.0" is the longest value
+        NumberField(
             value = text,
             onValueChange = onText,
-            singleLine = true,
-            textStyle = MonoStyle,
-            modifier = Modifier
-                .width(if (compact) 64.dp else 80.dp)
-                .height(if (compact) COMPACT_HEIGHT else ButtonDefaults.MinHeight)
-                .testTag("steps-per-sec"),
-            // centre the text vertically instead of fixed padding, so a larger
-            // system font scale doesn't clip it
-            decorationBox = { inner ->
-                Box(
-                    Modifier.fillMaxSize()
-                        .border(1.dp, Color(0xFF888888), RoundedCornerShape(4.dp))
-                        .padding(horizontal = 6.dp),
-                    contentAlignment = androidx.compose.ui.Alignment.CenterStart,
-                ) { inner() }
-            },
+            chars = fmt1(SPS_MAX).length,
+            height = if (compact) COMPACT_HEIGHT else ButtonDefaults.MinHeight,
+            tag = "steps-per-sec",
         )
         CtlButton("+", compact, enabled = value < SPS_MAX) {
             onValueChange((value + SPS_STEP).coerceIn(SPS_MIN, SPS_MAX))

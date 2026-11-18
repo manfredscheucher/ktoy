@@ -17,9 +17,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -82,16 +82,23 @@ fun EditValueDialog(
                         )
                     }
                     if (typing) {
-                        OutlinedTextField(
+                        Text(
+                            "decimal, binary b1010 or hex 0x1f",
+                            Modifier.padding(top = 8.dp, bottom = 4.dp),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        // as wide as "0b11111111", the longest form of a byte
+                        NumberField(
                             value = text,
                             onValueChange = {
                                 text = it
                                 error = null
                                 note = null
                             },
-                            label = { Text("decimal, binary b1010 or hex 0x1f") },
-                            singleLine = true,
-                            modifier = Modifier.testTag("edit-value"),
+                            chars = 10,
+                            height = ButtonDefaults.MinHeight,
+                            tag = "edit-value",
+                            isError = error != null,
                         )
                         error?.let { Text(it, Modifier.padding(top = 4.dp)) }
                         note?.let { Text(it, Modifier.padding(top = 4.dp)) }

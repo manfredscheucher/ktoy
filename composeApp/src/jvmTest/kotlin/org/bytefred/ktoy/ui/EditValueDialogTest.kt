@@ -3,6 +3,7 @@ package org.bytefred.ktoy.ui
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.width
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
@@ -136,6 +137,20 @@ class EditValueDialogTest {
         dialog()
         onNodeWithTag("edit-value").assertExists()
         assertEquals(0, onAllTag("pick-val-0"))
+    }
+
+    @Test
+    fun theTypeFieldIsCompact() = runComposeUiTest {
+        savePref(EDIT_VIEW_PREF, "type")
+        dialog()
+        // as high as a button and as wide as "0b11111111", not Material's 280 x 56 dp
+        val b = onNodeWithTag("edit-value").getUnclippedBoundsInRoot()
+        assertEquals(40.dp, b.height)
+        assertTrue(b.width < 120.dp, "width ${b.width}")
+        onNodeWithTag("edit-value").performTextReplacement("0b11111111")
+        onNodeWithText("Save").performClick()
+        waitForIdle()
+        assertEquals(255, picked)
     }
 
     @Test

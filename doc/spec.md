@@ -1167,3 +1167,14 @@ Manfred: the examples say in their header whether they use I/O ("hab ich dir nic
 ## 39. Header in the menu bar
 
 - Manfred (2026-11-17, same as PoCoView and the ksat playground): the menu bar shows "ktoy" in bold on the right, on the web followed by "  Toy CPU simulator", then "  ·  <program name>" (desktop: "ktoy  ·  prog.toys"). One line with ellipsis, so on narrow screens the end is cut first.
+
+## 40. Compact number fields (2026-11-18)
+
+Manfred: integer inputs are huge (Material's text field is at least 280 dp wide and 56 dp high), make
+them reasonable everywhere. The steps/sec field was already compact; its bordered field is now one
+shared `NumberField` (1 dp grey rounded border, mono text centred vertically, as high as the buttons
+next to it, as wide as the longest allowed value: "1000.0" for steps/sec). The cell editor's Type
+view uses it too instead of the OutlinedTextField: 10 characters wide ("0b11111111"), the hint
+"decimal, binary b1010 or hex 0x1f" as a small line above, a red border while the parse error is
+shown. Parsing, the mod 256 note and Save are unchanged. No "−"/"+" in the cell editor: the field
+takes decimal, binary and hex, and the Select view already picks any value.
