@@ -79,7 +79,7 @@ internal val GENERAL_TEXT = listOf(
         "ktoy asks.",
     "Cells 240 to 254 are for input and output, cell 255 is the ready flag. View → I/O panel shows them " +
         "as text or numbers, which makes input and output easier to read and type.",
-    "File → Examples has programs to start from, File → Empty starts from scratch, and File → Load… " +
+    "Program → Examples has programs to start from, Program → Empty starts from scratch, and Program → Load… " +
         "and Save… read and write C, assembly or bytecode.",
 )
 

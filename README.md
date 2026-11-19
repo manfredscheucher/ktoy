@@ -55,7 +55,7 @@ it's narrow (View → Layout to force portrait/landscape).
 
 A click in any column highlights the same statement across the others. Controls:
 Reset, Undo, Step, and Run at an adjustable speed (steps/sec). Right-click a cell or
-line (long-press on touch) and choose Edit… or Edit line… to change it. File → Load/Save a program,
+line (long-press on touch) and choose Edit… or Edit line… to change it. Program → Load/Save a program,
 Examples browses the built-ins by folder, Help shows the instruction set.
 
 ## The code

@@ -14,7 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.bytefred.ktoy.core.ExampleKind
 
-/** File -> Empty, the Help pages, the save dialog on a phone, the big dialogs, the auto-build toggles. */
+/** Program -> Empty, the Help pages, the save dialog on a phone, the big dialogs, the auto-build toggles. */
 @OptIn(ExperimentalTestApi::class)
 class MenuAndDialogsTest {
     private val asmSrc = "        load  x\n        stop\nx:      42\n"

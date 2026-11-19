@@ -207,7 +207,7 @@ class SimViewModel : ViewModel() {
         addrToLine = a2l
     }
 
-    /** File -> Empty: an empty program of [kind] (C: main returns 0, assembly: stop, bytecode: zeros). */
+    /** Program -> Empty: an empty program of [kind] (C: main returns 0, assembly: stop, bytecode: zeros). */
     fun loadEmpty(kind: ExampleKind) {
         val (name, source) = when (kind) {
             ExampleKind.C -> "empty.toyc" to "int main(void) {\n    return 0;\n}\n"

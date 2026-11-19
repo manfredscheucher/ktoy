@@ -1184,4 +1184,5 @@ takes decimal, binary and hex, and the Select view already picks any value.
 Manfred: in all the tools the first menu is often just "File"; find a better name (ArrView has
 "Arrangement", PoCoView "Point set"). The menu holds Examples, Empty (C / Assembly / Bytecode),
 Load, Reload and Save, all of them acting on the program that is open (the header shows its name),
-so it is now called "Program" (test tag `menu-Program`). Nothing else changed.
+so it is now called "Program" (test tag `menu-Program`); the Help text and the README say
+"Program →" too. Nothing else changed.
