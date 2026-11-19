@@ -33,7 +33,7 @@ class MenuAndDialogsTest {
     }
 
     private fun ComposeUiTest.empty(label: String) {
-        onNodeWithTag("menu-File").performClick()
+        onNodeWithTag("menu-Program").performClick()
         onNodeWithTag("menu-empty").performClick()
         onNodeWithTag("empty-$label").performClick()
         waitForIdle()
@@ -42,7 +42,7 @@ class MenuAndDialogsTest {
     @Test
     fun emptyFoldsOutThreeEntries() = runComposeUiTest {
         show(SimViewModel().apply { loadFromFile("p.toys", asmSrc) })
-        onNodeWithTag("menu-File").performClick()
+        onNodeWithTag("menu-Program").performClick()
         onNodeWithTag("empty-C").assertDoesNotExist()
         onNodeWithTag("menu-empty").performClick()
         for (l in listOf("C", "Assembly", "Bytecode")) onNodeWithTag("empty-$l").assertExists()

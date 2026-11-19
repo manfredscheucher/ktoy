@@ -118,7 +118,7 @@ fun SimulatorScreen(vm: SimViewModel, onLoad: () -> Unit) {
             )
         }
         Column(Modifier.weight(1f).padding(8.dp)) {
-            // a transient "Saved …" status line from the File menu, auto-cleared
+            // a transient "Saved …" status line from the Program menu, auto-cleared
             vm.statusMessage?.let { msg ->
                 LaunchedEffect(msg) {
                     kotlinx.coroutines.delay(3000)
@@ -704,7 +704,7 @@ private fun scrollToLine(state: androidx.compose.foundation.ScrollState, lineInd
  * The bottom controls bar:
  *   Reload — GAP — Reset · Undo · Step · Run · steps/sec
  * Reload (desktop only) re-runs the last file, asking first about unsaved edits.
- * Load and Examples are in the File menu.
+ * Load and Examples are in the Program menu.
  * A cell is edited via its right-click / long-press menu or Bytecode -> Edit line….
  */
 @Composable

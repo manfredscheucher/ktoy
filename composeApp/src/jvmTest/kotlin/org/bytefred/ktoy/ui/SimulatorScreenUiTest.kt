@@ -234,7 +234,7 @@ class SimulatorScreenUiTest {
     @Test
     fun escapeClosesAnOpenMenu() = runComposeUiTest {
         show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) })
-        onNodeWithTag("menu-File").performClick()
+        onNodeWithTag("menu-Program").performClick()
         waitForIdle()
         onNodeWithText("Examples…").assertExists()
         onNodeWithTag("menu-bar").performKeyInput { pressKey(Key.Escape) }
@@ -273,7 +273,7 @@ class SimulatorScreenUiTest {
     @Test
     fun saveOffersEachFormatHighestFirst() = runComposeUiTest {
         show(SimViewModel().apply { loadFromFile("prog.toyc", cSrc) })
-        menu("File", "Save…")
+        menu("Program", "Save…")
         val tops = listOf("Save C", "Save assembly", "Save bytecode").map { onNodeWithText(it).fetchSemanticsNode().boundsInRoot.top }
         assertEquals(tops.sorted(), tops, "highest level on top")
         onNodeWithText("Discard").assertDoesNotExist()
@@ -285,7 +285,7 @@ class SimulatorScreenUiTest {
     @Test
     fun saveOffersOnlyTheFormatsTheProgramHas() = runComposeUiTest {
         show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) })
-        menu("File", "Save…")
+        menu("Program", "Save…")
         onNodeWithText("Save assembly").assertExists()
         onNodeWithText("Save bytecode").assertExists()
         onNodeWithText("Save C").assertDoesNotExist()
@@ -311,7 +311,7 @@ class SimulatorScreenUiTest {
         val vm = SimViewModel().apply { loadFromFile("prog.toyc", cSrc) }
         vm.saveCDraft("int main(void){return 7;}\n")
         show(vm)
-        menu("File", "Save…")
+        menu("Program", "Save…")
         onNodeWithText("Save assembly").performClick()
         waitForIdle()
         onNodeWithText("This file lacks your edits").assertExists()
@@ -407,7 +407,7 @@ class SimulatorScreenUiTest {
         onNodeWithText("Load").assertDoesNotExist()
         onNodeWithText("Examples").assertDoesNotExist()
         onNodeWithTag("menu-Execution").assertDoesNotExist()
-        onNodeWithTag("menu-File").performClick()
+        onNodeWithTag("menu-Program").performClick()
         waitForIdle()
         onNodeWithText("Load…").assertExists()
         onNodeWithText("Examples…").assertExists()
@@ -886,7 +886,7 @@ class SimulatorScreenUiTest {
     @Test
     fun oneClickSwitchesFromOneMenuToAnother() = runComposeUiTest {
         show(SimViewModel().apply { loadFromFile("prog.toys", asmSrc) })
-        onNodeWithTag("menu-File").performClick()
+        onNodeWithTag("menu-Program").performClick()
         waitForIdle()
         onNodeWithText("Examples…").assertExists()
         onNodeWithTag("menu-View").performClick()   // one click, while File is open

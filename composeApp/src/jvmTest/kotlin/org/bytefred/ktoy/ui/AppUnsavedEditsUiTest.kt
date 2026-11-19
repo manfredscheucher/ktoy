@@ -75,7 +75,7 @@ class AppUnsavedEditsUiTest {
         editTheAsm()
         onNodeWithText("Assembly (modified)").assertExists()
 
-        onNodeWithTag("menu-File").performClick()
+        onNodeWithTag("menu-Program").performClick()
         onNodeWithText("Examples…").performClick()
         waitForIdle()
         // the dialog's nodes come after the screen's (same text as a menu / button)

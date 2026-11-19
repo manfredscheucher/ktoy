@@ -3,7 +3,7 @@ package org.bytefred.ktoy.ui
 import androidx.compose.runtime.Composable
 
 /**
- * Cross-platform file load / save for the File menu, as a platform shim in the
+ * Cross-platform file load / save for the Program menu, as a platform shim in the
  * same style as [AppBackHandler]. Each is a @Composable that returns a launch
  * lambda, so platforms that need a Compose-scoped launcher (Android's
  * ActivityResult, the browser's DOM input) can set one up.

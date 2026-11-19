@@ -130,8 +130,8 @@ fun SimMenuBar(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // ── File ──
-        MenuButton("File", openMenu, { openMenu = it }) {
+        // ── Program ──
+        MenuButton("Program", openMenu, { openMenu = it }) {
             Item("Examples…", onClick = onBrowseExamples)
             // a submenu folded out in place: Material3 menus have no submenus
             DropdownMenuItem(

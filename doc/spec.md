@@ -1178,3 +1178,10 @@ view uses it too instead of the OutlinedTextField: 10 characters wide ("0b111111
 "decimal, binary b1010 or hex 0x1f" as a small line above, a red border while the parse error is
 shown. Parsing, the mod 256 note and Save are unchanged. No "−"/"+" in the cell editor: the field
 takes decimal, binary and hex, and the Select view already picks any value.
+
+## 41. Menu "Program" instead of "File" (2026-11-19)
+
+Manfred: in all the tools the first menu is often just "File"; find a better name (ArrView has
+"Arrangement", PoCoView "Point set"). The menu holds Examples, Empty (C / Assembly / Bytecode),
+Load, Reload and Save, all of them acting on the program that is open (the header shows its name),
+so it is now called "Program" (test tag `menu-Program`). Nothing else changed.

@@ -105,7 +105,7 @@ class SimViewModel : ViewModel() {
         !line.isData && line.bytes.size == 2 && line.bytes[1] >= 240
     }
 
-    // A transient status message for the File menu (e.g. "Saved foo.toyo"), shown
+    // A transient status message for the Program menu (e.g. "Saved foo.toyo"), shown
     // briefly in the UI. Cleared by the UI after showing.
     var statusMessage: String? by mutableStateOf(null); private set
     fun clearStatus() { statusMessage = null }
