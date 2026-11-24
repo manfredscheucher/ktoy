@@ -158,12 +158,17 @@ private val EFFECTS: Map<Int, String> = mapOf(
  */
 fun referenceTable(): String {
     val lines = mutableListOf("mnemonic opcode bytes  effect", "-".repeat(52))
-    for (op in INSTR.keys.sorted()) {
-        val name = INSTR.getValue(op).name.lowercase()
-        val nbytes = if (hasOperand(op)) 2 else 1
-        lines.add(name.padEnd(8) + op.toString().padStart(7) + nbytes.toString().padStart(6) + "  " + (EFFECTS[op] ?: ""))
+    for (r in referenceRows()) {
+        lines.add(r.mnemonic.padEnd(8) + r.opcode.toString().padStart(7) + r.bytes.toString().padStart(6) + "  " + r.effect)
     }
     return lines.joinToString("\n")
+}
+
+/** One row of the instruction set reference (Help → Instruction set shows them as a table). */
+data class ReferenceRow(val mnemonic: String, val opcode: Int, val bytes: Int, val effect: String)
+
+fun referenceRows(): List<ReferenceRow> = INSTR.keys.sorted().map { op ->
+    ReferenceRow(INSTR.getValue(op).name.lowercase(), op, if (hasOperand(op)) 2 else 1, EFFECTS[op] ?: "")
 }
 
 /** The notes under the table. */

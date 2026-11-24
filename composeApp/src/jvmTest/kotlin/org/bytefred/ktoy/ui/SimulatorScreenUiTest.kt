@@ -736,6 +736,7 @@ class SimulatorScreenUiTest {
         onNodeWithText("Instruction set", substring = true).performClick()
         waitForIdle()
         onNodeWithText("the only conditional", substring = true).assertExists()
+        onNodeWithTag("instruction-table").assertExists()
         assertEquals(before + 1, onAllNodesWithTag("vscroll-thumb").fetchSemanticsNodes().size, "the dialog has a scrollbar")
     }
 

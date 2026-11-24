@@ -1,24 +1,28 @@
 package org.bytefred.ktoy.ui
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import org.bytefred.ktoy.core.REFERENCE_NOTES
-import org.bytefred.ktoy.core.referenceTable
+import org.bytefred.ktoy.core.referenceRows
 
 /** The Help menu's pages, in menu order (About has its own dialog). */
 enum class HelpPage(val title: String) {
@@ -27,7 +31,7 @@ enum class HelpPage(val title: String) {
     C_COMPILERS("C compilers"),
 }
 
-/** One Help page in a [BigDialog]: plain text, monospace only for the instruction table. */
+/** One Help page in a [BigDialog]: plain text, the instruction set as a table. */
 @Composable
 fun HelpDialog(page: HelpPage, onDismiss: () -> Unit) {
     BigDialog(page.title, onDismiss, buttons = { TextButton(onClick = onDismiss) { Text("OK") } }) {
@@ -40,8 +44,7 @@ fun HelpDialog(page: HelpPage, onDismiss: () -> Unit) {
                 when (page) {
                     HelpPage.GENERAL -> GENERAL_TEXT.forEach { Paragraph(it) }
                     HelpPage.INSTRUCTIONS -> {
-                        val hScroll = rememberScrollState()
-                        Text(referenceTable(), style = MonoStyle, softWrap = false, modifier = Modifier.horizontalScroll(hScroll))
+                        ReferenceTable()
                         Paragraph(REFERENCE_NOTES)
                     }
                     HelpPage.C_COMPILERS -> {
@@ -52,6 +55,27 @@ fun HelpDialog(page: HelpPage, onDismiss: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** The instruction set: one row per instruction, the mnemonic (code) in monospace. */
+@Composable
+private fun ReferenceTable() {
+    Column(Modifier.testTag("instruction-table")) {
+        TableRow("mnemonic", "opcode", "bytes", "effect", header = true)
+        HorizontalDivider()
+        for (r in referenceRows()) TableRow(r.mnemonic, r.opcode.toString(), r.bytes.toString(), r.effect)
+    }
+}
+
+@Composable
+private fun TableRow(mnemonic: String, opcode: String, bytes: String, effect: String, header: Boolean = false) {
+    val style = MaterialTheme.typography.bodyMedium.let { if (header) it.copy(fontWeight = FontWeight.SemiBold) else it }
+    Row(Modifier.padding(vertical = 3.dp)) {
+        Text(mnemonic, style = if (header) style else MonoStyle, modifier = Modifier.width(84.dp))
+        Text(opcode, style = style, textAlign = TextAlign.End, modifier = Modifier.width(56.dp))
+        Text(bytes, style = style, textAlign = TextAlign.End, modifier = Modifier.width(48.dp))
+        Text(effect, style = style, modifier = Modifier.padding(start = 16.dp).weight(1f))
     }
 }
 
