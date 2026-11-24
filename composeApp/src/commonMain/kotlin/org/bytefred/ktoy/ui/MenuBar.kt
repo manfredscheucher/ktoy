@@ -389,12 +389,17 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                 ProjectLine("toycpu", "https://github.com/freedosproject/toycpu", "the Toy CPU instruction set by Jim Hall (FreeDOS Project)")
                 ProjectLine("Videos", PLAYLIST_URL, "YouTube playlist", license = null)
                 if (isWeb) {
-                    Spacer(Modifier.height(8.dp))
-                    Text("Terms & privacy", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
-                    Text("Privacy", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
-                    for (p in WEB_PRIVACY) Text(p, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-                    Text("Terms", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
-                    for (p in WEB_TERMS) Text(p, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+                    // collapsed by default, like the license texts
+                    var showTerms by remember { mutableStateOf(false) }
+                    TextButton(onClick = { showTerms = !showTerms }) {
+                        Text(if (showTerms) "Hide terms & privacy" else "Terms & privacy")
+                    }
+                    if (showTerms) {
+                        Text("Privacy", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 4.dp))
+                        for (p in WEB_PRIVACY) Text(p, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+                        Text("Terms", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 8.dp))
+                        for (p in WEB_TERMS) Text(p, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(

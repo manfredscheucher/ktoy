@@ -157,6 +157,7 @@ class SimulatorScreenUiTest {
         show(vm)
         onNodeWithText("load x", substring = true).performMouseInput { rightClick() }
         waitForIdle()
+        onNodeWithText("Edit line…").assertExists()
         assertEquals(vm.machine!!.mem.indexOf(20), vm.selectedAddr, "a right-click highlights the row")
         onNodeWithTag("context-edit").performClick()
         waitForIdle()
@@ -191,6 +192,7 @@ class SimulatorScreenUiTest {
         // the memory row of address 3 (x: 42)
         onNodeWithText("3 (00000011) ->", substring = true).performMouseInput { rightClick() }
         waitForIdle()
+        onNodeWithTag("context-edit-line").assertTextEquals("Edit address 3…")
         onNodeWithTag("context-edit-line").performClick()
         waitForIdle()
         assertEquals(3, vm.memSelectedAddr)

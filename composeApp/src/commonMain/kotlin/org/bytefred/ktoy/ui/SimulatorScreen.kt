@@ -557,6 +557,7 @@ private fun MemoryPanel(
             Box(
                 Modifier.fillMaxWidth().editableRow(
                     menu, gestures, a, { vm.select(a, fromMemory = true) }, { vm.select(a, fromMemory = true); vm.holdScroll("mem") }, onEdit,
+                    lineLabel = editAddressLabel(a),
                 ) { onEditLine(a) }
             ) {
                 HighlightRow(text, colours, textColor = textColor)
@@ -606,6 +607,7 @@ private fun MemoryGrid(
                     modifier = Modifier.background(bg).editableRow(
                         menu, gestures, a, { vm.select(a, fromMemory = true) },
                         { vm.select(a, fromMemory = true); vm.holdScroll("mem") }, onEdit,
+                        lineLabel = editAddressLabel(a),
                     ) { onEditLine(a) },
                 )
             }
@@ -864,3 +866,6 @@ private fun fmt1(v: Double): String {
 /** 8-bit binary string (unsigned), like pytoy's f"{v:08b}". Delegates to the one
  *  binary formatter in Format.kt so the memory panel and the I/O panel can't drift. */
 private fun bin8(v: Int): String = formatByte(v, IoFormat.BINARY)
+
+/** The memory panel's second context-menu item (all memory views). */
+internal fun editAddressLabel(addr: Int) = "Edit address $addr…"

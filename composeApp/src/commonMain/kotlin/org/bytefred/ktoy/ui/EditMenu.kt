@@ -41,9 +41,13 @@ class EditMenuState {
     private var onEdit: () -> Unit = {}
     private var onEditLine: () -> Unit = {}
 
-    fun open(edit: () -> Unit, editLine: () -> Unit) {
+    /** The second item's text: "Edit line…", or e.g. "Edit address 3…" in the memory panel. */
+    internal var lineLabel by mutableStateOf(EDIT_LINE)
+
+    fun open(edit: () -> Unit, editLine: () -> Unit, editLineLabel: String = EDIT_LINE) {
         onEdit = edit
         onEditLine = editLine
+        lineLabel = editLineLabel
         openAt = lastPress
     }
 
@@ -83,7 +87,7 @@ fun EditMenuBox(state: EditMenuState, modifier: Modifier, content: @Composable (
                         modifier = Modifier.testTag("context-edit"),
                     )
                     DropdownMenuItem(
-                        text = { Text("Edit line…") },
+                        text = { Text(state.lineLabel) },
                         onClick = state::editLine,
                         modifier = Modifier.testTag("context-edit-line"),
                     )
@@ -105,6 +109,7 @@ fun Modifier.editableRow(
     onTap: (() -> Unit)?,
     onMark: () -> Unit,
     onEdit: () -> Unit,
+    lineLabel: String = EDIT_LINE,
     onEditLine: () -> Unit,
 ): Modifier = this
     .pointerInput(key, gestures) {
@@ -115,7 +120,7 @@ fun Modifier.editableRow(
                 if (e.type == PointerEventType.Press && e.buttons.isSecondaryPressed) {
                     e.changes.forEach { it.consume() }
                     onMark()
-                    menu.open(onEdit, onEditLine)
+                    menu.open(onEdit, onEditLine, lineLabel)
                 }
             }
         }
@@ -123,6 +128,8 @@ fun Modifier.editableRow(
     .pointerInput(key, gestures) {
         detectTapGestures(
             onTap = onTap?.let { tap -> { tap() } },
-            onLongPress = if (gestures.longPress) { _ -> onMark(); menu.open(onEdit, onEditLine) } else null,
+            onLongPress = if (gestures.longPress) { _ -> onMark(); menu.open(onEdit, onEditLine, lineLabel) } else null,
         )
     }
+
+private const val EDIT_LINE = "Edit line…"

@@ -92,6 +92,7 @@ class MemoryGridTest {
             onNodeWithText(" 42 ").performMouseInput { rightClick() }
             waitForIdle()
             onNodeWithText("Edit…").assertExists()
+            onNodeWithText("Edit address 3…").assertExists()
             onNodeWithTag("context-edit-line").performClick()
             waitForIdle()
             assertEquals(3, vm.memSelectedAddr, "$view")
