@@ -1160,7 +1160,7 @@ Manfred: the examples say in their header whether they use I/O ("hab ich dir nic
 ## 38. Memory as a 16 / 8 column grid; OP and ARG in decimal
 
 - Manfred: View gets a Memory choice: single column (default, unchanged: address and value in decimal and binary, highlights), 16 columns (16×16) or 8 columns (8×32). The grids work like the mini simulator's `-v` dump: only decimal values, no addresses, right-aligned in 3, the program counter's cell marked with `*`. Remembered like the other View settings.
-- Grid cells keep the list view's highlight colours (selection, PC bytes, argument, changed cell) and a tap selects the address. Editing stays in the single-column view.
+- Grid cells keep the list view's highlight colours (selection, PC bytes, argument, changed cell) and a tap selects the address. Right-click / long-press opens the same Edit… / Edit line… menu as the single-column view (Manfred, 2026-11-24).
 - 16 columns are wider than a phone panel; the panel then scrolls sideways inside itself, the page never does.
 - Status block: the opcode in decimal as well, like the mini simulator's `op=`: `OP=20=b00010100`, and for a two-byte instruction a second line `ARG=10=b00001010` (Manfred: "das andre heißt extra irgendwie"; read as the operand byte, named ARG). This replaces `OP1=` / `OP2=b.. b..`.
 

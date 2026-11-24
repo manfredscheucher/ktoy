@@ -8,6 +8,8 @@ import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performMouseInput
+import androidx.compose.ui.test.rightClick
 import androidx.compose.ui.test.runComposeUiTest
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
@@ -80,6 +82,21 @@ class MemoryGridTest {
         onNodeWithText(" 42 ").performClick()
         waitForIdle()
         assertEquals(3, vm.selectedAddr)
+    }
+
+    @Test
+    fun rightClickOnAGridCellOffersTheSameEditMenu() {
+        for (view in listOf(MemoryView.COLUMNS_16, MemoryView.COLUMNS_8)) runComposeUiTest {
+            val vm = SimViewModel().apply { loadFromFile("p.toys", asmSrc); memoryView = view }
+            show(vm)
+            onNodeWithText(" 42 ").performMouseInput { rightClick() }
+            waitForIdle()
+            onNodeWithText("Edit…").assertExists()
+            onNodeWithTag("context-edit-line").performClick()
+            waitForIdle()
+            assertEquals(3, vm.memSelectedAddr, "$view")
+            onNodeWithText("address 3", substring = true).assertExists()
+        }
     }
 
     @Test

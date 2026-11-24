@@ -1,7 +1,6 @@
 package org.bytefred.ktoy.ui
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -527,7 +526,7 @@ private fun MemoryPanel(
     ScrollColumn(vScroll, hScroll) {
         val cols = vm.memoryView.columns
         if (cols > 1) {
-            MemoryGrid(vm, m.mem, m.pc, cols, pcBytes, argAddr, selAddrs, usedAddrs)
+            MemoryGrid(vm, m.mem, m.pc, cols, pcBytes, argAddr, selAddrs, usedAddrs, menu, gestures, onEdit, onEditLine)
             return@ScrollColumn
         }
         Text(header, style = MonoStyle, softWrap = false, maxLines = 1)
@@ -570,8 +569,8 @@ private fun MemoryPanel(
 /**
  * View -> Memory as a grid: [cols] decimal values per row, no addresses, the PC's
  * cell marked with `*` (the mini simulator's `-v` dump). Cells keep the list
- * view's highlight colours; a tap selects the address. Editing stays in the
- * single-column view.
+ * view's highlight colours; a tap selects the address, right-click / long-press
+ * opens the same Edit… / Edit line… menu as the single-column view.
  */
 @Composable
 private fun MemoryGrid(
@@ -583,6 +582,10 @@ private fun MemoryGrid(
     argAddr: Int?,
     selAddrs: Set<Int>,
     usedAddrs: Set<Int>,
+    menu: EditMenuState,
+    gestures: EditGestures,
+    onEdit: () -> Unit,
+    onEditLine: (Int) -> Unit,
 ) {
     for (start in 0 until 256 step cols) {
         Row(Modifier.testTag("mem-grid-row")) {
@@ -600,7 +603,10 @@ private fun MemoryGrid(
                     style = MonoStyle.copy(color = colour),
                     softWrap = false,
                     maxLines = 1,
-                    modifier = Modifier.background(bg).clickable { vm.select(a, fromMemory = true) },
+                    modifier = Modifier.background(bg).editableRow(
+                        menu, gestures, a, { vm.select(a, fromMemory = true) },
+                        { vm.select(a, fromMemory = true); vm.holdScroll("mem") }, onEdit,
+                    ) { onEditLine(a) },
                 )
             }
         }
