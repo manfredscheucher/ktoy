@@ -102,3 +102,13 @@ OpenYarnStash). The version number comes from `gradle.properties` (`version=`);
 the commit sha / dirty flag / commit date come from git. Written into
 `commonMain`, so every target — including iOS and web, which have no runtime git —
 shows it in Help → About. Bump the version in `gradle.properties`.
+
+## Web: no third-party requests
+
+Everything the web build loads comes from GitHub Pages (same origin); no CDNs, analytics or external fonts.
+Compose Multiplatform (1.12.1) has a built-in fallback-font downloader: when text contains glyphs the loaded
+fonts lack (typed/pasted emoji, CJK, ...), it fetches Noto fonts from `fonts.gstatic.com` (Google). Compose
+has no public switch to turn this off, so `index.html` sets
+`<meta http-equiv="Content-Security-Policy" content="connect-src 'self'">`: the browser refuses any
+background request to another server (silently, only a console message). Missing glyphs render as boxes.
+The About dialog states this on the web target.
